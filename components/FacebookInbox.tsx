@@ -2,7 +2,7 @@
 // Component hiển thị Facebook Messenger Inbox trong Mixer App
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChatBubbleLeftEllipsisIcon, PaperAirplaneIcon, ArrowPathIcon, CheckCircleIcon } from './icons';
+import { ChatBubbleLeftEllipsisIcon, PaperAirplaneIcon, ArrowPathIcon, ChevronDownIcon } from './icons';
 import { useToast } from './Toast';
 
 // Types
@@ -43,12 +43,18 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
+    // Pagination state
+    const [nextCursor, setNextCursor] = useState<string | null>(null);
+    const [hasMore, setHasMore] = useState(false);
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const conversationListRef = useRef<HTMLDivElement>(null);
 
     // Scroll to bottom when new messages
     useEffect(() => {
@@ -56,14 +62,34 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
     }, [messages]);
 
     // Load conversations
-    const loadConversations = async () => {
-        setIsLoading(true);
+    const loadConversations = async (cursor?: string) => {
+        if (cursor) {
+            setIsLoadingMore(true);
+        } else {
+            setIsLoading(true);
+        }
+
         try {
-            const response = await fetch(`${API_BASE}/api/facebook/conversations`);
+            let url = `${API_BASE}/api/facebook/conversations?limit=50`;
+            if (cursor) {
+                url += `&after=${cursor}`;
+            }
+
+            const response = await fetch(url);
             const data = await response.json();
 
             if (data.success) {
-                setConversations(data.conversations);
+                if (cursor) {
+                    // Append to existing conversations
+                    setConversations(prev => [...prev, ...data.conversations]);
+                } else {
+                    // Replace conversations
+                    setConversations(data.conversations);
+                }
+
+                // Update pagination state
+                setNextCursor(data.pagination?.nextCursor || null);
+                setHasMore(data.pagination?.hasMore || false);
                 setLastRefresh(new Date());
             } else {
                 console.error('Error loading conversations:', data.error);
@@ -74,6 +100,14 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
             toast.error('Lỗi kết nối API');
         } finally {
             setIsLoading(false);
+            setIsLoadingMore(false);
+        }
+    };
+
+    // Load more conversations
+    const loadMore = () => {
+        if (hasMore && nextCursor && !isLoadingMore) {
+            loadConversations(nextCursor);
         }
     };
 
@@ -187,11 +221,11 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                     <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-primary" />
                     <h3 className="font-semibold">Facebook Messenger</h3>
                     <span className="text-xs text-muted-foreground">
-                        ({conversations.length} cuộc hội thoại)
+                        ({conversations.length} cuộc hội thoại{hasMore ? '+' : ''})
                     </span>
                 </div>
                 <button
-                    onClick={loadConversations}
+                    onClick={() => loadConversations()}
                     disabled={isLoading}
                     className="p-2 hover:bg-muted rounded-lg transition-colors"
                     title="Làm mới"
@@ -202,7 +236,10 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
 
             <div className="flex h-[500px]">
                 {/* Conversation List */}
-                <div className="w-80 border-r border-border overflow-y-auto">
+                <div
+                    ref={conversationListRef}
+                    className="w-80 border-r border-border overflow-y-auto"
+                >
                     {isLoading && conversations.length === 0 ? (
                         <div className="flex items-center justify-center h-full">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -212,47 +249,72 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                             <ChatBubbleLeftEllipsisIcon className="w-12 h-12 mb-2 opacity-50" />
                             <p>Chưa có cuộc hội thoại</p>
                             <button
-                                onClick={loadConversations}
+                                onClick={() => loadConversations()}
                                 className="mt-2 text-primary text-sm hover:underline"
                             >
                                 Tải lại
                             </button>
                         </div>
                     ) : (
-                        conversations.map((conv) => (
-                            <div
-                                key={conv.id}
-                                onClick={() => selectConversation(conv)}
-                                className={`p-3 cursor-pointer border-b border-border hover:bg-muted/50 transition-colors ${selectedConversation?.id === conv.id ? 'bg-primary/10' : ''
-                                    }`}
-                            >
-                                <div className="flex items-start gap-3">
-                                    {/* Avatar */}
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                                        {conv.customerName.charAt(0).toUpperCase()}
-                                    </div>
-
-                                    <div className="flex-grow min-w-0">
-                                        <div className="flex items-center justify-between">
-                                            <span className={`font-medium truncate ${conv.isUnread ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                                {conv.customerName}
-                                            </span>
-                                            <span className="text-xs text-muted-foreground flex-shrink-0">
-                                                {formatTime(conv.lastMessageTime)}
-                                            </span>
+                        <>
+                            {conversations.map((conv) => (
+                                <div
+                                    key={conv.id}
+                                    onClick={() => selectConversation(conv)}
+                                    className={`p-3 cursor-pointer border-b border-border hover:bg-muted/50 transition-colors ${selectedConversation?.id === conv.id ? 'bg-primary/10' : ''
+                                        }`}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        {/* Avatar */}
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                                            {conv.customerName.charAt(0).toUpperCase()}
                                         </div>
-                                        <p className={`text-sm truncate ${conv.isUnread ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                                            {conv.lastMessage}
-                                        </p>
-                                    </div>
 
-                                    {/* Unread badge */}
-                                    {conv.isUnread && (
-                                        <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></span>
-                                    )}
+                                        <div className="flex-grow min-w-0">
+                                            <div className="flex items-center justify-between">
+                                                <span className={`font-medium truncate ${conv.isUnread ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                                    {conv.customerName}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground flex-shrink-0">
+                                                    {formatTime(conv.lastMessageTime)}
+                                                </span>
+                                            </div>
+                                            <p className={`text-sm truncate ${conv.isUnread ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                                                {conv.lastMessage}
+                                            </p>
+                                        </div>
+
+                                        {/* Unread badge */}
+                                        {conv.isUnread && (
+                                            <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            ))}
+
+                            {/* Load More Button */}
+                            {hasMore && (
+                                <div className="p-3">
+                                    <button
+                                        onClick={loadMore}
+                                        disabled={isLoadingMore}
+                                        className="w-full py-2 px-4 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        {isLoadingMore ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                                Đang tải...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ChevronDownIcon className="w-4 h-4" />
+                                                Tải thêm
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
 

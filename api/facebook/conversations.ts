@@ -1,5 +1,5 @@
 // api/facebook/conversations.ts
-// API endpoint để lấy danh sách conversations
+// API endpoint để lấy danh sách conversations với pagination
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -26,12 +26,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ error: 'PAGE_ACCESS_TOKEN not configured' });
     }
 
-    try {
-        // Lấy danh sách conversations
-        const conversationsResponse = await fetch(
-            `${FB_GRAPH_URL}/${PAGE_ID}/conversations?fields=id,participants,updated_time,snippet,unread_count&access_token=${PAGE_ACCESS_TOKEN}`
-        );
+    // Get pagination cursor from query params
+    const { after, limit = '50' } = req.query;
+    const limitNum = Math.min(parseInt(limit as string) || 50, 100);
 
+    try {
+        // Build URL with pagination
+        let url = `${FB_GRAPH_URL}/${PAGE_ID}/conversations?fields=id,participants,updated_time,snippet,unread_count&limit=${limitNum}&access_token=${PAGE_ACCESS_TOKEN}`;
+
+        // Add cursor for pagination
+        if (after && typeof after === 'string') {
+            url += `&after=${after}`;
+        }
+
+        const conversationsResponse = await fetch(url);
         const conversationsData = await conversationsResponse.json();
 
         if (conversationsData.error) {
@@ -56,10 +64,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         });
 
+        // Get pagination info
+        const paging = conversationsData.paging || {};
+        const nextCursor = paging.cursors?.after || null;
+        const hasMore = !!paging.next;
+
         return res.status(200).json({
             success: true,
             conversations,
-            count: conversations.length
+            count: conversations.length,
+            pagination: {
+                nextCursor,
+                hasMore,
+            }
         });
     } catch (error) {
         console.error('Error fetching conversations:', error);
