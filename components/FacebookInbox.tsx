@@ -52,8 +52,17 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
     const [nextCursor, setNextCursor] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
 
+    // Auto-refresh state
+    const [isAutoRefresh, setIsAutoRefresh] = useState(true);
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const selectedConversationRef = useRef<Conversation | null>(null);
+
+    // Keep ref in sync with state for interval access
+    useEffect(() => {
+        selectedConversationRef.current = selectedConversation;
+    }, [selectedConversation]);
 
     // Scroll to bottom when new messages
     useEffect(() => {
@@ -183,6 +192,30 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
         loadConversations();
     }, []);
 
+    // Auto-refresh conversations every 30 seconds
+    useEffect(() => {
+        if (!isAutoRefresh) return;
+
+        const interval = setInterval(() => {
+            loadConversations();
+        }, 30000); // 30 seconds
+
+        return () => clearInterval(interval);
+    }, [isAutoRefresh]);
+
+    // Auto-refresh messages every 10 seconds when a conversation is selected
+    useEffect(() => {
+        if (!isAutoRefresh || !selectedConversation) return;
+
+        const interval = setInterval(() => {
+            if (selectedConversationRef.current) {
+                loadMessages(selectedConversationRef.current.id);
+            }
+        }, 10000); // 10 seconds
+
+        return () => clearInterval(interval);
+    }, [isAutoRefresh, selectedConversation]);
+
     const formatTime = (timestamp: string) => {
         const date = new Date(timestamp);
         const now = new Date();
@@ -208,15 +241,36 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                     <span className="text-xs text-muted-foreground">
                         ({conversations.length} cuộc hội thoại{hasMore ? '+' : ''})
                     </span>
+                    {/* Live Indicator */}
+                    {isAutoRefresh && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">
+                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                            Live
+                        </span>
+                    )}
                 </div>
-                <button
-                    onClick={() => loadConversations()}
-                    disabled={isLoading}
-                    className="p-2 hover:bg-muted rounded-lg transition-colors"
-                    title="Làm mới"
-                >
-                    <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                </button>
+                <div className="flex items-center gap-2">
+                    {/* Auto-refresh Toggle */}
+                    <button
+                        onClick={() => setIsAutoRefresh(!isAutoRefresh)}
+                        className={`px-2 py-1 text-xs rounded-lg transition-colors ${isAutoRefresh
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                        title={isAutoRefresh ? 'Tắt auto-refresh' : 'Bật auto-refresh'}
+                    >
+                        {isAutoRefresh ? '🔄 Auto' : '⏸️ Paused'}
+                    </button>
+                    {/* Refresh Button */}
+                    <button
+                        onClick={() => loadConversations()}
+                        disabled={isLoading}
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
+                        title="Làm mới"
+                    >
+                        <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
             </div>
 
             {/* Main Content - Fixed height with flex layout */}
@@ -334,8 +388,8 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                                         >
                                             <div
                                                 className={`max-w-[70%] px-4 py-2 rounded-2xl shadow-sm ${msg.isFromPage
-                                                        ? 'bg-primary text-primary-foreground rounded-br-md'
-                                                        : 'bg-card text-foreground rounded-bl-md border border-border'
+                                                    ? 'bg-primary text-primary-foreground rounded-br-md'
+                                                    : 'bg-card text-foreground rounded-bl-md border border-border'
                                                     }`}
                                             >
                                                 <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
