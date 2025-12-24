@@ -12,10 +12,13 @@ import {
     ShoppingBagIcon,
     UserIcon,
     ClockIcon,
-    FaceSmileIcon
+    FaceSmileIcon,
+    SparklesIcon
 } from './icons';
 import { useToast } from './Toast';
-import type { Order } from '../types';
+import { GoogleGenAI } from '@google/genai';
+import { GEMINI_API_KEY } from '../config';
+import type { Order, Product, OrderItem, Customer } from '../types';
 
 // Types
 interface Conversation {
@@ -40,7 +43,8 @@ interface Message {
 interface FacebookInboxProps {
     pageId?: string;
     orders?: Order[];
-    onCreateOrder?: (customerName: string, customerPhone?: string) => void;
+    products?: Product[];
+    onCreateOrderWithAI?: (orderData: Partial<Order>, customerData: Partial<Customer>) => void;
 }
 
 // Quick Reply Templates
@@ -72,7 +76,8 @@ const playNotificationSound = () => {
 const FacebookInbox: React.FC<FacebookInboxProps> = ({
     pageId = '105265398928721',
     orders = [],
-    onCreateOrder
+    products = [],
+    onCreateOrderWithAI
 }) => {
     const toast = useToast();
 
@@ -277,11 +282,159 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
         setShowEmojis(false);
         inputRef.current?.focus();
     };
+    const [isParsingOrder, setIsParsingOrder] = useState(false);
 
-    const handleCreateOrder = () => {
-        if (selectedConversation && onCreateOrder) {
-            onCreateOrder(selectedConversation.customerName);
-            toast.success('Mở form tạo đơn hàng');
+    const handleCreateOrder = async () => {
+        if (!selectedConversation || !onCreateOrderWithAI || messages.length === 0) {
+            toast.error('Không có cuộc hội thoại để phân tích');
+            return;
+        }
+
+        setIsParsingOrder(true);
+        toast.success('🔮 Đang phân tích cuộc hội thoại...');
+
+        try {
+            if (!GEMINI_API_KEY) {
+                throw new Error("Chưa cấu hình GEMINI_API_KEY");
+            }
+
+            const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+            // Format messages as conversation
+            const conversationText = messages.map(m =>
+                `${m.isFromPage ? 'Shop' : 'Khách'}: ${m.text}`
+            ).join('\n');
+
+            // Product list for matching
+            const productList = products.map(p => ({
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                variants: p.variants.map(v => ({
+                    id: v.id,
+                    size: v.size,
+                    color: v.color,
+                    stock: v.stock
+                }))
+            }));
+
+            const prompt = `
+Bạn là AI trợ lý bán hàng thời trang. Phân tích cuộc hội thoại Messenger sau đây và trích xuất thông tin đặt hàng.
+
+CUỘC HỘI THOẠI:
+"""
+${conversationText}
+"""
+
+DANH SÁCH SẢN PHẨM CÓ SẴN:
+${JSON.stringify(productList, null, 2)}
+
+YÊU CẦU:
+1. Trích xuất: Tên khách, SĐT, địa chỉ, sản phẩm muốn mua (tên, size, màu, số lượng), ghi chú
+2. Khớp sản phẩm khách nói với danh sách có sẵn (nếu có thể)
+3. Nếu không tìm thấy thông tin, để null
+
+Trả về JSON với cấu trúc:
+{
+  "customerName": string | null,
+  "customerPhone": string | null,
+  "shippingAddress": string | null,
+  "items": [
+    {
+      "productName": string,
+      "size": string | null,
+      "color": string | null,
+      "quantity": number,
+      "matchedProductId": string | null,
+      "matchedVariantId": string | null
+    }
+  ],
+  "notes": string | null
+}
+`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                }
+            });
+
+            const parsed = JSON.parse(response.text || '{}');
+
+            // Build order items from parsed data
+            const orderItems: OrderItem[] = [];
+
+            for (const item of parsed.items || []) {
+                if (item.matchedProductId && item.matchedVariantId) {
+                    const product = products.find(p => p.id === item.matchedProductId);
+                    const variant = product?.variants.find(v => v.id === item.matchedVariantId);
+
+                    if (product && variant) {
+                        orderItems.push({
+                            productId: product.id,
+                            productName: product.name,
+                            variantId: variant.id,
+                            size: variant.size,
+                            color: variant.color,
+                            quantity: item.quantity || 1,
+                            price: product.price,
+                            costPrice: product.costPrice
+                        });
+                    }
+                } else if (item.productName) {
+                    // Try to match by name
+                    const matchedProduct = products.find(p =>
+                        p.name.toLowerCase().includes(item.productName.toLowerCase()) ||
+                        item.productName.toLowerCase().includes(p.name.toLowerCase())
+                    );
+
+                    if (matchedProduct) {
+                        const matchedVariant = matchedProduct.variants.find(v =>
+                            (!item.size || v.size === item.size) &&
+                            (!item.color || v.color === item.color)
+                        ) || matchedProduct.variants[0];
+
+                        if (matchedVariant) {
+                            orderItems.push({
+                                productId: matchedProduct.id,
+                                productName: matchedProduct.name,
+                                variantId: matchedVariant.id,
+                                size: item.size || matchedVariant.size,
+                                color: item.color || matchedVariant.color,
+                                quantity: item.quantity || 1,
+                                price: matchedProduct.price,
+                                costPrice: matchedProduct.costPrice
+                            });
+                        }
+                    }
+                }
+            }
+
+            const orderData: Partial<Order> = {
+                customerName: parsed.customerName || selectedConversation.customerName,
+                customerPhone: parsed.customerPhone || '',
+                shippingAddress: parsed.shippingAddress || '',
+                items: orderItems,
+                notes: parsed.notes || '',
+                paymentMethod: 'cod'
+            };
+
+            const customerData: Partial<Customer> = {
+                name: parsed.customerName || selectedConversation.customerName,
+                phone: parsed.customerPhone || '',
+                address: parsed.shippingAddress || ''
+            };
+
+            toast.success('✅ Đã trích xuất thông tin!');
+            onCreateOrderWithAI(orderData, customerData);
+
+        } catch (err) {
+            console.error('AI Parse Error:', err);
+            toast.error('Lỗi phân tích: ' + (err instanceof Error ? err.message : 'Unknown'));
+        } finally {
+            setIsParsingOrder(false);
         }
     };
 
@@ -454,13 +607,23 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {onCreateOrder && (
+                                    {onCreateOrderWithAI && (
                                         <button
                                             onClick={handleCreateOrder}
-                                            className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-xs rounded-lg hover:bg-primary/90 transition-colors"
+                                            disabled={isParsingOrder}
+                                            className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all"
                                         >
-                                            <PlusIcon className="w-3 h-3" />
-                                            Tạo đơn
+                                            {isParsingOrder ? (
+                                                <>
+                                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                    Đang phân tích...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <SparklesIcon className="w-3 h-3" />
+                                                    AI Tạo đơn
+                                                </>
+                                            )}
                                         </button>
                                     )}
                                     <button
@@ -490,8 +653,8 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
                                         >
                                             <div
                                                 className={`max-w-[75%] px-3 py-2 rounded-2xl ${msg.isFromPage
-                                                        ? 'bg-primary text-primary-foreground rounded-br-md'
-                                                        : 'bg-card text-foreground rounded-bl-md border border-border'
+                                                    ? 'bg-primary text-primary-foreground rounded-br-md'
+                                                    : 'bg-card text-foreground rounded-bl-md border border-border'
                                                     }`}
                                             >
                                                 <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
@@ -609,13 +772,18 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
                                     <PhoneIcon className="w-4 h-4 text-primary" />
                                     <span className="text-xs">Gọi điện</span>
                                 </button>
-                                {onCreateOrder && (
+                                {onCreateOrderWithAI && (
                                     <button
                                         onClick={handleCreateOrder}
-                                        className="flex flex-col items-center gap-1 p-2 bg-card rounded-lg hover:bg-muted transition-colors"
+                                        disabled={isParsingOrder}
+                                        className="flex flex-col items-center gap-1 p-2 bg-card rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
                                     >
-                                        <ShoppingBagIcon className="w-4 h-4 text-primary" />
-                                        <span className="text-xs">Tạo đơn</span>
+                                        {isParsingOrder ? (
+                                            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                        ) : (
+                                            <SparklesIcon className="w-4 h-4 text-primary" />
+                                        )}
+                                        <span className="text-xs">AI Tạo đơn</span>
                                     </button>
                                 )}
                             </div>
@@ -634,8 +802,8 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs font-medium">#{order.id.slice(0, 8)}</span>
                                                 <span className={`text-xs px-1.5 py-0.5 rounded ${order.status === 'Đã giao hàng' ? 'bg-green-100 text-green-700' :
-                                                        order.status === 'Đã hủy' ? 'bg-red-100 text-red-700' :
-                                                            'bg-yellow-100 text-yellow-700'
+                                                    order.status === 'Đã hủy' ? 'bg-red-100 text-red-700' :
+                                                        'bg-yellow-100 text-yellow-700'
                                                     }`}>
                                                     {order.status}
                                                 </span>

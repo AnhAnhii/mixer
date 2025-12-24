@@ -283,8 +283,15 @@ const InboxCommandCenter: React.FC<InboxCommandCenterProps> = ({
             {activeTab === 'messenger' ? (
                 <FacebookInbox
                     orders={orders}
-                    onCreateOrder={(customerName) => {
-                        onOpenOrderForm({ customerName });
+                    products={products}
+                    onCreateOrderWithAI={(orderData, customerData) => {
+                        // Open order form with pre-filled AI-parsed data
+                        onOpenOrderForm({
+                            ...orderData,
+                            customerName: customerData.name || orderData.customerName,
+                            customerPhone: customerData.phone || orderData.customerPhone,
+                            shippingAddress: customerData.address || orderData.shippingAddress,
+                        });
                     }}
                 />
             ) : (
