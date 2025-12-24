@@ -438,12 +438,30 @@ Trả về JSON với cấu trúc:
         }
     };
 
-    // Get customer order history
+    // Get customer order history - more flexible matching
     const getCustomerOrders = useCallback(() => {
         if (!selectedConversation) return [];
-        return orders.filter(o =>
-            o.customerName.toLowerCase().includes(selectedConversation.customerName.toLowerCase())
-        ).slice(0, 5);
+
+        const customerName = selectedConversation.customerName.toLowerCase().trim();
+        // Split name into parts for flexible matching
+        const nameParts = customerName.split(/\s+/).filter(p => p.length > 1);
+
+        return orders.filter(o => {
+            const orderName = o.customerName.toLowerCase().trim();
+
+            // Exact match
+            if (orderName === customerName) return true;
+
+            // Check if any name part matches
+            if (nameParts.some(part => orderName.includes(part))) return true;
+
+            // Check if order name parts match customer name
+            const orderParts = orderName.split(/\s+/).filter(p => p.length > 1);
+            if (orderParts.some(part => customerName.includes(part))) return true;
+
+            return false;
+        }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5);
     }, [selectedConversation, orders]);
 
     useEffect(() => {
