@@ -1,0 +1,353 @@
+// components/FacebookInbox.tsx
+// Component hiển thị Facebook Messenger Inbox trong Mixer App
+
+import React, { useState, useEffect, useRef } from 'react';
+import { ChatBubbleLeftEllipsisIcon, PaperAirplaneIcon, ArrowPathIcon, CheckCircleIcon } from './icons';
+import { useToast } from './Toast';
+
+// Types
+interface Conversation {
+    id: string;
+    recipientId: string;
+    customerName: string;
+    lastMessage: string;
+    lastMessageTime: string;
+    isUnread: boolean;
+    unreadCount: number;
+}
+
+interface Message {
+    id: string;
+    text: string;
+    senderId: string;
+    senderName: string;
+    isFromPage: boolean;
+    timestamp: string;
+}
+
+interface FacebookInboxProps {
+    pageId?: string;
+}
+
+// Vercel API base URL - sẽ tự động detect production/development
+const API_BASE = typeof window !== 'undefined'
+    ? window.location.origin
+    : 'https://mixerottn.vercel.app';
+
+const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721' }) => {
+    const toast = useToast();
+
+    // State
+    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [newMessage, setNewMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+    const [isSending, setIsSending] = useState(false);
+    const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Scroll to bottom when new messages
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    // Load conversations
+    const loadConversations = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch(`${API_BASE}/api/facebook/conversations`);
+            const data = await response.json();
+
+            if (data.success) {
+                setConversations(data.conversations);
+                setLastRefresh(new Date());
+            } else {
+                console.error('Error loading conversations:', data.error);
+                toast.error('Không thể tải conversations');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            toast.error('Lỗi kết nối API');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Load messages for a conversation
+    const loadMessages = async (conversationId: string) => {
+        setIsLoadingMessages(true);
+        try {
+            const response = await fetch(
+                `${API_BASE}/api/facebook/messages?conversationId=${conversationId}`
+            );
+            const data = await response.json();
+
+            if (data.success) {
+                // Reverse to show oldest first
+                setMessages(data.messages.reverse());
+            } else {
+                console.error('Error loading messages:', data.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        } finally {
+            setIsLoadingMessages(false);
+        }
+    };
+
+    // Select a conversation
+    const selectConversation = (conv: Conversation) => {
+        setSelectedConversation(conv);
+        loadMessages(conv.id);
+        inputRef.current?.focus();
+    };
+
+    // Send message
+    const sendMessage = async () => {
+        if (!newMessage.trim() || !selectedConversation) return;
+
+        setIsSending(true);
+        try {
+            const response = await fetch(`${API_BASE}/api/facebook/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recipientId: selectedConversation.recipientId,
+                    message: newMessage.trim(),
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Add message to local state
+                const newMsg: Message = {
+                    id: data.messageId,
+                    text: newMessage.trim(),
+                    senderId: pageId,
+                    senderName: 'Shop',
+                    isFromPage: true,
+                    timestamp: new Date().toISOString(),
+                };
+                setMessages([...messages, newMsg]);
+                setNewMessage('');
+                toast.success('Đã gửi tin nhắn!');
+
+                // Reload messages to sync
+                setTimeout(() => loadMessages(selectedConversation.id), 1000);
+            } else {
+                toast.error(data.error || 'Không thể gửi tin nhắn');
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            toast.error('Lỗi kết nối');
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    // Handle Enter key
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    };
+
+    // Auto-load conversations on mount
+    useEffect(() => {
+        loadConversations();
+    }, []);
+
+    // Format time
+    const formatTime = (timestamp: string) => {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút`;
+        if (diffHours < 24) return `${diffHours} giờ`;
+        if (diffDays < 7) return `${diffDays} ngày`;
+        return date.toLocaleDateString('vi-VN');
+    };
+
+    return (
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+                <div className="flex items-center gap-2">
+                    <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-primary" />
+                    <h3 className="font-semibold">Facebook Messenger</h3>
+                    <span className="text-xs text-muted-foreground">
+                        ({conversations.length} cuộc hội thoại)
+                    </span>
+                </div>
+                <button
+                    onClick={loadConversations}
+                    disabled={isLoading}
+                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                    title="Làm mới"
+                >
+                    <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                </button>
+            </div>
+
+            <div className="flex h-[500px]">
+                {/* Conversation List */}
+                <div className="w-80 border-r border-border overflow-y-auto">
+                    {isLoading && conversations.length === 0 ? (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        </div>
+                    ) : conversations.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                            <ChatBubbleLeftEllipsisIcon className="w-12 h-12 mb-2 opacity-50" />
+                            <p>Chưa có cuộc hội thoại</p>
+                            <button
+                                onClick={loadConversations}
+                                className="mt-2 text-primary text-sm hover:underline"
+                            >
+                                Tải lại
+                            </button>
+                        </div>
+                    ) : (
+                        conversations.map((conv) => (
+                            <div
+                                key={conv.id}
+                                onClick={() => selectConversation(conv)}
+                                className={`p-3 cursor-pointer border-b border-border hover:bg-muted/50 transition-colors ${selectedConversation?.id === conv.id ? 'bg-primary/10' : ''
+                                    }`}
+                            >
+                                <div className="flex items-start gap-3">
+                                    {/* Avatar */}
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                                        {conv.customerName.charAt(0).toUpperCase()}
+                                    </div>
+
+                                    <div className="flex-grow min-w-0">
+                                        <div className="flex items-center justify-between">
+                                            <span className={`font-medium truncate ${conv.isUnread ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                                {conv.customerName}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground flex-shrink-0">
+                                                {formatTime(conv.lastMessageTime)}
+                                            </span>
+                                        </div>
+                                        <p className={`text-sm truncate ${conv.isUnread ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                                            {conv.lastMessage}
+                                        </p>
+                                    </div>
+
+                                    {/* Unread badge */}
+                                    {conv.isUnread && (
+                                        <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></span>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {/* Chat Window */}
+                <div className="flex-grow flex flex-col">
+                    {selectedConversation ? (
+                        <>
+                            {/* Chat Header */}
+                            <div className="px-4 py-3 border-b border-border bg-muted/30">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                                        {selectedConversation.customerName.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <p className="font-medium">{selectedConversation.customerName}</p>
+                                        <p className="text-xs text-muted-foreground">Facebook Messenger</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Messages */}
+                            <div className="flex-grow overflow-y-auto p-4 space-y-3">
+                                {isLoadingMessages ? (
+                                    <div className="flex items-center justify-center h-full">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                    </div>
+                                ) : messages.length === 0 ? (
+                                    <div className="text-center text-muted-foreground py-8">
+                                        Chưa có tin nhắn
+                                    </div>
+                                ) : (
+                                    messages.map((msg) => (
+                                        <div
+                                            key={msg.id}
+                                            className={`flex ${msg.isFromPage ? 'justify-end' : 'justify-start'}`}
+                                        >
+                                            <div
+                                                className={`max-w-[70%] px-4 py-2 rounded-2xl ${msg.isFromPage
+                                                        ? 'bg-primary text-primary-foreground rounded-br-md'
+                                                        : 'bg-muted text-foreground rounded-bl-md'
+                                                    }`}
+                                            >
+                                                <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                                                <p className={`text-xs mt-1 ${msg.isFromPage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                                    {formatTime(msg.timestamp)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                                <div ref={messagesEndRef} />
+                            </div>
+
+                            {/* Input */}
+                            <div className="p-4 border-t border-border">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        ref={inputRef}
+                                        type="text"
+                                        value={newMessage}
+                                        onChange={(e) => setNewMessage(e.target.value)}
+                                        onKeyDown={handleKeyDown}
+                                        placeholder="Nhập tin nhắn..."
+                                        className="flex-grow px-4 py-2 rounded-full border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                                        disabled={isSending}
+                                    />
+                                    <button
+                                        onClick={sendMessage}
+                                        disabled={isSending || !newMessage.trim()}
+                                        className="p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        {isSending ? (
+                                            <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                                        ) : (
+                                            <PaperAirplaneIcon className="w-5 h-5" />
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                            <ChatBubbleLeftEllipsisIcon className="w-16 h-16 mb-4 opacity-30" />
+                            <p>Chọn một cuộc hội thoại để bắt đầu</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-2 border-t border-border bg-muted/30 text-xs text-muted-foreground">
+                Cập nhật lần cuối: {lastRefresh.toLocaleTimeString('vi-VN')}
+            </div>
+        </div>
+    );
+};
+
+export default FacebookInbox;

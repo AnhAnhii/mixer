@@ -10,6 +10,18 @@
         {
             "src": "/api/webhook/facebook",
             "dest": "/api/webhook/facebook.ts"
+        },
+        {
+            "src": "/api/facebook/conversations",
+            "dest": "/api/facebook/conversations.ts"
+        },
+        {
+            "src": "/api/facebook/messages",
+            "dest": "/api/facebook/messages.ts"
+        },
+        {
+            "src": "/api/facebook/send",
+            "dest": "/api/facebook/send.ts"
         }
     ]
 }
