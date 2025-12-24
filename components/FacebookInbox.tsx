@@ -418,7 +418,10 @@ Trả về JSON với cấu trúc:
                 shippingAddress: parsed.shippingAddress || '',
                 items: orderItems,
                 notes: parsed.notes || '',
-                paymentMethod: 'cod'
+                paymentMethod: 'cod',
+                // Lưu Facebook info để liên kết với conversation
+                facebookUserId: selectedConversation.recipientId,
+                facebookUserName: selectedConversation.customerName,
             };
 
             const customerData: Partial<Customer> = {
@@ -438,24 +441,26 @@ Trả về JSON với cấu trúc:
         }
     };
 
-    // Get customer order history - more flexible matching
+    // Get customer order history - priority: facebookUserId > name matching
     const getCustomerOrders = useCallback(() => {
         if (!selectedConversation) return [];
 
+        const facebookId = selectedConversation.recipientId;
         const customerName = selectedConversation.customerName.toLowerCase().trim();
-        // Split name into parts for flexible matching
         const nameParts = customerName.split(/\s+/).filter(p => p.length > 1);
 
         return orders.filter(o => {
+            // Priority 1: Match by Facebook User ID (đảm bảo chính xác nhất)
+            if (facebookId && o.facebookUserId === facebookId) return true;
+
+            // Priority 2: Match by Facebook username
+            if (o.facebookUserName && o.facebookUserName.toLowerCase() === customerName) return true;
+
+            // Priority 3: Match by customer name (người nhận có thể khác người đặt)
             const orderName = o.customerName.toLowerCase().trim();
-
-            // Exact match
             if (orderName === customerName) return true;
-
-            // Check if any name part matches
             if (nameParts.some(part => orderName.includes(part))) return true;
 
-            // Check if order name parts match customer name
             const orderParts = orderName.split(/\s+/).filter(p => p.length > 1);
             if (orderParts.some(part => customerName.includes(part))) return true;
 

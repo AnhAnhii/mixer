@@ -124,6 +124,9 @@ export interface Order {
   discussion?: DiscussionEntry[];
   paymentLink?: string;
   paymentTransactionId?: string;
+  // Facebook integration
+  facebookUserId?: string;      // ID của người đặt trên Facebook
+  facebookUserName?: string;    // Tên người đặt trên Facebook (có thể khác người nhận)
 }
 
 export interface BankInfo {
