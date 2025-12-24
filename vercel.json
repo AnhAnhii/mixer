@@ -1,0 +1,19 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "api/**/*.ts",
+            "use": "@vercel/node"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/webhook/facebook",
+            "dest": "/api/webhook/facebook.ts"
+        }
+    ],
+    "env": {
+        "FB_VERIFY_TOKEN": "@fb_verify_token",
+        "FB_PAGE_ACCESS_TOKEN": "@fb_page_access_token"
+    }
+}
