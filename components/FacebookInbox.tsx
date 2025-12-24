@@ -115,8 +115,11 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
         }
     };
 
-    const loadMessages = async (conversationId: string) => {
-        setIsLoadingMessages(true);
+    // Load messages - silent mode won't show loading spinner
+    const loadMessages = async (conversationId: string, silent: boolean = false) => {
+        if (!silent) {
+            setIsLoadingMessages(true);
+        }
         try {
             const response = await fetch(
                 `${API_BASE}/api/facebook/messages?conversationId=${conversationId}`
@@ -124,20 +127,35 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
             const data = await response.json();
 
             if (data.success) {
-                setMessages(data.messages.reverse());
+                // Only update if there are new messages (avoid unnecessary re-renders)
+                const newMessages = data.messages.reverse();
+                setMessages(prev => {
+                    if (JSON.stringify(prev) !== JSON.stringify(newMessages)) {
+                        return newMessages;
+                    }
+                    return prev;
+                });
             } else {
                 console.error('Error loading messages:', data.error);
             }
         } catch (error) {
             console.error('Error:', error);
         } finally {
-            setIsLoadingMessages(false);
+            if (!silent) {
+                setIsLoadingMessages(false);
+            }
         }
     };
 
     const selectConversation = (conv: Conversation) => {
         setSelectedConversation(conv);
         loadMessages(conv.id);
+
+        // Mark as read locally
+        setConversations(prev => prev.map(c =>
+            c.id === conv.id ? { ...c, isUnread: false, unreadCount: 0 } : c
+        ));
+
         setTimeout(() => inputRef.current?.focus(), 100);
     };
 
@@ -203,15 +221,16 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
         return () => clearInterval(interval);
     }, [isAutoRefresh]);
 
-    // Auto-refresh messages every 10 seconds when a conversation is selected
+    // Auto-refresh messages every 15 seconds when a conversation is selected (silent mode)
     useEffect(() => {
         if (!isAutoRefresh || !selectedConversation) return;
 
         const interval = setInterval(() => {
             if (selectedConversationRef.current) {
-                loadMessages(selectedConversationRef.current.id);
+                // Use silent mode to avoid loading spinner flash
+                loadMessages(selectedConversationRef.current.id, true);
             }
-        }, 10000); // 10 seconds
+        }, 15000); // 15 seconds (longer interval, less distracting)
 
         return () => clearInterval(interval);
     }, [isAutoRefresh, selectedConversation]);
@@ -254,8 +273,8 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                     <button
                         onClick={() => setIsAutoRefresh(!isAutoRefresh)}
                         className={`px-2 py-1 text-xs rounded-lg transition-colors ${isAutoRefresh
-                                ? 'bg-primary/10 text-primary'
-                                : 'bg-muted text-muted-foreground'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted text-muted-foreground'
                             }`}
                         title={isAutoRefresh ? 'Tắt auto-refresh' : 'Bật auto-refresh'}
                     >
