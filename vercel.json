@@ -21,6 +21,10 @@
             "destination": "/api/facebook/send.ts"
         },
         {
+            "source": "/api/facebook/mark-seen",
+            "destination": "/api/facebook/mark-seen.ts"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.html"
         }

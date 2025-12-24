@@ -156,6 +156,15 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
             c.id === conv.id ? { ...c, isUnread: false, unreadCount: 0 } : c
         ));
 
+        // Sync with Facebook - mark as seen on their end
+        if (conv.recipientId) {
+            fetch(`${API_BASE}/api/facebook/mark-seen`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipientId: conv.recipientId }),
+            }).catch(err => console.log('Mark seen error:', err));
+        }
+
         setTimeout(() => inputRef.current?.focus(), 100);
     };
 
