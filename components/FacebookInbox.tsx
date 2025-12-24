@@ -288,7 +288,37 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
         inputRef.current?.focus();
     };
 
-    // Gửi tin nhắn xác nhận đơn hàng với mẫu đầy đủ (COD / Chuyển khoản)
+    // Gửi ảnh qua Facebook
+    const sendImage = async (imageUrl: string): Promise<boolean> => {
+        if (!selectedConversation) return false;
+
+        try {
+            const response = await fetch(`${API_BASE}/api/facebook/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recipientId: selectedConversation.recipientId,
+                    imageUrl: imageUrl,
+                    messageType: 'image'
+                })
+            });
+
+            const data = await response.json();
+            return data.success;
+        } catch (error) {
+            console.error('Error sending image:', error);
+            return false;
+        }
+    };
+
+    // Generate VietQR URL
+    const getVietQRUrl = (amount: number, orderId: string) => {
+        if (!bankInfo) return '';
+        const content = encodeURIComponent(`TTDH${orderId}`);
+        return `https://img.vietqr.io/image/${bankInfo.bin}-${bankInfo.accountNumber}-compact2.png?amount=${amount}&addInfo=${content}&accountName=${encodeURIComponent(bankInfo.accountName)}`;
+    };
+
+    // Gửi tin nhắn xác nhận đơn hàng với mẫu đầy đủ (COD / Chuyển khoản + VietQR)
     const sendOrderConfirmation = async (orderData?: Partial<Order>, paymentMethod: 'cod' | 'bank_transfer' = 'cod') => {
         const data = orderData || parsedOrderData;
         if (!data || !selectedConversation) {
@@ -327,7 +357,7 @@ ${productList}
 Đơn hàng của bạn sẽ được giao COD (thanh toán khi nhận hàng) ♥
 Dự kiến giao hàng trong 2-4 ngày. Cảm ơn bạn!`;
 
-        // Mẫu cho chuyển khoản
+        // Mẫu cho chuyển khoản (KHÔNG có thông tin ngân hàng text)
         const bankTransferMessage = `Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
 Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(orderDate)}
 
@@ -339,20 +369,30 @@ Sản phẩm bao gồm:
 ${productList}
 - Tổng trị giá đơn hàng: ${formatCurrency(total)}
 
-Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc, số lượng sau đó chuyển khoản theo quy định của shop giúp mình ạ.
-Đơn hàng sẽ được giữ trong vòng 24h, sau 24h sẽ tự động huỷ nếu chưa chuyển khoản ạ ♥
+Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc, số lượng rồi quét mã QR bên dưới để chuyển khoản giúp mình nhé ♥
+Đơn hàng sẽ được giữ trong vòng 24h, sau 24h sẽ tự động huỷ nếu chưa chuyển khoản ạ.`;
 
-${bankInfo ? `Thông tin chuyển khoản
-MB BANK
-${bankInfo.accountNumber}
-${bankInfo.accountName}
-Bạn chuyển khoản theo nội dung: TT don hang ${orderId}. Sau đó cho shop xin ảnh bill chuyển tiền, nhận được bên mình sẽ báo lại ngay. Cảm ơn bạn nhiều ❤` : '[Vui lòng thêm thông tin ngân hàng trong phần Cài đặt]'}`;
+        // Gửi tin nhắn text
+        await sendMessage(paymentMethod === 'cod' ? codMessage : bankTransferMessage);
 
-        const confirmMessage = paymentMethod === 'cod' ? codMessage : bankTransferMessage;
+        // Nếu là chuyển khoản, gửi thêm ảnh VietQR
+        if (paymentMethod === 'bank_transfer' && bankInfo) {
+            const qrUrl = getVietQRUrl(total, orderId);
+            if (qrUrl) {
+                // Delay một chút để tin nhắn text gửi trước
+                await new Promise(resolve => setTimeout(resolve, 500));
+                const qrSent = await sendImage(qrUrl);
+                if (qrSent) {
+                    toast.success('📩 Đã gửi tin xác nhận + QR code!');
+                } else {
+                    toast.info('Đã gửi tin nhắn, nhưng không gửi được QR');
+                }
+            }
+        } else {
+            toast.success(`📩 Đã gửi tin xác nhận đơn COD!`);
+        }
 
-        await sendMessage(confirmMessage);
         setParsedOrderData(null);
-        toast.success(`📩 Đã gửi tin xác nhận đơn ${paymentMethod === 'cod' ? 'COD' : 'CK'}!`);
     };
 
     const [isParsingOrder, setIsParsingOrder] = useState(false);
