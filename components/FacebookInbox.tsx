@@ -29,7 +29,7 @@ interface FacebookInboxProps {
     pageId?: string;
 }
 
-// Vercel API base URL - sẽ tự động detect production/development
+// Vercel API base URL
 const API_BASE = typeof window !== 'undefined'
     ? window.location.origin
     : 'https://mixerottn.vercel.app';
@@ -54,7 +54,6 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-    const conversationListRef = useRef<HTMLDivElement>(null);
 
     // Scroll to bottom when new messages
     useEffect(() => {
@@ -80,14 +79,11 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
 
             if (data.success) {
                 if (cursor) {
-                    // Append to existing conversations
                     setConversations(prev => [...prev, ...data.conversations]);
                 } else {
-                    // Replace conversations
                     setConversations(data.conversations);
                 }
 
-                // Update pagination state
                 setNextCursor(data.pagination?.nextCursor || null);
                 setHasMore(data.pagination?.hasMore || false);
                 setLastRefresh(new Date());
@@ -104,14 +100,12 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
         }
     };
 
-    // Load more conversations
     const loadMore = () => {
         if (hasMore && nextCursor && !isLoadingMore) {
             loadConversations(nextCursor);
         }
     };
 
-    // Load messages for a conversation
     const loadMessages = async (conversationId: string) => {
         setIsLoadingMessages(true);
         try {
@@ -121,7 +115,6 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
             const data = await response.json();
 
             if (data.success) {
-                // Reverse to show oldest first
                 setMessages(data.messages.reverse());
             } else {
                 console.error('Error loading messages:', data.error);
@@ -133,14 +126,12 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
         }
     };
 
-    // Select a conversation
     const selectConversation = (conv: Conversation) => {
         setSelectedConversation(conv);
         loadMessages(conv.id);
-        inputRef.current?.focus();
+        setTimeout(() => inputRef.current?.focus(), 100);
     };
 
-    // Send message
     const sendMessage = async () => {
         if (!newMessage.trim() || !selectedConversation) return;
 
@@ -158,7 +149,6 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
             const data = await response.json();
 
             if (data.success) {
-                // Add message to local state
                 const newMsg: Message = {
                     id: data.messageId,
                     text: newMessage.trim(),
@@ -170,8 +160,6 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                 setMessages([...messages, newMsg]);
                 setNewMessage('');
                 toast.success('Đã gửi tin nhắn!');
-
-                // Reload messages to sync
                 setTimeout(() => loadMessages(selectedConversation.id), 1000);
             } else {
                 toast.error(data.error || 'Không thể gửi tin nhắn');
@@ -184,7 +172,6 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
         }
     };
 
-    // Handle Enter key
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -192,12 +179,10 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
         }
     };
 
-    // Auto-load conversations on mount
     useEffect(() => {
         loadConversations();
     }, []);
 
-    // Format time
     const formatTime = (timestamp: string) => {
         const date = new Date(timestamp);
         const now = new Date();
@@ -234,109 +219,105 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                 </button>
             </div>
 
-            <div className="flex h-[500px]">
-                {/* Conversation List */}
-                <div
-                    ref={conversationListRef}
-                    className="w-80 border-r border-border overflow-y-auto"
-                >
-                    {isLoading && conversations.length === 0 ? (
-                        <div className="flex items-center justify-center h-full">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                        </div>
-                    ) : conversations.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                            <ChatBubbleLeftEllipsisIcon className="w-12 h-12 mb-2 opacity-50" />
-                            <p>Chưa có cuộc hội thoại</p>
-                            <button
-                                onClick={() => loadConversations()}
-                                className="mt-2 text-primary text-sm hover:underline"
-                            >
-                                Tải lại
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            {conversations.map((conv) => (
-                                <div
-                                    key={conv.id}
-                                    onClick={() => selectConversation(conv)}
-                                    className={`p-3 cursor-pointer border-b border-border hover:bg-muted/50 transition-colors ${selectedConversation?.id === conv.id ? 'bg-primary/10' : ''
-                                        }`}
+            {/* Main Content - Fixed height with flex layout */}
+            <div className="flex" style={{ height: '550px' }}>
+
+                {/* LEFT: Conversation List - Fixed width */}
+                <div className="w-[320px] min-w-[320px] border-r border-border flex flex-col">
+                    <div className="flex-1 overflow-y-auto">
+                        {isLoading && conversations.length === 0 ? (
+                            <div className="flex items-center justify-center h-full">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                            </div>
+                        ) : conversations.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                <ChatBubbleLeftEllipsisIcon className="w-12 h-12 mb-2 opacity-50" />
+                                <p>Chưa có cuộc hội thoại</p>
+                                <button
+                                    onClick={() => loadConversations()}
+                                    className="mt-2 text-primary text-sm hover:underline"
                                 >
-                                    <div className="flex items-start gap-3">
-                                        {/* Avatar */}
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                                            {conv.customerName.charAt(0).toUpperCase()}
-                                        </div>
-
-                                        <div className="flex-grow min-w-0">
-                                            <div className="flex items-center justify-between">
-                                                <span className={`font-medium truncate ${conv.isUnread ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                                    {conv.customerName}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground flex-shrink-0">
-                                                    {formatTime(conv.lastMessageTime)}
-                                                </span>
-                                            </div>
-                                            <p className={`text-sm truncate ${conv.isUnread ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                                                {conv.lastMessage}
-                                            </p>
-                                        </div>
-
-                                        {/* Unread badge */}
-                                        {conv.isUnread && (
-                                            <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-
-                            {/* Load More Button */}
-                            {hasMore && (
-                                <div className="p-3">
-                                    <button
-                                        onClick={loadMore}
-                                        disabled={isLoadingMore}
-                                        className="w-full py-2 px-4 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                    Tải lại
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                {conversations.map((conv) => (
+                                    <div
+                                        key={conv.id}
+                                        onClick={() => selectConversation(conv)}
+                                        className={`p-3 cursor-pointer border-b border-border hover:bg-muted/50 transition-colors ${selectedConversation?.id === conv.id ? 'bg-primary/10 border-l-2 border-l-primary' : ''
+                                            }`}
                                     >
-                                        {isLoadingMore ? (
-                                            <>
-                                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                                                Đang tải...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <ChevronDownIcon className="w-4 h-4" />
-                                                Tải thêm
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            )}
-                        </>
-                    )}
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                                                {conv.customerName.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="flex-grow min-w-0">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className={`font-medium truncate ${conv.isUnread ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                                        {conv.customerName}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                                                        {formatTime(conv.lastMessageTime)}
+                                                    </span>
+                                                </div>
+                                                <p className={`text-sm truncate ${conv.isUnread ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                                                    {conv.lastMessage}
+                                                </p>
+                                            </div>
+                                            {conv.isUnread && (
+                                                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {hasMore && (
+                                    <div className="p-3">
+                                        <button
+                                            onClick={loadMore}
+                                            disabled={isLoadingMore}
+                                            className="w-full py-2 px-4 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {isLoadingMore ? (
+                                                <>
+                                                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                                    Đang tải...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <ChevronDownIcon className="w-4 h-4" />
+                                                    Tải thêm
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
                 </div>
 
-                {/* Chat Window */}
-                <div className="flex-grow flex flex-col">
+                {/* RIGHT: Chat Window - Flexible width */}
+                <div className="flex-1 flex flex-col min-w-0">
                     {selectedConversation ? (
                         <>
                             {/* Chat Header */}
-                            <div className="px-4 py-3 border-b border-border bg-muted/30">
+                            <div className="px-4 py-3 border-b border-border bg-muted/30 flex-shrink-0">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
                                         {selectedConversation.customerName.charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                        <p className="font-medium">{selectedConversation.customerName}</p>
+                                        <p className="font-semibold">{selectedConversation.customerName}</p>
                                         <p className="text-xs text-muted-foreground">Facebook Messenger</p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Messages */}
-                            <div className="flex-grow overflow-y-auto p-4 space-y-3">
+                            {/* Messages Area */}
+                            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/10">
                                 {isLoadingMessages ? (
                                     <div className="flex items-center justify-center h-full">
                                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -352,9 +333,9 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                                             className={`flex ${msg.isFromPage ? 'justify-end' : 'justify-start'}`}
                                         >
                                             <div
-                                                className={`max-w-[70%] px-4 py-2 rounded-2xl ${msg.isFromPage
+                                                className={`max-w-[70%] px-4 py-2 rounded-2xl shadow-sm ${msg.isFromPage
                                                         ? 'bg-primary text-primary-foreground rounded-br-md'
-                                                        : 'bg-muted text-foreground rounded-bl-md'
+                                                        : 'bg-card text-foreground rounded-bl-md border border-border'
                                                     }`}
                                             >
                                                 <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
@@ -368,9 +349,9 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                                 <div ref={messagesEndRef} />
                             </div>
 
-                            {/* Input */}
-                            <div className="p-4 border-t border-border">
-                                <div className="flex items-center gap-2">
+                            {/* Input Area */}
+                            <div className="p-4 border-t border-border bg-card flex-shrink-0">
+                                <div className="flex items-center gap-3">
                                     <input
                                         ref={inputRef}
                                         type="text"
@@ -378,13 +359,13 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                                         onChange={(e) => setNewMessage(e.target.value)}
                                         onKeyDown={handleKeyDown}
                                         placeholder="Nhập tin nhắn..."
-                                        className="flex-grow px-4 py-2 rounded-full border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                                        className="flex-grow px-4 py-2.5 rounded-full border border-border bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-background transition-colors"
                                         disabled={isSending}
                                     />
                                     <button
                                         onClick={sendMessage}
                                         disabled={isSending || !newMessage.trim()}
-                                        className="p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="p-2.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         {isSending ? (
                                             <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
@@ -396,17 +377,19 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                             </div>
                         </>
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                            <ChatBubbleLeftEllipsisIcon className="w-16 h-16 mb-4 opacity-30" />
-                            <p>Chọn một cuộc hội thoại để bắt đầu</p>
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-muted/10">
+                            <ChatBubbleLeftEllipsisIcon className="w-20 h-20 mb-4 opacity-20" />
+                            <p className="text-lg font-medium">Chọn một cuộc hội thoại</p>
+                            <p className="text-sm">để bắt đầu trả lời khách hàng</p>
                         </div>
                     )}
                 </div>
             </div>
 
             {/* Footer */}
-            <div className="px-4 py-2 border-t border-border bg-muted/30 text-xs text-muted-foreground">
-                Cập nhật lần cuối: {lastRefresh.toLocaleTimeString('vi-VN')}
+            <div className="px-4 py-2 border-t border-border bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
+                <span>Cập nhật lần cuối: {lastRefresh.toLocaleTimeString('vi-VN')}</span>
+                <span className="text-primary">{conversations.length} cuộc hội thoại</span>
             </div>
         </div>
     );
