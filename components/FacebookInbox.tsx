@@ -216,7 +216,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
 
         const interval = setInterval(() => {
             loadConversations();
-        }, 30000); // 30 seconds
+        }, 5000); // 5 seconds - fast updates for new conversations
 
         return () => clearInterval(interval);
     }, [isAutoRefresh]);
@@ -230,7 +230,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({ pageId = '105265398928721
                 // Use silent mode to avoid loading spinner flash
                 loadMessages(selectedConversationRef.current.id, true);
             }
-        }, 15000); // 15 seconds (longer interval, less distracting)
+        }, 2000); // 2 seconds - near real-time updates
 
         return () => clearInterval(interval);
     }, [isAutoRefresh, selectedConversation]);
