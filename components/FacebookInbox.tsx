@@ -300,8 +300,25 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
 
             const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
+            // Chỉ lấy tin nhắn gần đây (30 tin nhắn cuối hoặc trong 24 giờ)
+            const now = new Date();
+            const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+            const recentMessages = messages
+                .filter(m => new Date(m.timestamp) > oneDayAgo)
+                .slice(-30); // Lấy tối đa 30 tin nhắn cuối
+
+            if (recentMessages.length === 0) {
+                // Nếu không có tin nhắn trong 24h, lấy 15 tin nhắn cuối
+                const lastMessages = messages.slice(-15);
+                if (lastMessages.length === 0) {
+                    throw new Error("Không có tin nhắn để phân tích");
+                }
+                recentMessages.push(...lastMessages);
+            }
+
             // Format messages as conversation
-            const conversationText = messages.map(m =>
+            const conversationText = recentMessages.map(m =>
                 `${m.isFromPage ? 'Shop' : 'Khách'}: ${m.text}`
             ).join('\n');
 
@@ -321,7 +338,13 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
             const prompt = `
 Bạn là AI trợ lý bán hàng thời trang. Phân tích cuộc hội thoại Messenger sau đây và trích xuất thông tin đặt hàng.
 
-CUỘC HỘI THOẠI:
+⚠️ QUY TẮC QUAN TRỌNG:
+- Cuộc hội thoại được sắp xếp theo thứ tự thời gian (tin nhắn CŨ ở trên, tin nhắn MỚI ở dưới)
+- Nếu khách gửi thông tin NHIỀU LẦN (tên, SĐT, địa chỉ, sản phẩm), LUÔN LẤY THÔNG TIN GỬI SAU CÙNG (ở cuối)
+- Bỏ qua các thông tin cũ đã được khách sửa lại
+- CHỈ lấy sản phẩm trong lần đặt hàng cuối cùng, KHÔNG gộp với đơn cũ
+
+CUỘC HỘI THOẠI (từ cũ đến mới):
 """
 ${conversationText}
 """
@@ -330,9 +353,10 @@ DANH SÁCH SẢN PHẨM CÓ SẴN:
 ${JSON.stringify(productList, null, 2)}
 
 YÊU CẦU:
-1. Trích xuất: Tên khách, SĐT, địa chỉ, sản phẩm muốn mua (tên, size, màu, số lượng), ghi chú
-2. Khớp sản phẩm khách nói với danh sách có sẵn (nếu có thể)
-3. Nếu không tìm thấy thông tin, để null
+1. Trích xuất thông tin từ PHẦN CUỐI cuộc hội thoại (thông tin mới nhất)
+2. Tên, SĐT, địa chỉ: lấy giá trị CUỐI CÙNG khách gửi
+3. Sản phẩm: chỉ lấy từ lần đặt hàng GẦN NHẤT
+4. Khớp sản phẩm với danh sách có sẵn (nếu có thể)
 
 Trả về JSON với cấu trúc:
 {
