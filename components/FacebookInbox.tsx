@@ -44,6 +44,7 @@ interface FacebookInboxProps {
     pageId?: string;
     orders?: Order[];
     products?: Product[];
+    bankInfo?: { bin: string; accountNumber: string; accountName: string } | null;
     onCreateOrderWithAI?: (orderData: Partial<Order>, customerData: Partial<Customer>) => void;
 }
 
@@ -77,6 +78,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     pageId = '105265398928721',
     orders = [],
     products = [],
+    bankInfo = null,
     onCreateOrderWithAI
 }) => {
     const toast = useToast();
@@ -286,38 +288,71 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
         inputRef.current?.focus();
     };
 
-    // Gửi tin nhắn xác nhận đơn hàng
-    const sendOrderConfirmation = async (orderData?: Partial<Order>) => {
+    // Gửi tin nhắn xác nhận đơn hàng với mẫu đầy đủ (COD / Chuyển khoản)
+    const sendOrderConfirmation = async (orderData?: Partial<Order>, paymentMethod: 'cod' | 'bank_transfer' = 'cod') => {
         const data = orderData || parsedOrderData;
         if (!data || !selectedConversation) {
             toast.error('Chưa có thông tin đơn hàng để gửi');
             return;
         }
 
+        const formatCurrency = (amount: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+        const formatDate = (dateString: string) => new Date(dateString).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
         // Tạo danh sách sản phẩm
-        const itemsList = data.items?.map(item =>
-            `• ${item.productName} - Size ${item.size} - ${item.color} x${item.quantity}`
-        ).join('\n') || 'Chưa có sản phẩm';
+        const productList = data.items?.map(item =>
+            `- ${item.productName} (${item.size} - ${item.color}) x ${item.quantity}`
+        ).join('\n') || '- Chưa có sản phẩm';
 
         // Tính tổng tiền
         const total = data.items?.reduce((sum, item) =>
             sum + (item.price * item.quantity), 0
         ) || 0;
 
-        const confirmMessage = `✅ Dạ em xác nhận đơn hàng của ${data.customerName}:
+        const orderId = data.id?.substring(0, 8) || 'NEW';
+        const orderDate = data.orderDate || new Date().toISOString();
 
-📦 Sản phẩm:
-${itemsList}
+        // Mẫu cho COD
+        const codMessage = `Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
+Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(orderDate)}
 
-💰 Tổng tiền: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(total)}
-📍 Địa chỉ: ${data.shippingAddress || 'Chưa có'}
-📱 SĐT: ${data.customerPhone || 'Chưa có'}
+- Tên người nhận: ${data.customerName}
+- Số điện thoại: ${data.customerPhone || 'Chưa có'}
+- Địa chỉ: ${data.shippingAddress || 'Chưa có'}
 
-Bạn kiểm tra lại giúp em nhé! Em sẽ ship trong 1-2 ngày ạ 🚚`;
+Sản phẩm bao gồm:
+${productList}
+- Tổng trị giá đơn hàng: ${formatCurrency(total)}
+
+Đơn hàng của bạn sẽ được giao COD (thanh toán khi nhận hàng) ♥
+Dự kiến giao hàng trong 2-4 ngày. Cảm ơn bạn!`;
+
+        // Mẫu cho chuyển khoản
+        const bankTransferMessage = `Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
+Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(orderDate)}
+
+- Tên người nhận: ${data.customerName}
+- Số điện thoại: ${data.customerPhone || 'Chưa có'}
+- Địa chỉ: ${data.shippingAddress || 'Chưa có'}
+
+Sản phẩm bao gồm:
+${productList}
+- Tổng trị giá đơn hàng: ${formatCurrency(total)}
+
+Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc, số lượng sau đó chuyển khoản theo quy định của shop giúp mình ạ.
+Đơn hàng sẽ được giữ trong vòng 24h, sau 24h sẽ tự động huỷ nếu chưa chuyển khoản ạ ♥
+
+${bankInfo ? `Thông tin chuyển khoản
+MB BANK
+${bankInfo.accountNumber}
+${bankInfo.accountName}
+Bạn chuyển khoản theo nội dung: TT don hang ${orderId}. Sau đó cho shop xin ảnh bill chuyển tiền, nhận được bên mình sẽ báo lại ngay. Cảm ơn bạn nhiều ❤` : '[Vui lòng thêm thông tin ngân hàng trong phần Cài đặt]'}`;
+
+        const confirmMessage = paymentMethod === 'cod' ? codMessage : bankTransferMessage;
 
         await sendMessage(confirmMessage);
-        setParsedOrderData(null); // Clear sau khi gửi
-        toast.success('📩 Đã gửi tin xác nhận đơn hàng!');
+        setParsedOrderData(null);
+        toast.success(`📩 Đã gửi tin xác nhận đơn ${paymentMethod === 'cod' ? 'COD' : 'CK'}!`);
     };
 
     const [isParsingOrder, setIsParsingOrder] = useState(false);
@@ -715,15 +750,24 @@ Trả về JSON với cấu trúc:
                                             )}
                                         </button>
                                     )}
-                                    {/* Nút gửi xác nhận đơn hàng */}
+                                    {/* Nút gửi xác nhận đơn hàng - COD và Chuyển khoản */}
                                     {parsedOrderData && (
-                                        <button
-                                            onClick={() => sendOrderConfirmation()}
-                                            disabled={isSending}
-                                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all animate-pulse"
-                                        >
-                                            📩 Gửi xác nhận
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={() => sendOrderConfirmation(undefined, 'cod')}
+                                                disabled={isSending}
+                                                className="flex items-center gap-1 px-2 py-1.5 bg-orange-500 text-white text-xs rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-all"
+                                            >
+                                                💵 COD
+                                            </button>
+                                            <button
+                                                onClick={() => sendOrderConfirmation(undefined, 'bank_transfer')}
+                                                disabled={isSending}
+                                                className="flex items-center gap-1 px-2 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all"
+                                            >
+                                                🏦 CK
+                                            </button>
+                                        </>
                                     )}
                                     <button
                                         onClick={() => setShowCustomerPanel(!showCustomerPanel)}

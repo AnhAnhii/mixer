@@ -334,6 +334,26 @@ const AppContent: React.FC = () => {
     const handleOpenReturnRequest = (order: Order) => setReturnRequestOrder(order);
     const handleViewReturnDetails = (request: ReturnRequest) => setViewingReturnRequest(request);
 
+    // Gửi tin nhắn qua Facebook Messenger
+    const sendMessageToFacebook = async (message: string, recipientId: string): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/facebook/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipientId, messageText: message })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to send message');
+            }
+
+            return true;
+        } catch (err) {
+            console.error('Facebook send error:', err);
+            return false;
+        }
+    };
+
     const handleDeleteOrder = (orderId: string) => {
         setOrders(prev => prev.filter(o => o.id !== orderId));
         logActivity(`<strong>${currentUser?.name}</strong> đã xóa đơn hàng <strong>#${orderId.substring(0, 8)}</strong>.`, orderId, 'order');
@@ -751,7 +771,13 @@ const AppContent: React.FC = () => {
                 </div>
             )}
 
-            <MessageTemplatesModal order={messageTemplateOrder} bankInfo={bankInfo} isOpen={!!messageTemplateOrder} onClose={() => setMessageTemplateOrder(null)} />
+            <MessageTemplatesModal
+                order={messageTemplateOrder}
+                bankInfo={bankInfo}
+                isOpen={!!messageTemplateOrder}
+                onClose={() => setMessageTemplateOrder(null)}
+                onSendToFacebook={sendMessageToFacebook}
+            />
 
             <ReturnRequestModal
                 order={returnRequestOrder}

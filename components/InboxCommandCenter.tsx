@@ -284,6 +284,7 @@ const InboxCommandCenter: React.FC<InboxCommandCenterProps> = ({
                 <FacebookInbox
                     orders={orders}
                     products={products}
+                    bankInfo={bankInfo}
                     onCreateOrderWithAI={(orderData, customerData) => {
                         // Open order form with pre-filled AI-parsed data
                         onOpenOrderForm({
