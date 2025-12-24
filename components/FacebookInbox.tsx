@@ -103,6 +103,9 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     const [showTemplates, setShowTemplates] = useState(false);
     const [showEmojis, setShowEmojis] = useState(false);
     const [showCustomerPanel, setShowCustomerPanel] = useState(true);
+
+    // Lưu thông tin đơn hàng vừa parse để gửi tin xác nhận
+    const [parsedOrderData, setParsedOrderData] = useState<Partial<Order> | null>(null);
     const [previousMessageCount, setPreviousMessageCount] = useState(0);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -282,6 +285,41 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
         setShowEmojis(false);
         inputRef.current?.focus();
     };
+
+    // Gửi tin nhắn xác nhận đơn hàng
+    const sendOrderConfirmation = async (orderData?: Partial<Order>) => {
+        const data = orderData || parsedOrderData;
+        if (!data || !selectedConversation) {
+            toast.error('Chưa có thông tin đơn hàng để gửi');
+            return;
+        }
+
+        // Tạo danh sách sản phẩm
+        const itemsList = data.items?.map(item =>
+            `• ${item.productName} - Size ${item.size} - ${item.color} x${item.quantity}`
+        ).join('\n') || 'Chưa có sản phẩm';
+
+        // Tính tổng tiền
+        const total = data.items?.reduce((sum, item) =>
+            sum + (item.price * item.quantity), 0
+        ) || 0;
+
+        const confirmMessage = `✅ Dạ em xác nhận đơn hàng của ${data.customerName}:
+
+📦 Sản phẩm:
+${itemsList}
+
+💰 Tổng tiền: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(total)}
+📍 Địa chỉ: ${data.shippingAddress || 'Chưa có'}
+📱 SĐT: ${data.customerPhone || 'Chưa có'}
+
+Bạn kiểm tra lại giúp em nhé! Em sẽ ship trong 1-2 ngày ạ 🚚`;
+
+        await sendMessage(confirmMessage);
+        setParsedOrderData(null); // Clear sau khi gửi
+        toast.success('📩 Đã gửi tin xác nhận đơn hàng!');
+    };
+
     const [isParsingOrder, setIsParsingOrder] = useState(false);
 
     const handleCreateOrder = async () => {
@@ -455,6 +493,10 @@ Trả về JSON với cấu trúc:
             };
 
             toast.success('✅ Đã trích xuất thông tin!');
+
+            // Lưu order data để có thể gửi tin xác nhận sau
+            setParsedOrderData(orderData);
+
             onCreateOrderWithAI(orderData, customerData);
 
         } catch (err) {
@@ -671,6 +713,16 @@ Trả về JSON với cấu trúc:
                                                     AI Tạo đơn
                                                 </>
                                             )}
+                                        </button>
+                                    )}
+                                    {/* Nút gửi xác nhận đơn hàng */}
+                                    {parsedOrderData && (
+                                        <button
+                                            onClick={() => sendOrderConfirmation()}
+                                            disabled={isSending}
+                                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all animate-pulse"
+                                        >
+                                            📩 Gửi xác nhận
                                         </button>
                                     )}
                                     <button
