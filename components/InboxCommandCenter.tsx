@@ -262,8 +262,8 @@ const InboxCommandCenter: React.FC<InboxCommandCenterProps> = ({
                 <button
                     onClick={() => setActiveTab('tools')}
                     className={`px-4 py-2 font-medium text-sm transition-colors border-b-2 -mb-px ${activeTab === 'tools'
-                            ? 'text-primary border-primary'
-                            : 'text-muted-foreground border-transparent hover:text-foreground'
+                        ? 'text-primary border-primary'
+                        : 'text-muted-foreground border-transparent hover:text-foreground'
                         }`}
                 >
                     🛠️ Công cụ bán hàng
@@ -271,8 +271,8 @@ const InboxCommandCenter: React.FC<InboxCommandCenterProps> = ({
                 <button
                     onClick={() => setActiveTab('messenger')}
                     className={`px-4 py-2 font-medium text-sm transition-colors border-b-2 -mb-px ${activeTab === 'messenger'
-                            ? 'text-primary border-primary'
-                            : 'text-muted-foreground border-transparent hover:text-foreground'
+                        ? 'text-primary border-primary'
+                        : 'text-muted-foreground border-transparent hover:text-foreground'
                         }`}
                 >
                     💬 Facebook Messenger
@@ -281,7 +281,12 @@ const InboxCommandCenter: React.FC<InboxCommandCenterProps> = ({
 
             {/* Tab Content */}
             {activeTab === 'messenger' ? (
-                <FacebookInbox />
+                <FacebookInbox
+                    orders={orders}
+                    onCreateOrder={(customerName) => {
+                        onOpenOrderForm({ customerName });
+                    }}
+                />
             ) : (
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
