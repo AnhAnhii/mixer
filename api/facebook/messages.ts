@@ -1,5 +1,5 @@
 // api/facebook/messages.ts
-// API endpoint để lấy tin nhắn trong một conversation
+// API endpoint để lấy tin nhắn trong một conversation (bao gồm ảnh/attachments)
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -33,9 +33,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        // Lấy tin nhắn trong conversation
+        // Lấy tin nhắn trong conversation, bao gồm attachments
         const messagesResponse = await fetch(
-            `${FB_GRAPH_URL}/${conversationId}/messages?fields=id,message,from,to,created_time&access_token=${PAGE_ACCESS_TOKEN}`
+            `${FB_GRAPH_URL}/${conversationId}/messages?fields=id,message,from,to,created_time,attachments&access_token=${PAGE_ACCESS_TOKEN}`
         );
 
         const messagesData = await messagesResponse.json();
@@ -45,15 +45,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: messagesData.error.message });
         }
 
-        // Format messages
-        const messages = (messagesData.data || []).map((msg: any) => ({
-            id: msg.id,
-            text: msg.message || '',
-            senderId: msg.from?.id || '',
-            senderName: msg.from?.name || '',
-            isFromPage: msg.from?.id === PAGE_ID,
-            timestamp: msg.created_time,
-        }));
+        // Format messages with attachments support
+        const messages = (messagesData.data || []).map((msg: any) => {
+            // Extract attachments (images, files, etc.)
+            const attachments: Array<{
+                type: string;
+                url: string;
+                name?: string;
+            }> = [];
+
+            if (msg.attachments?.data) {
+                for (const att of msg.attachments.data) {
+                    if (att.image_data) {
+                        attachments.push({
+                            type: 'image',
+                            url: att.image_data.url || att.image_data.preview_url,
+                            name: att.name
+                        });
+                    } else if (att.file_url) {
+                        attachments.push({
+                            type: 'file',
+                            url: att.file_url,
+                            name: att.name
+                        });
+                    } else if (att.video_data) {
+                        attachments.push({
+                            type: 'video',
+                            url: att.video_data.url,
+                            name: att.name
+                        });
+                    }
+                }
+            }
+
+            return {
+                id: msg.id,
+                text: msg.message || '',
+                senderId: msg.from?.id || '',
+                senderName: msg.from?.name || '',
+                isFromPage: msg.from?.id === PAGE_ID,
+                timestamp: msg.created_time,
+                attachments: attachments.length > 0 ? attachments : undefined
+            };
+        });
 
         return res.status(200).json({
             success: true,

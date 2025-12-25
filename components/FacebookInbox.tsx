@@ -38,6 +38,11 @@ interface Message {
     senderName: string;
     isFromPage: boolean;
     timestamp: string;
+    attachments?: Array<{
+        type: 'image' | 'file' | 'video';
+        url: string;
+        name?: string;
+    }>;
 }
 
 interface FacebookInboxProps {
@@ -840,7 +845,41 @@ Trả về JSON với cấu trúc:
                                                     : 'bg-card text-foreground rounded-bl-md border border-border'
                                                     }`}
                                             >
-                                                <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                                                {/* Hiển thị ảnh/attachments */}
+                                                {msg.attachments && msg.attachments.length > 0 && (
+                                                    <div className="mb-2 space-y-2">
+                                                        {msg.attachments.map((att, idx) => (
+                                                            att.type === 'image' ? (
+                                                                <img
+                                                                    key={idx}
+                                                                    src={att.url}
+                                                                    alt={att.name || 'Image'}
+                                                                    className="max-w-full rounded-lg cursor-pointer hover:opacity-90"
+                                                                    onClick={() => window.open(att.url, '_blank')}
+                                                                />
+                                                            ) : att.type === 'video' ? (
+                                                                <video
+                                                                    key={idx}
+                                                                    src={att.url}
+                                                                    controls
+                                                                    className="max-w-full rounded-lg"
+                                                                />
+                                                            ) : (
+                                                                <a
+                                                                    key={idx}
+                                                                    href={att.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg hover:bg-muted text-xs"
+                                                                >
+                                                                    📎 {att.name || 'File'}
+                                                                </a>
+                                                            )
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {/* Text message */}
+                                                {msg.text && <p className="text-sm whitespace-pre-wrap">{msg.text}</p>}
                                                 <p className={`text-xs mt-1 ${msg.isFromPage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                                                     {formatTime(msg.timestamp)}
                                                 </p>
