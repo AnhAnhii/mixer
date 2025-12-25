@@ -578,7 +578,7 @@ const AppContent: React.FC = () => {
 
         switch (view) {
             case 'dashboard': return <Dashboard orders={orders} products={products} customers={customers} activityLog={activityLog} onViewOrder={handleViewOrderDetails} onViewCustomer={handleViewCustomerDetails} onNavigate={(viewId) => setView(viewId as Page)} onOpenVoucherForm={handleOpenVoucherForm} onOpenStrategy={() => setIsStrategyModalOpen(true)} />;
-            case 'inbox': return <InboxCommandCenter products={products} customers={customers} orders={orders} vouchers={vouchers} bankInfo={bankInfo} onCreateOrder={(order) => { }} onViewOrder={handleViewOrderDetails} onOpenOrderForm={handleOpenOrderForm} />;
+            case 'inbox': return <InboxCommandCenter products={products} orders={orders} bankInfo={bankInfo} onOpenOrderForm={handleOpenOrderForm} />;
             case 'orders': return <OrderListPage orders={orders} onViewDetails={handleViewOrderDetails} onEdit={handleOpenOrderForm} onDelete={handleDeleteOrder} onUpdateStatus={handleUpdateStatus} onAddOrder={() => handleOpenOrderForm(null)} onAddQuickOrder={() => setIsQuickOrderOpen(true)} isAnyModalOpen={isAnyModalOpen} />;
             case 'workflow': return <KanbanBoardPage orders={orders} onUpdateStatus={handleUpdateStatus} onViewDetails={handleViewOrderDetails} />;
             case 'inventory': return <InventoryList products={products} onEdit={handleOpenProductForm} onDelete={handleDeleteProduct} onAddProduct={() => handleOpenProductForm(null)} />;
