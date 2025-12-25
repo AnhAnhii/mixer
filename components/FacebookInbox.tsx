@@ -114,6 +114,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     // Lưu thông tin đơn hàng vừa parse để gửi tin xác nhận
     const [parsedOrderData, setParsedOrderData] = useState<Partial<Order> | null>(null);
     const [previousMessageCount, setPreviousMessageCount] = useState(0);
+    const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -124,17 +125,22 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
         selectedConversationRef.current = selectedConversation;
     }, [selectedConversation]);
 
-    // Scroll to bottom when new messages
+    // Scroll to bottom when needed (new conversation, send message, or new message from customer)
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+        if (shouldScrollToBottom) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            setShouldScrollToBottom(false);
+        }
+    }, [messages, shouldScrollToBottom]);
 
-    // Play sound when new message arrives
+    // Play sound and scroll when new message from customer arrives
     useEffect(() => {
         if (messages.length > previousMessageCount && previousMessageCount > 0) {
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.isFromPage) {
                 playNotificationSound();
+                // Scroll to bottom khi có tin nhắn mới từ khách
+                setShouldScrollToBottom(true);
             }
         }
         setPreviousMessageCount(messages.length);
@@ -219,6 +225,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
 
     const selectConversation = (conv: Conversation) => {
         setSelectedConversation(conv);
+        setShouldScrollToBottom(true); // Scroll xuống khi chọn conversation mới
         loadMessages(conv.id);
 
         // Mark as read locally
@@ -265,6 +272,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
                     timestamp: new Date().toISOString(),
                 };
                 setMessages(prev => [...prev, newMsg]);
+                setShouldScrollToBottom(true); // Scroll xuống sau khi gửi tin
                 setNewMessage('');
                 setShowTemplates(false);
                 toast.success('Đã gửi!');
