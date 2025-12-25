@@ -672,39 +672,69 @@ Trả về JSON với cấu trúc:
     // Các trạng thái đơn hàng
     const ORDER_STATUSES = ['Chờ xử lý', 'Đang xử lý', 'Đã gửi hàng', 'Đã giao hàng', 'Đã hủy'];
 
-    // Tạo mẫu tin nhắn cho từng trạng thái
+    // Tạo mẫu tin nhắn cho từng trạng thái (khớp với MessageTemplatesModal)
     const getOrderStatusMessage = (order: Order, status: string) => {
         const formatCurrency = (amount: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+        const formatDate = (dateString: string) => new Date(dateString).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
         const orderId = order.id.substring(0, 8);
+        const productList = order.items.map(item => `- ${item.productName} (${item.size} - ${item.color}) x ${item.quantity}`).join('\n');
+
+        const shippingDetails = order.shippingProvider && order.trackingCode
+            ? `Đơn vị vận chuyển: ${order.shippingProvider} - Mã vận đơn: ${order.trackingCode}`
+            : `Đơn vị vận chuyển: [Vui lòng cập nhật trong chi tiết đơn hàng]`;
+
+        // Template cho COD  
+        const codTemplate = `Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
+Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(order.orderDate)}
+
+- Tên người nhận: ${order.customerName}
+- Số điện thoại: ${order.customerPhone}
+- Địa chỉ: ${order.shippingAddress}
+
+Sản phẩm bao gồm:
+${productList}
+- Tổng trị giá đơn hàng: ${formatCurrency(order.totalAmount)}
+
+Đơn hàng của bạn sẽ được giao COD (thanh toán khi nhận hàng) ♥
+Dự kiến giao hàng trong 2-4 ngày. Cảm ơn bạn!`;
+
+        // Template cho chuyển khoản
+        const bankTransferTemplate = `Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
+Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(order.orderDate)}
+
+- Tên người nhận: ${order.customerName}
+- Số điện thoại: ${order.customerPhone}
+- Địa chỉ: ${order.shippingAddress}
+
+Sản phẩm bao gồm:
+${productList}
+- Tổng trị giá đơn hàng: ${formatCurrency(order.totalAmount)}
+
+Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc, số lượng rồi quét mã QR bên dưới để chuyển khoản giúp mình nhé ♥
+Đơn hàng sẽ được giữ trong vòng 24h, sau 24h sẽ tự động huỷ nếu chưa chuyển khoản ạ.`;
 
         switch (status) {
             case 'Chờ xử lý':
-                return `Dạ em xác nhận đơn hàng #${orderId} của ${order.customerName}:
-- Sản phẩm: ${order.items.map(i => `${i.productName} (${i.size}/${i.color}) x${i.quantity}`).join(', ')}
-- Tổng tiền: ${formatCurrency(order.totalAmount)}
-- Địa chỉ: ${order.shippingAddress}
-
-Bạn xác nhận lại thông tin giúp em nhé! ♥`;
+                return order.paymentMethod === 'cod' ? codTemplate : bankTransferTemplate;
 
             case 'Đang xử lý':
                 return `Mixer xác nhận đã nhận được thanh toán cho đơn hàng #${orderId}.
 Đơn hàng của bạn đang được chuẩn bị và sẽ sớm được gửi đi.
-Cảm ơn bạn đã mua sắm! 🙏`;
+Cảm ơn bạn đã mua sắm!`;
 
             case 'Đã gửi hàng':
                 return `Mixer xin thông báo: Đơn hàng #${orderId} của bạn đã được gửi đi.
-${order.shippingProvider ? `Đơn vị vận chuyển: ${order.shippingProvider}` : ''}
-${order.trackingCode ? `Mã vận đơn: ${order.trackingCode}` : ''}
-Bạn vui lòng để ý điện thoại để nhận hàng trong vài ngày tới nhé! 📦`;
+${shippingDetails}
+Bạn vui lòng để ý điện thoại để nhận hàng trong vài ngày tới nhé. Cảm ơn bạn!`;
 
             case 'Đã giao hàng':
                 return `Mixer xin thông báo: Đơn hàng #${orderId} đã được giao thành công.
-Cảm ơn bạn đã tin tưởng và mua sắm tại Mixer! 🎉
-Hẹn gặp lại bạn ở những đơn hàng tiếp theo nhé! ♥`;
+Cảm ơn bạn đã tin tưởng và mua sắm tại Mixer. Hẹn gặp lại bạn ở những đơn hàng tiếp theo nhé!`;
 
             case 'Đã hủy':
                 return `Đơn hàng #${orderId} đã được hủy theo yêu cầu.
-Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! 🙏`;
+Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé!`;
 
             default:
                 return '';
@@ -716,6 +746,16 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
         const message = getOrderStatusMessage(order, status);
         if (message && selectedConversation) {
             await sendMessage(message);
+
+            // Nếu là Chờ xử lý và chuyển khoản, gửi thêm VietQR
+            if (status === 'Chờ xử lý' && order.paymentMethod !== 'cod' && bankInfo) {
+                const qrUrl = getVietQRUrl(order.totalAmount, order.id.substring(0, 8));
+                if (qrUrl) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await sendImage(qrUrl);
+                }
+            }
+
             if (onUpdateOrderStatus) {
                 onUpdateOrderStatus(order.id, status);
             }
@@ -1122,10 +1162,10 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                                                 onClick={() => handleStatusAction(order, status)}
                                                                 disabled={isSending}
                                                                 className={`text-xs px-2 py-1 rounded transition-colors ${status === 'Đã hủy'
-                                                                        ? 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400'
-                                                                        : status === 'Đã giao hàng'
-                                                                            ? 'bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400'
-                                                                            : 'bg-muted hover:bg-muted/80'
+                                                                    ? 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400'
+                                                                    : status === 'Đã giao hàng'
+                                                                        ? 'bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400'
+                                                                        : 'bg-muted hover:bg-muted/80'
                                                                     }`}
                                                             >
                                                                 {status}
