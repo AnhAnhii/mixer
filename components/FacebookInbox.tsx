@@ -124,6 +124,12 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null); // Order đang mở menu
     const [isAIEnabled, setIsAIEnabled] = useState(false); // AI auto-reply toggle
     const [isLoadingAI, setIsLoadingAI] = useState(false); // AI đang xử lý
+    const [showAIPanel, setShowAIPanel] = useState(false); // AI settings panel
+    const [isCrawling, setIsCrawling] = useState(false); // Đang crawl training data
+    const [trainingStats, setTrainingStats] = useState<{
+        totalPairs: number;
+        byCategory: Record<string, number>;
+    } | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -766,6 +772,30 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé!`;
         setExpandedOrderId(null);
     };
 
+    // Crawl training data từ conversation history
+    const crawlTrainingData = async () => {
+        setIsCrawling(true);
+        try {
+            const response = await fetch('/api/facebook/crawl-training?limit=100');
+            const data = await response.json();
+
+            if (data.success) {
+                setTrainingStats({
+                    totalPairs: data.stats.totalPairs,
+                    byCategory: data.stats.byCategory
+                });
+                toast.success(`📚 Đã crawl ${data.stats.totalPairs} training pairs!`);
+            } else {
+                toast.error(data.error || 'Không thể crawl training data');
+            }
+        } catch (error) {
+            console.error('Crawl error:', error);
+            toast.error('Lỗi khi crawl training data');
+        } finally {
+            setIsCrawling(false);
+        }
+    };
+
     const customerOrders = getCustomerOrders();
 
     return (
@@ -786,17 +816,84 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé!`;
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* AI Auto-reply Toggle */}
-                    <button
-                        onClick={() => setIsAIEnabled(!isAIEnabled)}
-                        className={`px-2 py-1 text-xs rounded-lg transition-colors flex items-center gap-1 ${isAIEnabled
+                    {/* AI Auto-reply Toggle với Settings */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowAIPanel(!showAIPanel)}
+                            className={`px-2 py-1 text-xs rounded-lg transition-colors flex items-center gap-1 ${isAIEnabled
                                 ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
                                 : 'bg-muted text-muted-foreground'
-                            }`}
-                        title={isAIEnabled ? 'AI đang tự động trả lời' : 'Bật AI tự động trả lời'}
-                    >
-                        {isAIEnabled ? '🤖 AI On' : '🤖 AI Off'}
-                    </button>
+                                }`}
+                            title="Cài đặt AI"
+                        >
+                            {isAIEnabled ? '🤖 AI On' : '🤖 AI Off'}
+                            <span className="text-xs">{showAIPanel ? '▲' : '▼'}</span>
+                        </button>
+
+                        {/* AI Panel Dropdown */}
+                        {showAIPanel && (
+                            <div className="absolute right-0 top-full mt-1 w-64 bg-card border border-border rounded-lg shadow-lg z-50 p-3">
+                                <h4 className="font-medium text-sm mb-2 flex items-center gap-1">
+                                    🤖 AI Auto-Reply Settings
+                                </h4>
+
+                                {/* Toggle On/Off */}
+                                <div className="flex items-center justify-between mb-3 p-2 bg-muted/50 rounded-lg">
+                                    <span className="text-xs">Tự động trả lời</span>
+                                    <button
+                                        onClick={() => setIsAIEnabled(!isAIEnabled)}
+                                        className={`px-2 py-1 text-xs rounded ${isAIEnabled
+                                            ? 'bg-purple-500 text-white'
+                                            : 'bg-muted-foreground/20 text-muted-foreground'
+                                            }`}
+                                    >
+                                        {isAIEnabled ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+
+                                {/* Crawl Training Data */}
+                                <div className="border-t border-border pt-2">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs text-muted-foreground">Training Data</span>
+                                        {trainingStats && (
+                                            <span className="text-xs text-green-600">{trainingStats.totalPairs} pairs</span>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={crawlTrainingData}
+                                        disabled={isCrawling}
+                                        className="w-full px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {isCrawling ? (
+                                            <>
+                                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                Đang crawl...
+                                            </>
+                                        ) : (
+                                            <>📚 Crawl từ Conversation</>
+                                        )}
+                                    </button>
+
+                                    {/* Stats */}
+                                    {trainingStats && (
+                                        <div className="mt-2 text-xs text-muted-foreground grid grid-cols-2 gap-1">
+                                            <span>👋 Greeting: {trainingStats.byCategory.greeting || 0}</span>
+                                            <span>🛍️ Product: {trainingStats.byCategory.product || 0}</span>
+                                            <span>📦 Order: {trainingStats.byCategory.order || 0}</span>
+                                            <span>🚚 Ship: {trainingStats.byCategory.shipping || 0}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Info */}
+                                <div className="mt-2 pt-2 border-t border-border">
+                                    <p className="text-xs text-muted-foreground">
+                                        💡 AI sẽ học từ cách nhân viên trả lời trong conversation cũ
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <button
                         onClick={() => setIsAutoRefresh(!isAutoRefresh)}
                         className={`px-2 py-1 text-xs rounded-lg transition-colors ${isAutoRefresh ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
