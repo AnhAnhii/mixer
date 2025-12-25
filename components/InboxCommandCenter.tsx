@@ -9,13 +9,17 @@ interface InboxCommandCenterProps {
     orders: Order[];
     bankInfo: BankInfo | null;
     onOpenOrderForm: (order: Partial<Order> | null) => void;
+    onViewOrder?: (order: Order) => void;
+    onUpdateOrderStatus?: (orderId: string, status: string) => void;
 }
 
 const InboxCommandCenter: React.FC<InboxCommandCenterProps> = ({
     products,
     orders,
     bankInfo,
-    onOpenOrderForm
+    onOpenOrderForm,
+    onViewOrder,
+    onUpdateOrderStatus
 }) => {
     // Count pending orders
     const pendingCount = orders.filter(o => o.status === 'Chờ xử lý').length;
@@ -58,6 +62,9 @@ const InboxCommandCenter: React.FC<InboxCommandCenterProps> = ({
                         shippingAddress: customerData.address || orderData.shippingAddress,
                     });
                 }}
+                onViewOrder={onViewOrder}
+                onEditOrder={(order) => onOpenOrderForm(order)}
+                onUpdateOrderStatus={onUpdateOrderStatus}
             />
         </div>
     );

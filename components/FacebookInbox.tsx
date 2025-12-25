@@ -51,6 +51,9 @@ interface FacebookInboxProps {
     products?: Product[];
     bankInfo?: { bin: string; accountNumber: string; accountName: string } | null;
     onCreateOrderWithAI?: (orderData: Partial<Order>, customerData: Partial<Customer>) => void;
+    onViewOrder?: (order: Order) => void;
+    onEditOrder?: (order: Order) => void;
+    onUpdateOrderStatus?: (orderId: string, status: string) => void;
 }
 
 // Quick Reply Templates
@@ -84,7 +87,10 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     orders = [],
     products = [],
     bankInfo = null,
-    onCreateOrderWithAI
+    onCreateOrderWithAI,
+    onViewOrder,
+    onEditOrder,
+    onUpdateOrderStatus
 }) => {
     const toast = useToast();
 
@@ -115,6 +121,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     const [parsedOrderData, setParsedOrderData] = useState<Partial<Order> | null>(null);
     const [previousMessageCount, setPreviousMessageCount] = useState(0);
     const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
+    const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null); // Order đang mở menu
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -662,6 +669,61 @@ Trả về JSON với cấu trúc:
         return date.toLocaleDateString('vi-VN');
     };
 
+    // Các trạng thái đơn hàng
+    const ORDER_STATUSES = ['Chờ xử lý', 'Đang xử lý', 'Đã gửi hàng', 'Đã giao hàng', 'Đã hủy'];
+
+    // Tạo mẫu tin nhắn cho từng trạng thái
+    const getOrderStatusMessage = (order: Order, status: string) => {
+        const formatCurrency = (amount: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+        const orderId = order.id.substring(0, 8);
+
+        switch (status) {
+            case 'Chờ xử lý':
+                return `Dạ em xác nhận đơn hàng #${orderId} của ${order.customerName}:
+- Sản phẩm: ${order.items.map(i => `${i.productName} (${i.size}/${i.color}) x${i.quantity}`).join(', ')}
+- Tổng tiền: ${formatCurrency(order.totalAmount)}
+- Địa chỉ: ${order.shippingAddress}
+
+Bạn xác nhận lại thông tin giúp em nhé! ♥`;
+
+            case 'Đang xử lý':
+                return `Mixer xác nhận đã nhận được thanh toán cho đơn hàng #${orderId}.
+Đơn hàng của bạn đang được chuẩn bị và sẽ sớm được gửi đi.
+Cảm ơn bạn đã mua sắm! 🙏`;
+
+            case 'Đã gửi hàng':
+                return `Mixer xin thông báo: Đơn hàng #${orderId} của bạn đã được gửi đi.
+${order.shippingProvider ? `Đơn vị vận chuyển: ${order.shippingProvider}` : ''}
+${order.trackingCode ? `Mã vận đơn: ${order.trackingCode}` : ''}
+Bạn vui lòng để ý điện thoại để nhận hàng trong vài ngày tới nhé! 📦`;
+
+            case 'Đã giao hàng':
+                return `Mixer xin thông báo: Đơn hàng #${orderId} đã được giao thành công.
+Cảm ơn bạn đã tin tưởng và mua sắm tại Mixer! 🎉
+Hẹn gặp lại bạn ở những đơn hàng tiếp theo nhé! ♥`;
+
+            case 'Đã hủy':
+                return `Đơn hàng #${orderId} đã được hủy theo yêu cầu.
+Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! 🙏`;
+
+            default:
+                return '';
+        }
+    };
+
+    // Xử lý khi chọn trạng thái
+    const handleStatusAction = async (order: Order, status: string) => {
+        const message = getOrderStatusMessage(order, status);
+        if (message && selectedConversation) {
+            await sendMessage(message);
+            if (onUpdateOrderStatus) {
+                onUpdateOrderStatus(order.id, status);
+            }
+            toast.success(`Đã gửi tin ${status} và cập nhật đơn hàng!`);
+        }
+        setExpandedOrderId(null);
+    };
+
     const customerOrders = getCustomerOrders();
 
     return (
@@ -1028,19 +1090,76 @@ Trả về JSON với cấu trúc:
                             {customerOrders.length > 0 ? (
                                 <div className="space-y-2">
                                     {customerOrders.map(order => (
-                                        <div key={order.id} className="p-2 bg-card rounded-lg border border-border">
-                                            <div className="flex items-center justify-between">
+                                        <div key={order.id} className="p-2 bg-card rounded-lg border border-border relative">
+                                            <div
+                                                className="flex items-center justify-between cursor-pointer hover:bg-muted/50 rounded p-1 -m-1"
+                                                onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+                                            >
                                                 <span className="text-xs font-medium">#{order.id.slice(0, 8)}</span>
-                                                <span className={`text-xs px-1.5 py-0.5 rounded ${order.status === 'Đã giao hàng' ? 'bg-green-100 text-green-700' :
-                                                    order.status === 'Đã hủy' ? 'bg-red-100 text-red-700' :
-                                                        'bg-yellow-100 text-yellow-700'
-                                                    }`}>
-                                                    {order.status}
-                                                </span>
+                                                <div className="flex items-center gap-1">
+                                                    <span className={`text-xs px-1.5 py-0.5 rounded ${order.status === 'Đã giao hàng' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                        order.status === 'Đã hủy' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                            'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                        }`}>
+                                                        {order.status}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">{expandedOrderId === order.id ? '▲' : '▼'}</span>
+                                                </div>
                                             </div>
                                             <p className="text-xs text-muted-foreground mt-1">
                                                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount)}
                                             </p>
+
+                                            {/* Dropdown Menu */}
+                                            {expandedOrderId === order.id && (
+                                                <div className="mt-2 pt-2 border-t border-border space-y-1">
+                                                    {/* Status Actions */}
+                                                    <div className="text-xs text-muted-foreground mb-1">📨 Gửi tin theo trạng thái:</div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {ORDER_STATUSES.map(status => (
+                                                            <button
+                                                                key={status}
+                                                                onClick={() => handleStatusAction(order, status)}
+                                                                disabled={isSending}
+                                                                className={`text-xs px-2 py-1 rounded transition-colors ${status === 'Đã hủy'
+                                                                        ? 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400'
+                                                                        : status === 'Đã giao hàng'
+                                                                            ? 'bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400'
+                                                                            : 'bg-muted hover:bg-muted/80'
+                                                                    }`}
+                                                            >
+                                                                {status}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Other Actions */}
+                                                    <div className="flex gap-2 mt-2">
+                                                        {onViewOrder && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    onViewOrder(order);
+                                                                    setExpandedOrderId(null);
+                                                                }}
+                                                                className="flex-1 text-xs px-2 py-1.5 bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors"
+                                                            >
+                                                                👁️ Xem chi tiết
+                                                            </button>
+                                                        )}
+                                                        {onEditOrder && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    onEditOrder(order);
+                                                                    setExpandedOrderId(null);
+                                                                }}
+                                                                className="flex-1 text-xs px-2 py-1.5 bg-muted text-foreground rounded hover:bg-muted/80 transition-colors"
+                                                            >
+                                                                ✏️ Sửa đơn
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
