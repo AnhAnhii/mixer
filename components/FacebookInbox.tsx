@@ -122,6 +122,8 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     const [previousMessageCount, setPreviousMessageCount] = useState(0);
     const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
     const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null); // Order đang mở menu
+    const [isAIEnabled, setIsAIEnabled] = useState(false); // AI auto-reply toggle
+    const [isLoadingAI, setIsLoadingAI] = useState(false); // AI đang xử lý
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -784,6 +786,17 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé!`;
                     )}
                 </div>
                 <div className="flex items-center gap-2">
+                    {/* AI Auto-reply Toggle */}
+                    <button
+                        onClick={() => setIsAIEnabled(!isAIEnabled)}
+                        className={`px-2 py-1 text-xs rounded-lg transition-colors flex items-center gap-1 ${isAIEnabled
+                                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                        title={isAIEnabled ? 'AI đang tự động trả lời' : 'Bật AI tự động trả lời'}
+                    >
+                        {isAIEnabled ? '🤖 AI On' : '🤖 AI Off'}
+                    </button>
                     <button
                         onClick={() => setIsAutoRefresh(!isAutoRefresh)}
                         className={`px-2 py-1 text-xs rounded-lg transition-colors ${isAutoRefresh ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
