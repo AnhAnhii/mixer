@@ -183,6 +183,9 @@ export function useVouchersData() {
             vouchers: supabase.vouchers,
             isLoading: supabase.isLoading,
             setVouchers: () => { },
+            addVoucher: supabase.addVoucher,
+            updateVoucher: supabase.updateVoucher,
+            deleteVoucher: supabase.deleteVoucher,
             source: 'supabase' as const,
         };
     }
@@ -191,6 +194,19 @@ export function useVouchersData() {
         vouchers: localVouchers,
         isLoading: false,
         setVouchers: setLocalVouchers,
+        addVoucher: async (voucher: Omit<Voucher, 'id'>) => {
+            const newVoucher = { ...voucher, id: crypto.randomUUID() } as Voucher;
+            setLocalVouchers(prev => [newVoucher, ...prev]);
+            return newVoucher;
+        },
+        updateVoucher: async (id: string, voucher: Partial<Voucher>) => {
+            setLocalVouchers(prev => prev.map(v => v.id === id ? { ...v, ...voucher } : v));
+            return true;
+        },
+        deleteVoucher: async (id: string) => {
+            setLocalVouchers(prev => prev.filter(v => v.id !== id));
+            return true;
+        },
         source: 'localStorage' as const,
     };
 }
@@ -287,6 +303,10 @@ export function useAutomationRulesData() {
             rules: supabase.rules,
             isLoading: supabase.isLoading,
             setRules: () => { },
+            addRule: supabase.addRule,
+            updateRule: supabase.updateRule,
+            deleteRule: supabase.deleteRule,
+            toggleRule: supabase.toggleRule,
             source: 'supabase' as const,
         };
     }
@@ -295,6 +315,23 @@ export function useAutomationRulesData() {
         rules: localRules,
         isLoading: false,
         setRules: setLocalRules,
+        addRule: async (rule: Omit<AutomationRule, 'id'>) => {
+            const newRule = { ...rule, id: crypto.randomUUID() } as AutomationRule;
+            setLocalRules(prev => [newRule, ...prev]);
+            return newRule;
+        },
+        updateRule: async (id: string, rule: Partial<AutomationRule>) => {
+            setLocalRules(prev => prev.map(r => r.id === id ? { ...r, ...rule } : r));
+            return true;
+        },
+        deleteRule: async (id: string) => {
+            setLocalRules(prev => prev.filter(r => r.id !== id));
+            return true;
+        },
+        toggleRule: async (id: string, isEnabled: boolean) => {
+            setLocalRules(prev => prev.map(r => r.id === id ? { ...r, isEnabled } : r));
+            return true;
+        },
         source: 'localStorage' as const,
     };
 }

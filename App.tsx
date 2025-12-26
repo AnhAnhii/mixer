@@ -73,14 +73,14 @@ const AppContent: React.FC = () => {
     const { products, setProducts, addProduct, updateProduct, deleteProduct, isLoading: productsLoading, source: productsSource } = useProductsData();
     const { customers, setCustomers, addCustomer, updateCustomer, deleteCustomer, isLoading: customersLoading } = useCustomersData();
     const { orders, setOrders, addOrder, updateOrder, deleteOrder, isLoading: ordersLoading } = useOrdersData();
-    const { vouchers, setVouchers, isLoading: vouchersLoading } = useVouchersData();
+    const { vouchers, setVouchers, addVoucher, updateVoucher, deleteVoucher, isLoading: vouchersLoading } = useVouchersData();
     const { bankInfo, setBankInfo, isLoading: bankInfoLoading } = useBankInfoData();
     const { socialConfigs, setSocialConfigs, isLoading: socialConfigsLoading } = useSocialConfigsData();
     const { uiMode, setUiMode, isLoading: uiModeLoading } = useUiModeData();
 
     // Activity Log and Automation - Using Supabase
     const { logs: activityLog, setLogs: setActivityLog, isLoading: activityLoading } = useActivityLogsData();
-    const { rules: automationRules, setRules: setAutomationRules, isLoading: automationLoading } = useAutomationRulesData();
+    const { rules: automationRules, setRules: setAutomationRules, addRule, updateRule, deleteRule, toggleRule, isLoading: automationLoading } = useAutomationRulesData();
 
     // Return/Exchange State - Using Supabase
     const { returnRequests, setReturnRequests, isLoading: returnsLoading } = useReturnRequestsData();
@@ -307,27 +307,24 @@ const AppContent: React.FC = () => {
         toast.success('Đã cập nhật trạng thái.');
     };
 
-    const handleSaveOrder = (order: Order, customerToSave: Customer) => {
+    const handleSaveOrder = async (order: Order, customerToSave: Customer) => {
         const orderIdShort = order.id.substring(0, 8);
         const isEditing = orders.some(o => o.id === order.id);
 
+        // Save/Update customer using Supabase hooks
         const customerIndex = customers.findIndex(c => c.id === customerToSave.id);
         if (customerIndex > -1) {
-            setCustomers(prev => prev.map(c => c.id === customerToSave.id ? customerToSave : c));
+            await updateCustomer(customerToSave.id, customerToSave);
         } else {
-            setCustomers(prev => [...prev, customerToSave]);
+            await addCustomer(customerToSave);
         }
 
-        setProducts(currentProducts => {
-            const updatedProducts: Product[] = JSON.parse(JSON.stringify(currentProducts));
-            return updatedProducts;
-        });
-
+        // Save/Update order using Supabase hooks
         if (isEditing) {
-            setOrders(prev => prev.map(o => o.id === order.id ? order : o));
+            await updateOrder(order.id, order);
             logActivity(`<strong>${currentUser?.name}</strong> đã cập nhật đơn hàng <strong>#${orderIdShort}</strong>.`, order.id, 'order');
         } else {
-            setOrders(prev => [order, ...prev]);
+            await addOrder(order);
             logActivity(`<strong>${currentUser?.name}</strong> đã tạo đơn hàng mới <strong>#${orderIdShort}</strong>.`, order.id, 'order');
             runAutomations('ORDER_CREATED', { order });
         }
@@ -647,8 +644,8 @@ const AppContent: React.FC = () => {
             <Modal isOpen={isOrderFormOpen} onClose={() => setIsOrderFormOpen(false)} title={editingOrder?.id ? "Sửa đơn hàng" : "Tạo đơn hàng mới"}><OrderForm order={editingOrder} customers={customers} products={products} vouchers={vouchers} onSave={handleSaveOrder} onClose={() => setIsOrderFormOpen(false)} /></Modal>
             <Modal isOpen={isProductFormOpen} onClose={() => setIsProductFormOpen(false)} title={editingProduct ? "Sửa sản phẩm" : "Thêm sản phẩm mới"}><ProductForm product={editingProduct} onSave={async (p) => { if (editingProduct) { await updateProduct(p.id, p); } else { await addProduct(p); } setIsProductFormOpen(false); }} onClose={() => setIsProductFormOpen(false)} /></Modal>
             <Modal isOpen={isCustomerFormOpen} onClose={() => setIsCustomerFormOpen(false)} title={editingCustomer ? "Sửa khách hàng" : "Thêm khách hàng mới"}><CustomerForm customer={editingCustomer} onSave={async (c) => { if (editingCustomer) { await updateCustomer(c.id, c); } else { await addCustomer(c); } setIsCustomerFormOpen(false); }} onClose={() => setIsCustomerFormOpen(false)} /></Modal>
-            <Modal isOpen={isVoucherFormOpen} onClose={() => setIsVoucherFormOpen(false)} title={editingVoucher ? "Sửa mã giảm giá" : "Tạo mã giảm giá"}><VoucherForm voucher={editingVoucher} onSave={(v) => { setVouchers(prev => editingVoucher ? prev.map(vo => vo.id === v.id ? v : vo) : [...prev, v]); setIsVoucherFormOpen(false) }} onClose={() => setIsVoucherFormOpen(false)} /></Modal>
-            <Modal isOpen={isAutomationFormOpen} onClose={() => setIsAutomationFormOpen(false)} title={editingRule ? "Sửa quy tắc" : "Tạo quy tắc mới"}><AutomationForm rule={editingRule} onSave={(r) => { setAutomationRules(prev => editingRule ? prev.map(ru => ru.id === r.id ? r : ru) : [...prev, r]); setIsAutomationFormOpen(false) }} onClose={() => setIsAutomationFormOpen(false)} /></Modal>
+            <Modal isOpen={isVoucherFormOpen} onClose={() => setIsVoucherFormOpen(false)} title={editingVoucher ? "Sửa mã giảm giá" : "Tạo mã giảm giá"}><VoucherForm voucher={editingVoucher} onSave={async (v) => { if (editingVoucher) { await updateVoucher(v.id, v); } else { await addVoucher(v); } setIsVoucherFormOpen(false); }} onClose={() => setIsVoucherFormOpen(false)} /></Modal>
+            <Modal isOpen={isAutomationFormOpen} onClose={() => setIsAutomationFormOpen(false)} title={editingRule ? "Sửa quy tắc" : "Tạo quy tắc mới"}><AutomationForm rule={editingRule} onSave={async (r) => { if (editingRule) { await updateRule(r.id, r); } else { await addRule(r); } setIsAutomationFormOpen(false); }} onClose={() => setIsAutomationFormOpen(false)} /></Modal>
 
             {/* Detail Modals */}
             <OrderDetailModal
