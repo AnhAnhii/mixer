@@ -114,7 +114,7 @@ function syncOrder(sheet, order) {
             orderId,
             order.orderDate ? new Date(order.orderDate).toLocaleString('vi-VN') : '',
             order.customerName || '',
-            order.customerPhone || '',
+            "'" + (order.customerPhone || ''),  // Prefix with ' to force text format
             order.shippingAddress || '',
             item.productName || '',
             item.size || '',
@@ -138,7 +138,7 @@ function syncOrder(sheet, order) {
             orderId,
             order.orderDate ? new Date(order.orderDate).toLocaleString('vi-VN') : '',
             order.customerName || '',
-            order.customerPhone || '',
+            "'" + (order.customerPhone || ''),  // Prefix with ' to force text format
             order.shippingAddress || '',
             '',
             '',
