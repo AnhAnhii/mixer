@@ -53,6 +53,7 @@ import {
 
 // Hooks & Data
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useThemeData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus } from './hooks/useData';
 import { useAuth } from './hooks/useAuth';
 import { sampleProducts, sampleCustomers, sampleOrders, sampleFacebookPosts, sampleAutomationRules, sampleActivityLogs, sampleReturnRequests } from './data/sampleData';
 // Google Sheets removed - using Supabase instead
@@ -68,25 +69,24 @@ const AppContent: React.FC = () => {
     const [appIsLoading, setAppIsLoading] = useState(true);
     const [isInitialSyncing, setIsInitialSyncing] = useState(false);
 
-    // Main state
-    const [products, setProducts] = useLocalStorage<Product[]>('products-v2', sampleProducts);
-    const [customers, setCustomers] = useLocalStorage<Customer[]>('customers-v2', sampleCustomers);
-    const [orders, setOrders] = useLocalStorage<Order[]>('orders-v2', sampleOrders);
-    const [vouchers, setVouchers] = useLocalStorage<Voucher[]>('vouchers-v2', []);
-    const [bankInfo, setBankInfo] = useLocalStorage<BankInfo | null>('bankInfo-v2', {
-        bin: "970422",
-        accountNumber: "00922220110",
-        accountName: "Nguyen Quynh Trang"
-    });
+    // Main state - Using Supabase with localStorage fallback
+    const { products, setProducts, isLoading: productsLoading, source: productsSource } = useProductsData();
+    const { customers, setCustomers, isLoading: customersLoading } = useCustomersData();
+    const { orders, setOrders, isLoading: ordersLoading } = useOrdersData();
+    const { vouchers, setVouchers, isLoading: vouchersLoading } = useVouchersData();
+    const { bankInfo, setBankInfo, isLoading: bankInfoLoading } = useBankInfoData();
     const [socialConfigs, setSocialConfigs] = useLocalStorage<SocialPostConfig[]>('socialConfigs-v2', []);
     const [uiMode, setUiMode] = useLocalStorage<UiMode>('uiMode-v2', 'default');
 
-    // Automation and Activity Log State
-    const [activityLog, setActivityLog] = useLocalStorage<ActivityLog[]>('activityLog-v2', sampleActivityLogs);
-    const [automationRules, setAutomationRules] = useLocalStorage<AutomationRule[]>('automationRules-v2', sampleAutomationRules);
+    // Activity Log and Automation - Using Supabase
+    const { logs: activityLog, setLogs: setActivityLog, isLoading: activityLoading } = useActivityLogsData();
+    const { rules: automationRules, setRules: setAutomationRules, isLoading: automationLoading } = useAutomationRulesData();
 
-    // Return/Exchange State
-    const [returnRequests, setReturnRequests] = useLocalStorage<ReturnRequest[]>('returnRequests-v2', sampleReturnRequests);
+    // Return/Exchange State - Using Supabase
+    const { returnRequests, setReturnRequests, isLoading: returnsLoading } = useReturnRequestsData();
+
+    // Data source status
+    const { source: dataSource, isSupabaseConfigured, isSupabaseConnected } = useDataSourceStatus();
 
     // Note: Google Sheets removed - using Supabase for data storage
 
