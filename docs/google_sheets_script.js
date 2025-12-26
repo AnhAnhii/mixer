@@ -97,16 +97,28 @@ function syncOrder(sheet, order) {
     const orderId = order.id.substring(0, 8);
     const data = sheet.getDataRange().getValues();
 
-    // Find existing rows for this order
-    const existingRows = [];
+    // Find existing rows for this order (including product rows with empty Order ID)
+    const rowsToDelete = [];
     for (let i = 1; i < data.length; i++) {
         if (data[i][0] === orderId) {
-            existingRows.push(i + 1); // 1-indexed
+            // Found the main order row
+            rowsToDelete.push(i + 1); // 1-indexed
+
+            // Also find subsequent rows with empty Order ID (product continuation rows)
+            for (let j = i + 1; j < data.length; j++) {
+                if (data[j][0] === '' || data[j][0] === null) {
+                    rowsToDelete.push(j + 1);
+                } else {
+                    // Hit another order, stop
+                    break;
+                }
+            }
+            break; // Found the order, exit main loop
         }
     }
 
     // Delete existing rows (reverse order to preserve indices)
-    existingRows.reverse().forEach(row => sheet.deleteRow(row));
+    rowsToDelete.reverse().forEach(row => sheet.deleteRow(row));
 
     // Insert new rows for each item
     const items = order.items || [];
