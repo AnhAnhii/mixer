@@ -309,6 +309,13 @@ const AppContent: React.FC = () => {
     const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
         await updateOrder(orderId, { status });
         logActivity(`<strong>${currentUser?.name}</strong> đã cập nhật trạng thái đơn hàng <strong>#${orderId.substring(0, 8)}</strong> thành <strong>${status}</strong>.`, orderId, 'order');
+
+        // Sync to Google Sheets
+        const orderToSync = orders.find(o => o.id === orderId);
+        if (orderToSync) {
+            syncOrderDirect({ ...orderToSync, status, staffName: currentUser?.name }, 'update').catch(console.error);
+        }
+
         toast.success('Đã cập nhật trạng thái.');
     };
 
