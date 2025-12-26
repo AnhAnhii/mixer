@@ -342,7 +342,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     // Generate VietQR URL
     const getVietQRUrl = (amount: number, orderId: string) => {
         if (!bankInfo) return '';
-        const content = encodeURIComponent(`TTDH${orderId}`);
+        const content = encodeURIComponent(`Mixer ${orderId}`);
         return `https://img.vietqr.io/image/${bankInfo.bin}-${bankInfo.accountNumber}-compact2.png?amount=${amount}&addInfo=${content}&accountName=${encodeURIComponent(bankInfo.accountName)}`;
     };
 
