@@ -4,7 +4,7 @@ import type { BankInfo, Order, Product, Customer, Voucher, SocialPostConfig, UiM
 import { banks } from '../data/banks';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon } from './icons';
 import { useToast } from './Toast';
-import { saveGoogleScriptUrl, getStoredGoogleScriptUrl } from '../services/googleSheetsService';
+import { saveGoogleSheetsSettings, getStoredGoogleScriptUrl, getStoredSheetName } from '../services/googleSheetsService';
 
 interface SettingsPageProps {
   bankInfo: BankInfo | null;
@@ -33,32 +33,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
 
   // Google Sheets state
   const [googleScriptUrl, setGoogleScriptUrl] = useState('');
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [sheetName, setSheetName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Load Google Script URL on mount
+  // Load Google Sheets settings on mount
   useEffect(() => {
     setGoogleScriptUrl(getStoredGoogleScriptUrl());
+    setSheetName(getStoredSheetName());
   }, []);
 
-  const handleSaveGoogleScriptUrl = () => {
-    saveGoogleScriptUrl(googleScriptUrl);
-    toast.success('Đã lưu URL Google Apps Script!');
-  };
-
-  const handleTestConnection = async () => {
-    if (!googleScriptUrl) {
-      toast.error('Vui lòng nhập URL trước');
+  const handleSaveGoogleSheetsSettings = () => {
+    if (!sheetName.trim()) {
+      toast.error('Vui lòng nhập tên sheet');
       return;
     }
-    setIsTestingConnection(true);
-    try {
-      // Just save URL - actual test would require sending test data
-      saveGoogleScriptUrl(googleScriptUrl);
-      toast.success('Đã lưu cấu hình Google Sheets!');
-    } catch (error) {
-      toast.error('Lỗi kết nối');
-    }
-    setIsTestingConnection(false);
+    setIsSaving(true);
+    saveGoogleSheetsSettings(googleScriptUrl, sheetName);
+    toast.success('Đã lưu cấu hình Google Sheets!');
+    setIsSaving(false);
   };
 
   const getBankName = (bin: string | undefined) => {
@@ -198,31 +190,47 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
               <label className="block text-sm font-medium text-card-foreground mb-2">
                 Google Apps Script URL
               </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={googleScriptUrl}
-                  onChange={(e) => setGoogleScriptUrl(e.target.value)}
-                  placeholder="https://script.google.com/macros/s/..."
-                  className="flex-1 px-4 py-2 border border-border rounded-lg bg-background text-card-foreground focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-                <button
-                  onClick={handleTestConnection}
-                  disabled={isTestingConnection}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {isTestingConnection ? 'Đang lưu...' : 'Lưu'}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Xem hướng dẫn tại: <code className="bg-muted px-1 rounded">docs/google_sheets_script.js</code>
+              <input
+                type="text"
+                value={googleScriptUrl}
+                onChange={(e) => setGoogleScriptUrl(e.target.value)}
+                placeholder="https://script.google.com/macros/s/..."
+                className="w-full px-4 py-2 border border-border rounded-lg bg-background text-card-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-card-foreground mb-2">
+                Tên Sheet (bắt buộc)
+              </label>
+              <input
+                type="text"
+                value={sheetName}
+                onChange={(e) => setSheetName(e.target.value)}
+                placeholder="Ví dụ: Thang12, DonHang2024, ..."
+                className="w-full px-4 py-2 border border-border rounded-lg bg-background text-card-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Nhập tên sheet bạn muốn lưu đơn hàng (ví dụ: Thang12)
               </p>
             </div>
 
-            {googleScriptUrl && (
+            <button
+              onClick={handleSaveGoogleSheetsSettings}
+              disabled={isSaving || !sheetName.trim()}
+              className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 font-medium"
+            >
+              {isSaving ? 'Đang lưu...' : 'Lưu cấu hình'}
+            </button>
+
+            <p className="text-xs text-muted-foreground">
+              Xem hướng dẫn tại: <code className="bg-muted px-1 rounded">docs/google_sheets_script.js</code>
+            </p>
+
+            {googleScriptUrl && sheetName && (
               <div className="flex items-center gap-2 text-sm text-green-600">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Đã cấu hình - Đơn hàng mới sẽ tự động sync</span>
+                <span>Đã cấu hình - Đơn hàng sẽ sync vào sheet "{sheetName}"</span>
               </div>
             )}
           </div>

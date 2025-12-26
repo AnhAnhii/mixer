@@ -22,37 +22,45 @@ interface OrderSyncData {
     notes?: string;
 }
 
-// Get Google Script URL from localStorage settings
-const getGoogleScriptUrl = (): string | null => {
+interface GoogleSheetsSettings {
+    scriptUrl: string;
+    sheetName: string;
+}
+
+// Get Google Sheets settings from localStorage
+const getGoogleSheetsSettings = (): GoogleSheetsSettings | null => {
     try {
         const settings = localStorage.getItem('googleSheetsSettings');
         if (settings) {
-            const parsed = JSON.parse(settings);
-            return parsed.scriptUrl || null;
+            return JSON.parse(settings);
         }
     } catch (e) {
-        console.error('Error getting Google Script URL:', e);
+        console.error('Error getting Google Sheets settings:', e);
     }
     return null;
 };
 
-// Save Google Script URL to localStorage
-export const saveGoogleScriptUrl = (url: string): void => {
-    localStorage.setItem('googleSheetsSettings', JSON.stringify({ scriptUrl: url }));
+// Save Google Sheets settings to localStorage
+export const saveGoogleSheetsSettings = (scriptUrl: string, sheetName: string): void => {
+    localStorage.setItem('googleSheetsSettings', JSON.stringify({ scriptUrl, sheetName }));
 };
 
-// Get stored Google Script URL
+// Get stored Google Script URL (backward compatible)
 export const getStoredGoogleScriptUrl = (): string => {
-    try {
-        const settings = localStorage.getItem('googleSheetsSettings');
-        if (settings) {
-            const parsed = JSON.parse(settings);
-            return parsed.scriptUrl || '';
-        }
-    } catch (e) {
-        console.error('Error getting Google Script URL:', e);
-    }
-    return '';
+    const settings = getGoogleSheetsSettings();
+    return settings?.scriptUrl || '';
+};
+
+// Get stored sheet name
+export const getStoredSheetName = (): string => {
+    const settings = getGoogleSheetsSettings();
+    return settings?.sheetName || '';
+};
+
+// Legacy function - keep for backward compatibility
+export const saveGoogleScriptUrl = (url: string): void => {
+    const settings = getGoogleSheetsSettings();
+    saveGoogleSheetsSettings(url, settings?.sheetName || '');
 };
 
 // Sync order to Google Sheets
@@ -60,9 +68,9 @@ export const syncOrderToSheet = async (
     order: OrderSyncData,
     action: 'create' | 'update' | 'delete' = 'create'
 ): Promise<{ success: boolean; error?: string }> => {
-    const scriptUrl = getGoogleScriptUrl();
+    const settings = getGoogleSheetsSettings();
 
-    if (!scriptUrl) {
+    if (!settings?.scriptUrl) {
         console.log('Google Sheets sync skipped: No script URL configured');
         return { success: false, error: 'Google Script URL not configured' };
     }
@@ -77,7 +85,8 @@ export const syncOrderToSheet = async (
             body: JSON.stringify({
                 action,
                 order,
-                googleScriptUrl: scriptUrl,
+                googleScriptUrl: settings.scriptUrl,
+                sheetName: settings.sheetName,
             }),
         });
 
@@ -104,14 +113,14 @@ export const syncOrderDirect = async (
     order: OrderSyncData,
     action: 'create' | 'update' | 'delete' = 'create'
 ): Promise<{ success: boolean; error?: string }> => {
-    const scriptUrl = getGoogleScriptUrl();
+    const settings = getGoogleSheetsSettings();
 
-    if (!scriptUrl) {
+    if (!settings?.scriptUrl) {
         return { success: false, error: 'Google Script URL not configured' };
     }
 
     try {
-        const response = await fetch(scriptUrl, {
+        const response = await fetch(settings.scriptUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -119,6 +128,7 @@ export const syncOrderDirect = async (
             body: JSON.stringify({
                 action,
                 order,
+                sheetName: settings.sheetName,
             }),
         });
 
@@ -136,5 +146,7 @@ export default {
     syncOrderToSheet,
     syncOrderDirect,
     saveGoogleScriptUrl,
+    saveGoogleSheetsSettings,
     getStoredGoogleScriptUrl,
+    getStoredSheetName,
 };

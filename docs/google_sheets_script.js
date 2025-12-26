@@ -16,16 +16,17 @@ const HEADER_ROW = [
     'Thanh toán', 'Trạng thái', 'Mã vận đơn', 'Nhân viên', 'Ghi chú', 'Last Updated'
 ];
 
-// Get or create sheet for current month
-function getOrCreateMonthSheet() {
+// Get or create sheet by name (from Settings - user defined)
+function getOrCreateSheet(sheetName) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const now = new Date();
-    const monthName = 'Thang' + (now.getMonth() + 1); // Thang1, Thang2, ...
 
-    let sheet = ss.getSheetByName(monthName);
+    // Use provided sheetName or fallback to current month
+    const name = sheetName || ('Thang' + (new Date().getMonth() + 1));
+
+    let sheet = ss.getSheetByName(name);
 
     if (!sheet) {
-        sheet = ss.insertSheet(monthName);
+        sheet = ss.insertSheet(name);
         // Add header row
         sheet.getRange(1, 1, 1, HEADER_ROW.length).setValues([HEADER_ROW]);
         sheet.getRange(1, 1, 1, HEADER_ROW.length)
@@ -61,8 +62,9 @@ function doPost(e) {
         const data = JSON.parse(e.postData.contents);
         const action = data.action; // 'create', 'update', 'delete'
         const order = data.order;
+        const sheetName = data.sheetName; // Custom sheet name from Mixer Settings
 
-        const sheet = getOrCreateMonthSheet();
+        const sheet = getOrCreateSheet(sheetName);
 
         if (action === 'create' || action === 'update') {
             syncOrder(sheet, order);
@@ -72,7 +74,8 @@ function doPost(e) {
 
         return ContentService.createTextOutput(JSON.stringify({
             success: true,
-            message: 'Order synced successfully'
+            message: 'Order synced successfully',
+            sheet: sheet.getName()
         })).setMimeType(ContentService.MimeType.JSON);
 
     } catch (error) {
