@@ -99,7 +99,41 @@ export const productService = {
             })
             .eq('id', id);
 
-        return !error;
+        if (error) {
+            console.error('Error updating product:', error);
+            return false;
+        }
+
+        // Update variants: delete old ones and insert new ones
+        if (product.variants) {
+            // Delete existing variants
+            await supabase
+                .from('product_variants')
+                .delete()
+                .eq('product_id', id);
+
+            // Insert new variants
+            if (product.variants.length > 0) {
+                const { error: variantError } = await supabase
+                    .from('product_variants')
+                    .insert(
+                        product.variants.map(v => ({
+                            product_id: id,
+                            size: v.size,
+                            color: v.color,
+                            stock: v.stock,
+                            low_stock_threshold: v.lowStockThreshold,
+                        }))
+                    );
+
+                if (variantError) {
+                    console.error('Error updating variants:', variantError);
+                    return false;
+                }
+            }
+        }
+
+        return true;
     },
 
     async delete(id: string): Promise<boolean> {
