@@ -54,6 +54,9 @@ function getOrCreateSheet(sheetName) {
 
         // Set phone column (D) to Plain Text format to preserve leading zeros
         sheet.getRange('D:D').setNumberFormat('@');
+
+        // Center align Order ID column (A)
+        sheet.getRange('A:A').setHorizontalAlignment('center');
     }
 
     return sheet;
