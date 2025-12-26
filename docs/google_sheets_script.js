@@ -99,10 +99,13 @@ function syncOrder(sheet, order) {
 
     // Find existing rows for this order (including product rows with empty Order ID)
     const rowsToDelete = [];
+    let insertPosition = -1; // Position to insert new rows (if updating)
+
     for (let i = 1; i < data.length; i++) {
         if (data[i][0] === orderId) {
-            // Found the main order row
-            rowsToDelete.push(i + 1); // 1-indexed
+            // Found the main order row - save position for later
+            insertPosition = i + 1; // 1-indexed
+            rowsToDelete.push(i + 1);
 
             // Also find subsequent rows with empty Order ID (product continuation rows)
             for (let j = i + 1; j < data.length; j++) {
@@ -126,7 +129,7 @@ function syncOrder(sheet, order) {
 
     items.forEach((item, index) => {
         const isFirstRow = index === 0;
-        const row = [
+        const rowData = [
             isFirstRow ? orderId : '',  // Mã đơn - chỉ dòng đầu
             isFirstRow ? (order.orderDate ? new Date(order.orderDate).toLocaleString('vi-VN') : '') : '',  // Ngày đặt
             isFirstRow ? (order.customerName || '') : '',  // Tên KH
@@ -145,7 +148,14 @@ function syncOrder(sheet, order) {
             isFirstRow ? now : ''  // Last Updated
         ];
 
-        sheet.appendRow(row);
+        if (insertPosition > 0) {
+            // Update existing order - insert at original position
+            sheet.insertRowAfter(insertPosition - 1 + index);
+            sheet.getRange(insertPosition + index, 1, 1, rowData.length).setValues([rowData]);
+        } else {
+            // New order - append at bottom
+            sheet.appendRow(rowData);
+        }
     });
 
     // If no items, still add one row
