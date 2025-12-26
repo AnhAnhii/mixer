@@ -60,14 +60,14 @@ export function useSupabaseAuth() {
             return;
         }
 
-        // Supabase auth listener
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.user) {
+        // Helper function to load user profile
+        const loadUserProfile = async (authUserId: string) => {
+            try {
                 // Fetch user profile from users table
                 const { data: userProfile } = await supabase
                     .from('users')
                     .select('*')
-                    .eq('auth_id', session.user.id)
+                    .eq('auth_id', authUserId)
                     .single();
 
                 if (userProfile) {
@@ -82,15 +82,17 @@ export function useSupabaseAuth() {
                         id: userProfile.id,
                         email: userProfile.email,
                         name: userProfile.name,
-                        password: '', // Not stored in Supabase Auth
+                        password: '',
                         avatar: userProfile.avatar,
                         roleId: userProfile.role_id,
                         status: userProfile.status,
+                        joinDate: userProfile.created_at || new Date().toISOString(),
                     };
 
                     const role: Role | null = roleData ? {
                         id: roleData.id,
                         name: roleData.name,
+                        description: roleData.description || '',
                         permissions: roleData.permissions || [],
                     } : null;
 
@@ -103,7 +105,29 @@ export function useSupabaseAuth() {
                 } else {
                     setAuthState({ user: null, role: null, isLoading: false, isAuthenticated: false });
                 }
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+                setAuthState({ user: null, role: null, isLoading: false, isAuthenticated: false });
+            }
+        };
+
+        // CRITICAL: Check existing session on mount
+        const initializeAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                await loadUserProfile(session.user.id);
             } else {
+                setAuthState({ user: null, role: null, isLoading: false, isAuthenticated: false });
+            }
+        };
+
+        initializeAuth();
+
+        // Supabase auth listener for future changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                await loadUserProfile(session.user.id);
+            } else if (event === 'SIGNED_OUT') {
                 setAuthState({ user: null, role: null, isLoading: false, isAuthenticated: false });
             }
         });
