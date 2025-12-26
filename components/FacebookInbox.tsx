@@ -796,6 +796,32 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé!`;
         }
     };
 
+    // Toggle AI auto-reply và sync với backend
+    const toggleAIEnabled = async () => {
+        const newValue = !isAIEnabled;
+        setIsAIEnabled(newValue);
+
+        try {
+            const response = await fetch('/api/ai/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'setEnabled', data: { enabled: newValue } })
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                toast.success(`🤖 AI Auto-reply ${newValue ? 'BẬT' : 'TẮT'}!`);
+            } else {
+                toast.error('Không thể cập nhật AI settings');
+                setIsAIEnabled(!newValue); // Rollback
+            }
+        } catch (error) {
+            console.error('Toggle AI error:', error);
+            toast.error('Lỗi kết nối');
+            setIsAIEnabled(!newValue); // Rollback
+        }
+    };
+
     const customerOrders = getCustomerOrders();
 
     return (
@@ -841,7 +867,7 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé!`;
                                 <div className="flex items-center justify-between mb-3 p-2 bg-muted/50 rounded-lg">
                                     <span className="text-xs">Tự động trả lời</span>
                                     <button
-                                        onClick={() => setIsAIEnabled(!isAIEnabled)}
+                                        onClick={toggleAIEnabled}
                                         className={`px-2 py-1 text-xs rounded ${isAIEnabled
                                             ? 'bg-purple-500 text-white'
                                             : 'bg-muted-foreground/20 text-muted-foreground'

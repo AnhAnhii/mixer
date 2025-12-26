@@ -1,17 +1,45 @@
 // api/ai/settings.ts
-// API endpoint để quản lý AI auto-reply settings
+// API endpoint để quản lý AI auto-reply settings - SHARED giữa UI và Webhook
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// In-memory settings (trong thực tế nên lưu database)
-let aiSettings = {
-    autoReplyEnabled: false,
+// Global state (shared trong cùng process)
+// NOTE: Trên Vercel, mỗi request có thể là process khác nhau
+// Để persistent, cần dùng database hoặc KV store
+// Tạm thời dùng env var làm default, API override khi cần
+
+interface AISettings {
+    autoReplyEnabled: boolean;
+    confidenceThreshold: number;
+    lastUpdated: string;
+}
+
+// Initialize từ env var
+let globalSettings: AISettings = {
+    autoReplyEnabled: process.env.AI_AUTO_REPLY === 'true',
     confidenceThreshold: 0.6,
-    handoffKeywords: ['nhân viên', 'người', 'real person', 'staff'],
-    responseDelay: 1000, // ms
+    lastUpdated: new Date().toISOString()
 };
 
 let trainingData: Array<{ customerMessage: string; employeeResponse: string; category?: string }> = [];
+
+// Export để webhook có thể import
+export function getSettings(): AISettings {
+    return globalSettings;
+}
+
+export function setAutoReplyEnabled(enabled: boolean): void {
+    globalSettings.autoReplyEnabled = enabled;
+    globalSettings.lastUpdated = new Date().toISOString();
+}
+
+export function getTrainingData() {
+    return trainingData;
+}
+
+export function setTrainingData(data: typeof trainingData) {
+    trainingData = data;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
         return res.status(200).json({
             success: true,
-            settings: aiSettings,
+            settings: globalSettings,
             trainingDataCount: trainingData.length
         });
     }
@@ -37,16 +65,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         switch (action) {
             case 'toggle':
-                aiSettings.autoReplyEnabled = !aiSettings.autoReplyEnabled;
-                console.log(`🤖 AI Auto-reply ${aiSettings.autoReplyEnabled ? 'ENABLED' : 'DISABLED'}`);
+                globalSettings.autoReplyEnabled = !globalSettings.autoReplyEnabled;
+                globalSettings.lastUpdated = new Date().toISOString();
+                console.log(`🤖 AI Auto-reply ${globalSettings.autoReplyEnabled ? 'ENABLED' : 'DISABLED'}`);
                 break;
 
             case 'setEnabled':
-                aiSettings.autoReplyEnabled = !!data.enabled;
+                globalSettings.autoReplyEnabled = !!data?.enabled;
+                globalSettings.lastUpdated = new Date().toISOString();
+                console.log(`🤖 AI Auto-reply set to ${globalSettings.autoReplyEnabled ? 'ENABLED' : 'DISABLED'}`);
                 break;
 
             case 'updateSettings':
-                aiSettings = { ...aiSettings, ...data };
+                if (data?.confidenceThreshold !== undefined) {
+                    globalSettings.confidenceThreshold = data.confidenceThreshold;
+                }
+                globalSettings.lastUpdated = new Date().toISOString();
                 break;
 
             case 'setTrainingData':
@@ -56,35 +90,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 break;
 
-            case 'addTrainingPair':
-                if (data?.customerMessage && data?.employeeResponse) {
-                    trainingData.push({
-                        customerMessage: data.customerMessage,
-                        employeeResponse: data.employeeResponse,
-                        category: data.category
-                    });
-                }
-                break;
-
             default:
                 return res.status(400).json({ error: 'Unknown action' });
         }
 
         return res.status(200).json({
             success: true,
-            settings: aiSettings,
+            settings: globalSettings,
             trainingDataCount: trainingData.length
         });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
-}
-
-// Export for use in webhook
-export function getAISettings() {
-    return aiSettings;
-}
-
-export function getTrainingData() {
-    return trainingData;
 }

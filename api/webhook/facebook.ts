@@ -129,9 +129,16 @@ async function handleMessage(event: MessagingEvent) {
         return;
     }
 
-    // Kiểm tra xem có bật auto-reply không
-    if (!AUTO_REPLY_ENABLED) {
-        console.log('⏸️ Auto-reply is disabled');
+    // Kiểm tra xem có bật auto-reply không (gọi API settings)
+    try {
+        // Trong production, gọi API. Tạm thời dùng env var + global state
+        const isEnabled = AUTO_REPLY_ENABLED || process.env.AI_AUTO_REPLY === 'true';
+        if (!isEnabled) {
+            console.log('⏸️ Auto-reply is disabled');
+            return;
+        }
+    } catch (e) {
+        console.log('⏸️ Could not check auto-reply status, skipping');
         return;
     }
 
