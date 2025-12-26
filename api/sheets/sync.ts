@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        const { action, order, googleScriptUrl } = req.body;
+        const { action, order, googleScriptUrl, sheetName } = req.body;
 
         if (!googleScriptUrl) {
             return res.status(400).json({
@@ -43,6 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             body: JSON.stringify({
                 action: action || 'create',
                 order: order,
+                sheetName: sheetName, // Forward sheet name
             }),
         });
 
