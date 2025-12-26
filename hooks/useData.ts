@@ -336,3 +336,53 @@ export function useDataSourceStatus() {
         isSupabaseConnected: isConnected,
     };
 }
+
+// ==================== SOCIAL CONFIGS ====================
+
+export function useSocialConfigsData() {
+    const source = getDataSource();
+
+    const supabase = useSettings<any[]>('social_configs', []);
+    const [localConfigs, setLocalConfigs] = useLocalStorage<any[]>('socialConfigs-v2', []);
+
+    if (source === 'supabase') {
+        return {
+            socialConfigs: supabase.value || [],
+            setSocialConfigs: supabase.setValue,
+            isLoading: supabase.isLoading,
+            source: 'supabase' as const,
+        };
+    }
+
+    return {
+        socialConfigs: localConfigs,
+        setSocialConfigs: async (value: any[]) => setLocalConfigs(value),
+        isLoading: false,
+        source: 'localStorage' as const,
+    };
+}
+
+// ==================== UI MODE ====================
+
+export function useUiModeData() {
+    const source = getDataSource();
+
+    const supabase = useSettings<string>('ui_mode', 'default');
+    const [localMode, setLocalMode] = useLocalStorage<string>('uiMode-v2', 'default');
+
+    if (source === 'supabase') {
+        return {
+            uiMode: supabase.value || 'default',
+            setUiMode: supabase.setValue,
+            isLoading: supabase.isLoading,
+            source: 'supabase' as const,
+        };
+    }
+
+    return {
+        uiMode: localMode,
+        setUiMode: async (value: string) => setLocalMode(value),
+        isLoading: false,
+        source: 'localStorage' as const,
+    };
+}

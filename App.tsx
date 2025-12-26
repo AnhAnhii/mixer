@@ -53,7 +53,7 @@ import {
 
 // Hooks & Data
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useThemeData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus } from './hooks/useData';
+import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useThemeData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus, useSocialConfigsData, useUiModeData } from './hooks/useData';
 import { useAuth } from './hooks/useAuth';
 import { sampleProducts, sampleCustomers, sampleOrders, sampleFacebookPosts, sampleAutomationRules, sampleActivityLogs, sampleReturnRequests } from './data/sampleData';
 // Google Sheets removed - using Supabase instead
@@ -75,8 +75,8 @@ const AppContent: React.FC = () => {
     const { orders, setOrders, addOrder, updateOrder, deleteOrder, isLoading: ordersLoading } = useOrdersData();
     const { vouchers, setVouchers, isLoading: vouchersLoading } = useVouchersData();
     const { bankInfo, setBankInfo, isLoading: bankInfoLoading } = useBankInfoData();
-    const [socialConfigs, setSocialConfigs] = useLocalStorage<SocialPostConfig[]>('socialConfigs-v2', []);
-    const [uiMode, setUiMode] = useLocalStorage<UiMode>('uiMode-v2', 'default');
+    const { socialConfigs, setSocialConfigs, isLoading: socialConfigsLoading } = useSocialConfigsData();
+    const { uiMode, setUiMode, isLoading: uiModeLoading } = useUiModeData();
 
     // Activity Log and Automation - Using Supabase
     const { logs: activityLog, setLogs: setActivityLog, isLoading: activityLoading } = useActivityLogsData();
@@ -95,12 +95,8 @@ const AppContent: React.FC = () => {
     // Refs for data tracking
     const allDataRef = useRef<any>(null);
 
-    // New Theme Engine State
-    const [theme, setTheme] = useLocalStorage<ThemeSettings>('themeSettings-v2', {
-        palette: 'modern',
-        density: 'comfortable',
-        style: 'rounded',
-    });
+    // Theme - Using Supabase 
+    const { theme, setTheme, isLoading: themeLoading } = useThemeData();
     const [view, setView] = useState<Page>(() => {
         const lastView = sessionStorage.getItem('lastView-v2');
         return (lastView as Page) || 'dashboard';
