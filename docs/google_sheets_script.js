@@ -181,6 +181,43 @@ function syncOrder(sheet, order) {
 
         sheet.appendRow(row);
     }
+
+    // Apply color based on status
+    const color = getStatusColor(order.status, order.paymentStatus);
+    const numRows = Math.max(items.length, 1);
+
+    if (insertPosition > 0) {
+        // Updated order - color at original position
+        sheet.getRange(insertPosition, 1, numRows, HEADER_ROW.length).setBackground(color);
+    } else {
+        // New order - color at bottom
+        const lastRow = sheet.getLastRow();
+        const startRow = lastRow - numRows + 1;
+        sheet.getRange(startRow, 1, numRows, HEADER_ROW.length).setBackground(color);
+    }
+}
+
+// Get background color based on order status
+function getStatusColor(status, paymentStatus) {
+    // Pending + Unpaid = Orange
+    if (status === 'Pending' && paymentStatus === 'Unpaid') {
+        return '#FFE0B2'; // Light Orange
+    }
+
+    switch (status) {
+        case 'Pending':
+            return '#FFFFFF'; // White - Chờ xử lý
+        case 'Processing':
+            return '#FFF9C4'; // Light Yellow - Đang xử lý
+        case 'Shipped':
+            return '#BBDEFB'; // Light Blue - Đã gửi hàng
+        case 'Delivered':
+            return '#C8E6C9'; // Light Green - Đã giao hàng
+        case 'Cancelled':
+            return '#E0E0E0'; // Grey - Đã hủy
+        default:
+            return '#FFFFFF'; // White default
+    }
 }
 
 // Delete order from sheet
