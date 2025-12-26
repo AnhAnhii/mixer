@@ -56,7 +56,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useThemeData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus, useSocialConfigsData, useUiModeData } from './hooks/useData';
 import { useAuth } from './hooks/useAuth';
 import { sampleProducts, sampleCustomers, sampleOrders, sampleFacebookPosts, sampleAutomationRules, sampleActivityLogs, sampleReturnRequests } from './data/sampleData';
-import { syncOrderDirect } from './services/googleSheetsService';
+import { syncOrderDirect, loadGoogleSheetsSettings } from './services/googleSheetsService';
 import { GOOGLE_SCRIPT_URL, GEMINI_API_KEY } from './config';
 
 // Types
@@ -108,6 +108,9 @@ const AppContent: React.FC = () => {
 
     // --- App Loading Complete ---
     useEffect(() => {
+        // Load Google Sheets settings into cache
+        loadGoogleSheetsSettings().catch(console.error);
+
         // App is ready - Supabase will handle data loading via hooks
         const timer = setTimeout(() => {
             setAppIsLoading(false);
