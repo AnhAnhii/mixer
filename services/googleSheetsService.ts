@@ -108,7 +108,7 @@ export const saveGoogleScriptUrl = async (url: string): Promise<void> => {
     await saveGoogleSheetsSettings(url, settings?.sheetName || '');
 };
 
-// Sync order directly to Google Apps Script
+// Sync order to Google Sheets via API endpoint (to avoid CORS)
 export const syncOrderDirect = async (
     order: OrderSyncData,
     action: 'create' | 'update' | 'delete' = 'create'
@@ -116,11 +116,13 @@ export const syncOrderDirect = async (
     const settings = getGoogleSheetsSettings();
 
     if (!settings?.scriptUrl) {
+        console.log('Google Sheets sync skipped: No script URL configured');
         return { success: false, error: 'Google Script URL not configured' };
     }
 
     try {
-        const response = await fetch(settings.scriptUrl, {
+        // Route through our API endpoint to avoid CORS issues
+        const response = await fetch('/api/sheets/sync', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -128,13 +130,22 @@ export const syncOrderDirect = async (
             body: JSON.stringify({
                 action,
                 order,
+                googleScriptUrl: settings.scriptUrl,
                 sheetName: settings.sheetName,
             }),
         });
 
         const result = await response.json();
-        return { success: result.success, error: result.error };
+
+        if (result.success) {
+            console.log('Order synced to Google Sheets:', order.id);
+            return { success: true };
+        } else {
+            console.error('Failed to sync order:', result.error);
+            return { success: false, error: result.error };
+        }
     } catch (error) {
+        console.error('Error syncing to Google Sheets:', error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error'
