@@ -56,7 +56,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useThemeData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus, useSocialConfigsData, useUiModeData } from './hooks/useData';
 import { useAuth } from './hooks/useAuth';
 import { sampleProducts, sampleCustomers, sampleOrders, sampleFacebookPosts, sampleAutomationRules, sampleActivityLogs, sampleReturnRequests } from './data/sampleData';
-// Google Sheets removed - using Supabase instead
+import { syncOrderDirect } from './services/googleSheetsService';
 import { GOOGLE_SCRIPT_URL, GEMINI_API_KEY } from './config';
 
 // Types
@@ -327,6 +327,8 @@ const AppContent: React.FC = () => {
         if (isEditing) {
             await updateOrder(order.id, order);
             logActivity(`<strong>${currentUser?.name}</strong> đã cập nhật đơn hàng <strong>#${orderIdShort}</strong>.`, order.id, 'order');
+            // Sync to Google Sheets
+            syncOrderDirect({ ...order, staffName: currentUser?.name }, 'update').catch(console.error);
         } else {
             // Strip id for new order - Supabase will generate UUID
             const { id: _orderId, ...orderWithoutId } = order;
@@ -334,6 +336,8 @@ const AppContent: React.FC = () => {
             if (newOrder) {
                 logActivity(`<strong>${currentUser?.name}</strong> đã tạo đơn hàng mới <strong>#${newOrder.id.substring(0, 8)}</strong>.`, newOrder.id, 'order');
                 runAutomations('ORDER_CREATED', { order: newOrder });
+                // Sync to Google Sheets
+                syncOrderDirect({ ...newOrder, staffName: currentUser?.name }, 'create').catch(console.error);
             }
         }
         setIsOrderFormOpen(false);

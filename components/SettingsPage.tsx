@@ -1,9 +1,10 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import type { BankInfo, Order, Product, Customer, Voucher, SocialPostConfig, UiMode, ThemeSettings, ActivityLog, AutomationRule, ReturnRequest, User } from '../types';
 import { banks } from '../data/banks';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon } from './icons';
 import { useToast } from './Toast';
+import { saveGoogleScriptUrl, getStoredGoogleScriptUrl } from '../services/googleSheetsService';
 
 interface SettingsPageProps {
   bankInfo: BankInfo | null;
@@ -29,6 +30,36 @@ interface SettingsPageProps {
 const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImportData, theme, setTheme }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
+
+  // Google Sheets state
+  const [googleScriptUrl, setGoogleScriptUrl] = useState('');
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+
+  // Load Google Script URL on mount
+  useEffect(() => {
+    setGoogleScriptUrl(getStoredGoogleScriptUrl());
+  }, []);
+
+  const handleSaveGoogleScriptUrl = () => {
+    saveGoogleScriptUrl(googleScriptUrl);
+    toast.success('Đã lưu URL Google Apps Script!');
+  };
+
+  const handleTestConnection = async () => {
+    if (!googleScriptUrl) {
+      toast.error('Vui lòng nhập URL trước');
+      return;
+    }
+    setIsTestingConnection(true);
+    try {
+      // Just save URL - actual test would require sending test data
+      saveGoogleScriptUrl(googleScriptUrl);
+      toast.success('Đã lưu cấu hình Google Sheets!');
+    } catch (error) {
+      toast.error('Lỗi kết nối');
+    }
+    setIsTestingConnection(false);
+  };
 
   const getBankName = (bin: string | undefined) => {
     if (!bin) return 'Không rõ';
@@ -152,6 +183,48 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
               </button>
               <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
             </div>
+          </div>
+        </div>
+
+        {/* Google Sheets Section */}
+        <div>
+          <h3 className="text-xl font-semibold text-card-foreground mb-4">Google Sheets Sync</h3>
+          <div className="bg-card p-6 rounded-xl border border-border space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Tự động đồng bộ đơn hàng sang Google Sheets để nhân viên kho dễ dàng theo dõi.
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium text-card-foreground mb-2">
+                Google Apps Script URL
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={googleScriptUrl}
+                  onChange={(e) => setGoogleScriptUrl(e.target.value)}
+                  placeholder="https://script.google.com/macros/s/..."
+                  className="flex-1 px-4 py-2 border border-border rounded-lg bg-background text-card-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                <button
+                  onClick={handleTestConnection}
+                  disabled={isTestingConnection}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {isTestingConnection ? 'Đang lưu...' : 'Lưu'}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Xem hướng dẫn tại: <code className="bg-muted px-1 rounded">docs/google_sheets_script.js</code>
+              </p>
+            </div>
+
+            {googleScriptUrl && (
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Đã cấu hình - Đơn hàng mới sẽ tự động sync</span>
+              </div>
+            )}
           </div>
         </div>
 

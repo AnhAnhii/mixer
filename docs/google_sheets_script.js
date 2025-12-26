@@ -1,0 +1,260 @@
+// ===========================================
+// MIXER - GOOGLE SHEETS SYNC SCRIPT
+// ===========================================
+// Deploy this as Web App in Google Apps Script
+// 1. Go to Extensions → Apps Script
+// 2. Paste this code
+// 3. Deploy → New deployment → Web app
+// 4. Execute as: Me, Who has access: Anyone
+// 5. Copy the URL and paste into Mixer Settings
+// ===========================================
+
+// Configuration
+const HEADER_ROW = [
+    'Mã đơn', 'Ngày đặt', 'Tên khách hàng', 'Số điện thoại', 'Địa chỉ',
+    'Sản phẩm', 'Size', 'Màu sắc', 'Số lượng', 'Tổng tiền',
+    'Thanh toán', 'Trạng thái', 'Mã vận đơn', 'Nhân viên', 'Ghi chú', 'Last Updated'
+];
+
+// Get or create sheet for current month
+function getOrCreateMonthSheet() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const now = new Date();
+    const monthName = 'Thang' + (now.getMonth() + 1); // Thang1, Thang2, ...
+
+    let sheet = ss.getSheetByName(monthName);
+
+    if (!sheet) {
+        sheet = ss.insertSheet(monthName);
+        // Add header row
+        sheet.getRange(1, 1, 1, HEADER_ROW.length).setValues([HEADER_ROW]);
+        sheet.getRange(1, 1, 1, HEADER_ROW.length)
+            .setBackground('#4285f4')
+            .setFontColor('#ffffff')
+            .setFontWeight('bold');
+        sheet.setFrozenRows(1);
+
+        // Set column widths
+        sheet.setColumnWidth(1, 100);  // Mã đơn
+        sheet.setColumnWidth(2, 140);  // Ngày đặt
+        sheet.setColumnWidth(3, 150);  // Tên KH
+        sheet.setColumnWidth(4, 120);  // SĐT
+        sheet.setColumnWidth(5, 250);  // Địa chỉ
+        sheet.setColumnWidth(6, 150);  // Sản phẩm
+        sheet.setColumnWidth(7, 60);   // Size
+        sheet.setColumnWidth(8, 80);   // Màu
+        sheet.setColumnWidth(9, 80);   // Số lượng
+        sheet.setColumnWidth(10, 120); // Tổng tiền
+        sheet.setColumnWidth(11, 100); // Thanh toán
+        sheet.setColumnWidth(12, 100); // Trạng thái
+        sheet.setColumnWidth(13, 150); // Mã vận đơn
+        sheet.setColumnWidth(14, 100); // Nhân viên
+        sheet.setColumnWidth(15, 200); // Ghi chú
+    }
+
+    return sheet;
+}
+
+// Handle POST request from Mixer
+function doPost(e) {
+    try {
+        const data = JSON.parse(e.postData.contents);
+        const action = data.action; // 'create', 'update', 'delete'
+        const order = data.order;
+
+        const sheet = getOrCreateMonthSheet();
+
+        if (action === 'create' || action === 'update') {
+            syncOrder(sheet, order);
+        } else if (action === 'delete') {
+            deleteOrder(sheet, order.id);
+        }
+
+        return ContentService.createTextOutput(JSON.stringify({
+            success: true,
+            message: 'Order synced successfully'
+        })).setMimeType(ContentService.MimeType.JSON);
+
+    } catch (error) {
+        return ContentService.createTextOutput(JSON.stringify({
+            success: false,
+            error: error.toString()
+        })).setMimeType(ContentService.MimeType.JSON);
+    }
+}
+
+// Sync order to sheet
+function syncOrder(sheet, order) {
+    const orderId = order.id.substring(0, 8);
+    const data = sheet.getDataRange().getValues();
+
+    // Find existing rows for this order
+    const existingRows = [];
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === orderId) {
+            existingRows.push(i + 1); // 1-indexed
+        }
+    }
+
+    // Delete existing rows (reverse order to preserve indices)
+    existingRows.reverse().forEach(row => sheet.deleteRow(row));
+
+    // Insert new rows for each item
+    const items = order.items || [];
+    const now = new Date().toLocaleString('vi-VN');
+
+    items.forEach((item, index) => {
+        const row = [
+            orderId,
+            order.orderDate ? new Date(order.orderDate).toLocaleString('vi-VN') : '',
+            order.customerName || '',
+            order.customerPhone || '',
+            order.shippingAddress || '',
+            item.productName || '',
+            item.size || '',
+            item.color || '',
+            item.quantity || 1,
+            index === 0 ? order.totalAmount : '', // Only show total on first row
+            order.paymentStatus || 'Unpaid',
+            order.status || 'Pending',
+            order.trackingCode || '',
+            order.staffName || '',
+            order.notes || '',
+            now
+        ];
+
+        sheet.appendRow(row);
+    });
+
+    // If no items, still add one row
+    if (items.length === 0) {
+        const row = [
+            orderId,
+            order.orderDate ? new Date(order.orderDate).toLocaleString('vi-VN') : '',
+            order.customerName || '',
+            order.customerPhone || '',
+            order.shippingAddress || '',
+            '',
+            '',
+            '',
+            '',
+            order.totalAmount || 0,
+            order.paymentStatus || 'Unpaid',
+            order.status || 'Pending',
+            order.trackingCode || '',
+            order.staffName || '',
+            order.notes || '',
+            now
+        ];
+
+        sheet.appendRow(row);
+    }
+}
+
+// Delete order from sheet
+function deleteOrder(sheet, orderId) {
+    const shortId = orderId.substring(0, 8);
+    const data = sheet.getDataRange().getValues();
+
+    const rowsToDelete = [];
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === shortId) {
+            rowsToDelete.push(i + 1);
+        }
+    }
+
+    rowsToDelete.reverse().forEach(row => sheet.deleteRow(row));
+}
+
+// ===========================================
+// 2-WAY SYNC: Sheet → Mixer
+// ===========================================
+// This trigger runs when sheet is edited
+
+function onEdit(e) {
+    const sheet = e.source.getActiveSheet();
+    const range = e.range;
+    const row = range.getRow();
+    const col = range.getColumn();
+
+    // Ignore header row
+    if (row === 1) return;
+
+    // Only trigger for specific columns: Trạng thái (12), Mã vận đơn (13), Ghi chú (15)
+    if (col !== 12 && col !== 13 && col !== 15) return;
+
+    const orderId = sheet.getRange(row, 1).getValue();
+    if (!orderId) return;
+
+    // Get Mixer API URL from script properties
+    const props = PropertiesService.getScriptProperties();
+    const mixerApiUrl = props.getProperty('MIXER_API_URL');
+
+    if (!mixerApiUrl) {
+        Logger.log('MIXER_API_URL not configured');
+        return;
+    }
+
+    // Prepare update data
+    const updateData = {
+        orderId: orderId,
+        field: col === 12 ? 'status' : col === 13 ? 'trackingCode' : 'notes',
+        value: e.value
+    };
+
+    // Send to Mixer
+    try {
+        UrlFetchApp.fetch(mixerApiUrl + '/api/sheets/webhook', {
+            method: 'POST',
+            contentType: 'application/json',
+            payload: JSON.stringify(updateData)
+        });
+    } catch (error) {
+        Logger.log('Error syncing to Mixer: ' + error);
+    }
+}
+
+// Setup function - Run once to configure
+function setup() {
+    // Set your Mixer API URL here
+    const props = PropertiesService.getScriptProperties();
+    props.setProperty('MIXER_API_URL', 'https://mixerottn.vercel.app');
+
+    // Create trigger for onEdit
+    const triggers = ScriptApp.getProjectTriggers();
+    const hasEditTrigger = triggers.some(t => t.getHandlerFunction() === 'onEdit');
+
+    if (!hasEditTrigger) {
+        ScriptApp.newTrigger('onEdit')
+            .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
+            .onEdit()
+            .create();
+    }
+
+    Logger.log('Setup complete!');
+}
+
+// Test function
+function testSync() {
+    const testOrder = {
+        id: 'test1234-5678-9012-3456',
+        orderDate: new Date().toISOString(),
+        customerName: 'Nguyen Van A',
+        customerPhone: '0901234567',
+        shippingAddress: '123 Đường ABC, Quận 1, TP.HCM',
+        items: [
+            { productName: 'Áo thun', size: 'M', color: 'Đen', quantity: 2, price: 250000 },
+            { productName: 'Quần jean', size: 'L', color: 'Xanh', quantity: 1, price: 450000 }
+        ],
+        totalAmount: 950000,
+        paymentStatus: 'Unpaid',
+        status: 'Pending',
+        trackingCode: '',
+        staffName: 'Admin',
+        notes: 'Giao buổi sáng'
+    };
+
+    const sheet = getOrCreateMonthSheet();
+    syncOrder(sheet, testOrder);
+    Logger.log('Test sync complete!');
+}
