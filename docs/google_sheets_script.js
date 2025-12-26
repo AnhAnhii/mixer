@@ -188,12 +188,16 @@ function syncOrder(sheet, order) {
 
     if (insertPosition > 0) {
         // Updated order - color at original position
-        sheet.getRange(insertPosition, 1, numRows, HEADER_ROW.length).setBackground(color);
+        const range = sheet.getRange(insertPosition, 1, numRows, HEADER_ROW.length);
+        range.setBackground(color);
+        range.setFontColor('#000000'); // Always black text
     } else {
         // New order - color at bottom
         const lastRow = sheet.getLastRow();
         const startRow = lastRow - numRows + 1;
-        sheet.getRange(startRow, 1, numRows, HEADER_ROW.length).setBackground(color);
+        const range = sheet.getRange(startRow, 1, numRows, HEADER_ROW.length);
+        range.setBackground(color);
+        range.setFontColor('#000000'); // Always black text
     }
 }
 
