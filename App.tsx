@@ -279,30 +279,32 @@ const AppContent: React.FC = () => {
         }
     };
 
-    const handleDeleteOrder = (orderId: string) => {
-        setOrders(prev => prev.filter(o => o.id !== orderId));
+    const handleDeleteOrder = async (orderId: string) => {
+        await deleteOrder(orderId);
         logActivity(`<strong>${currentUser?.name}</strong> đã xóa đơn hàng <strong>#${orderId.substring(0, 8)}</strong>.`, orderId, 'order');
         toast.success('Đã xóa đơn hàng.');
     };
 
-    const handleDeleteCustomer = (customerId: string) => {
-        setCustomers(prev => prev.filter(c => c.id !== customerId));
+    const handleDeleteCustomer = async (customerId: string) => {
+        await deleteCustomer(customerId);
         logActivity(`<strong>${currentUser?.name}</strong> đã xóa khách hàng.`, customerId, 'customer');
         toast.success('Đã xóa khách hàng.');
     };
 
-    const handleBulkDeleteCustomers = (customerIds: string[]) => {
-        setCustomers(prev => prev.filter(c => !customerIds.includes(c.id)));
+    const handleBulkDeleteCustomers = async (customerIds: string[]) => {
+        for (const id of customerIds) {
+            await deleteCustomer(id);
+        }
         toast.success(`Đã xóa ${customerIds.length} khách hàng.`);
     }
 
-    const handleDeleteProduct = (productId: string) => {
-        setProducts(prev => prev.filter(p => p.id !== productId));
+    const handleDeleteProduct = async (productId: string) => {
+        await deleteProduct(productId);
         toast.success('Đã xóa sản phẩm.');
     }
 
-    const handleUpdateStatus = (orderId: string, status: OrderStatus) => {
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
+        await updateOrder(orderId, { status });
         logActivity(`<strong>${currentUser?.name}</strong> đã cập nhật trạng thái đơn hàng <strong>#${orderId.substring(0, 8)}</strong> thành <strong>${status}</strong>.`, orderId, 'order');
         toast.success('Đã cập nhật trạng thái.');
     };
@@ -511,10 +513,10 @@ const AppContent: React.FC = () => {
             case 'workflow': return <KanbanBoardPage orders={orders} onUpdateStatus={handleUpdateStatus} onViewDetails={handleViewOrderDetails} />;
             case 'inventory': return <InventoryList products={products} onEdit={handleOpenProductForm} onDelete={handleDeleteProduct} onAddProduct={() => handleOpenProductForm(null)} />;
             case 'customers': return <CustomerListPage customers={customers} onViewDetails={handleViewCustomerDetails} onEdit={handleOpenCustomerForm} onDelete={handleDeleteCustomer} onBulkDelete={handleBulkDeleteCustomers} onAddCustomer={() => handleOpenCustomerForm(null)} />;
-            case 'returns': return <ReturnsPage returnRequests={returnRequests} onUpdateStatus={(id, status) => setReturnRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r))} onViewDetails={handleViewReturnDetails} />;
-            case 'vouchers': return <VoucherListPage vouchers={vouchers} onEdit={handleOpenVoucherForm} onDelete={(id) => setVouchers(prev => prev.filter(v => v.id !== id))} onAdd={() => handleOpenVoucherForm(null)} />;
+            case 'returns': return <ReturnsPage returnRequests={returnRequests} onUpdateStatus={async (id, status) => { /* TODO: Add updateReturnRequestStatus hook */ }} onViewDetails={handleViewReturnDetails} />;
+            case 'vouchers': return <VoucherListPage vouchers={vouchers} onEdit={handleOpenVoucherForm} onDelete={async (id) => await deleteVoucher(id)} onAdd={() => handleOpenVoucherForm(null)} />;
             case 'social': return <SocialPage posts={sampleFacebookPosts} products={products} configs={socialConfigs} setConfigs={setSocialConfigs} />;
-            case 'automation': return <AutomationPage rules={automationRules} onAdd={() => handleOpenAutomationForm(null)} onEdit={handleOpenAutomationForm} onDelete={(id) => setAutomationRules(prev => prev.filter(r => r.id !== id))} onToggle={(id, isEnabled) => setAutomationRules(prev => prev.map(r => r.id === id ? { ...r, isEnabled } : r))} />;
+            case 'automation': return <AutomationPage rules={automationRules} onAdd={() => handleOpenAutomationForm(null)} onEdit={handleOpenAutomationForm} onDelete={async (id) => await deleteRule(id)} onToggle={async (id, isEnabled) => await toggleRule(id, isEnabled)} />;
             case 'activity': return <ActivityPage logs={activityLog} />;
             case 'reports': return <ReportsPage orders={orders} />;
             case 'staff': return <StaffManagement users={users} roles={roles} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onAddRole={handleAddRole} onUpdateRole={handleUpdateRole} onDeleteRole={handleDeleteRole} />;
