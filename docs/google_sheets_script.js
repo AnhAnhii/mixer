@@ -110,23 +110,24 @@ function syncOrder(sheet, order) {
     const now = new Date().toLocaleString('vi-VN');
 
     items.forEach((item, index) => {
+        const isFirstRow = index === 0;
         const row = [
-            orderId,
-            order.orderDate ? new Date(order.orderDate).toLocaleString('vi-VN') : '',
-            order.customerName || '',
-            "'" + (order.customerPhone || ''),  // Prefix with ' to force text format
-            order.shippingAddress || '',
-            item.productName || '',
-            item.size || '',
-            item.color || '',
-            item.quantity || 1,
-            index === 0 ? order.totalAmount : '', // Only show total on first row
-            order.paymentStatus || 'Unpaid',
-            order.status || 'Pending',
-            order.trackingCode || '',
-            order.staffName || '',
-            order.notes || '',
-            now
+            isFirstRow ? orderId : '',  // Mã đơn - chỉ dòng đầu
+            isFirstRow ? (order.orderDate ? new Date(order.orderDate).toLocaleString('vi-VN') : '') : '',  // Ngày đặt
+            isFirstRow ? (order.customerName || '') : '',  // Tên KH
+            isFirstRow ? ("'" + (order.customerPhone || '')) : '',  // SĐT
+            isFirstRow ? (order.shippingAddress || '') : '',  // Địa chỉ
+            item.productName || '',  // Sản phẩm - luôn hiển thị
+            item.size || '',  // Size - luôn hiển thị
+            item.color || '',  // Màu - luôn hiển thị
+            item.quantity || 1,  // Số lượng - luôn hiển thị
+            isFirstRow ? order.totalAmount : '',  // Tổng tiền - chỉ dòng đầu
+            isFirstRow ? (order.paymentStatus || 'Unpaid') : '',  // Thanh toán
+            isFirstRow ? (order.status || 'Pending') : '',  // Trạng thái
+            isFirstRow ? (order.trackingCode || '') : '',  // Mã vận đơn
+            isFirstRow ? (order.staffName || '') : '',  // Nhân viên
+            isFirstRow ? (order.notes || '') : '',  // Ghi chú
+            isFirstRow ? now : ''  // Last Updated
         ];
 
         sheet.appendRow(row);
