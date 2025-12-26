@@ -51,6 +51,9 @@ function getOrCreateSheet(sheetName) {
         sheet.setColumnWidth(13, 150); // Mã vận đơn
         sheet.setColumnWidth(14, 100); // Nhân viên
         sheet.setColumnWidth(15, 200); // Ghi chú
+
+        // Set phone column (D) to Plain Text format to preserve leading zeros
+        sheet.getRange('D:D').setNumberFormat('@');
     }
 
     return sheet;
