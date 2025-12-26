@@ -1,5 +1,9 @@
 // services/googleSheetsService.ts
 // Service to sync orders to Google Sheets
+// Settings stored in Supabase with localStorage fallback
+
+import { settingsService } from './supabaseService';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 interface OrderSyncData {
     id: string;
@@ -27,88 +31,84 @@ interface GoogleSheetsSettings {
     sheetName: string;
 }
 
-// Get Google Sheets settings from localStorage
-const getGoogleSheetsSettings = (): GoogleSheetsSettings | null => {
+// Local cache for settings (to avoid async in sync functions)
+let cachedSettings: GoogleSheetsSettings | null = null;
+
+// Get settings from localStorage (fallback)
+const getLocalSettings = (): GoogleSheetsSettings | null => {
     try {
         const settings = localStorage.getItem('googleSheetsSettings');
         if (settings) {
             return JSON.parse(settings);
         }
     } catch (e) {
-        console.error('Error getting Google Sheets settings:', e);
+        console.error('Error getting Google Sheets settings from localStorage:', e);
     }
     return null;
 };
 
-// Save Google Sheets settings to localStorage
-export const saveGoogleSheetsSettings = (scriptUrl: string, sheetName: string): void => {
-    localStorage.setItem('googleSheetsSettings', JSON.stringify({ scriptUrl, sheetName }));
+// Save settings to localStorage (fallback)
+const saveLocalSettings = (config: GoogleSheetsSettings): void => {
+    localStorage.setItem('googleSheetsSettings', JSON.stringify(config));
 };
 
-// Get stored Google Script URL (backward compatible)
+// Load settings from Supabase and update cache
+export const loadGoogleSheetsSettings = async (): Promise<GoogleSheetsSettings | null> => {
+    if (isSupabaseConfigured()) {
+        const config = await settingsService.getGoogleSheetsConfig();
+        if (config) {
+            cachedSettings = config;
+            // Also save to localStorage as backup
+            saveLocalSettings(config);
+            return config;
+        }
+    }
+    // Fallback to localStorage
+    cachedSettings = getLocalSettings();
+    return cachedSettings;
+};
+
+// Save settings to Supabase (and localStorage backup)
+export const saveGoogleSheetsSettings = async (scriptUrl: string, sheetName: string): Promise<boolean> => {
+    const config = { scriptUrl, sheetName };
+
+    // Always save to localStorage as backup
+    saveLocalSettings(config);
+    cachedSettings = config;
+
+    if (isSupabaseConfigured()) {
+        return await settingsService.setGoogleSheetsConfig(config);
+    }
+    return true;
+};
+
+// Get stored Google Script URL (sync - uses cache)
 export const getStoredGoogleScriptUrl = (): string => {
-    const settings = getGoogleSheetsSettings();
-    return settings?.scriptUrl || '';
+    if (cachedSettings) return cachedSettings.scriptUrl || '';
+    const local = getLocalSettings();
+    return local?.scriptUrl || '';
 };
 
-// Get stored sheet name
+// Get stored sheet name (sync - uses cache)
 export const getStoredSheetName = (): string => {
-    const settings = getGoogleSheetsSettings();
-    return settings?.sheetName || '';
+    if (cachedSettings) return cachedSettings.sheetName || '';
+    const local = getLocalSettings();
+    return local?.sheetName || '';
+};
+
+// Get current settings (sync - uses cache or localStorage)
+const getGoogleSheetsSettings = (): GoogleSheetsSettings | null => {
+    if (cachedSettings) return cachedSettings;
+    return getLocalSettings();
 };
 
 // Legacy function - keep for backward compatibility
-export const saveGoogleScriptUrl = (url: string): void => {
+export const saveGoogleScriptUrl = async (url: string): Promise<void> => {
     const settings = getGoogleSheetsSettings();
-    saveGoogleSheetsSettings(url, settings?.sheetName || '');
+    await saveGoogleSheetsSettings(url, settings?.sheetName || '');
 };
 
-// Sync order to Google Sheets
-export const syncOrderToSheet = async (
-    order: OrderSyncData,
-    action: 'create' | 'update' | 'delete' = 'create'
-): Promise<{ success: boolean; error?: string }> => {
-    const settings = getGoogleSheetsSettings();
-
-    if (!settings?.scriptUrl) {
-        console.log('Google Sheets sync skipped: No script URL configured');
-        return { success: false, error: 'Google Script URL not configured' };
-    }
-
-    try {
-        // Call our API endpoint which forwards to Google Apps Script
-        const response = await fetch('/api/sheets/sync', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action,
-                order,
-                googleScriptUrl: settings.scriptUrl,
-                sheetName: settings.sheetName,
-            }),
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            console.log('Order synced to Google Sheets:', order.id);
-            return { success: true };
-        } else {
-            console.error('Failed to sync order:', result.error);
-            return { success: false, error: result.error };
-        }
-    } catch (error) {
-        console.error('Error syncing to Google Sheets:', error);
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        };
-    }
-};
-
-// Sync order directly to Google Apps Script (alternative method)
+// Sync order directly to Google Apps Script
 export const syncOrderDirect = async (
     order: OrderSyncData,
     action: 'create' | 'update' | 'delete' = 'create'
@@ -142,11 +142,55 @@ export const syncOrderDirect = async (
     }
 };
 
+// Sync order to Google Sheets via API endpoint
+export const syncOrderToSheet = async (
+    order: OrderSyncData,
+    action: 'create' | 'update' | 'delete' = 'create'
+): Promise<{ success: boolean; error?: string }> => {
+    const settings = getGoogleSheetsSettings();
+
+    if (!settings?.scriptUrl) {
+        console.log('Google Sheets sync skipped: No script URL configured');
+        return { success: false, error: 'Google Script URL not configured' };
+    }
+
+    try {
+        const response = await fetch('/api/sheets/sync', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action,
+                order,
+                googleScriptUrl: settings.scriptUrl,
+                sheetName: settings.sheetName,
+            }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('Order synced to Google Sheets:', order.id);
+            return { success: true };
+        } else {
+            console.error('Failed to sync order:', result.error);
+            return { success: false, error: result.error };
+        }
+    } catch (error) {
+        console.error('Error syncing to Google Sheets:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+};
+
 export default {
     syncOrderToSheet,
     syncOrderDirect,
-    saveGoogleScriptUrl,
     saveGoogleSheetsSettings,
+    loadGoogleSheetsSettings,
     getStoredGoogleScriptUrl,
     getStoredSheetName,
 };

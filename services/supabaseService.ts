@@ -551,6 +551,14 @@ export const settingsService = {
     async setTheme(theme: ThemeSettings): Promise<boolean> {
         return this.set('theme', theme);
     },
+
+    async getGoogleSheetsConfig(): Promise<{ scriptUrl: string; sheetName: string } | null> {
+        return this.get<{ scriptUrl: string; sheetName: string }>('google_sheets_config');
+    },
+
+    async setGoogleSheetsConfig(config: { scriptUrl: string; sheetName: string }): Promise<boolean> {
+        return this.set('google_sheets_config', config);
+    },
 };
 
 // ==================== AI TRAINING DATA ====================

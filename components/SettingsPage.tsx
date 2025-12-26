@@ -4,7 +4,7 @@ import type { BankInfo, Order, Product, Customer, Voucher, SocialPostConfig, UiM
 import { banks } from '../data/banks';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon } from './icons';
 import { useToast } from './Toast';
-import { saveGoogleSheetsSettings, getStoredGoogleScriptUrl, getStoredSheetName } from '../services/googleSheetsService';
+import { saveGoogleSheetsSettings, loadGoogleSheetsSettings, getStoredGoogleScriptUrl, getStoredSheetName } from '../services/googleSheetsService';
 
 interface SettingsPageProps {
   bankInfo: BankInfo | null;
@@ -38,18 +38,32 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
 
   // Load Google Sheets settings on mount
   useEffect(() => {
-    setGoogleScriptUrl(getStoredGoogleScriptUrl());
-    setSheetName(getStoredSheetName());
+    const loadSettings = async () => {
+      const config = await loadGoogleSheetsSettings();
+      if (config) {
+        setGoogleScriptUrl(config.scriptUrl || '');
+        setSheetName(config.sheetName || '');
+      } else {
+        // Fallback to sync getters (from localStorage)
+        setGoogleScriptUrl(getStoredGoogleScriptUrl());
+        setSheetName(getStoredSheetName());
+      }
+    };
+    loadSettings();
   }, []);
 
-  const handleSaveGoogleSheetsSettings = () => {
+  const handleSaveGoogleSheetsSettings = async () => {
     if (!sheetName.trim()) {
       toast.error('Vui lòng nhập tên sheet');
       return;
     }
     setIsSaving(true);
-    saveGoogleSheetsSettings(googleScriptUrl, sheetName);
-    toast.success('Đã lưu cấu hình Google Sheets!');
+    const success = await saveGoogleSheetsSettings(googleScriptUrl, sheetName);
+    if (success) {
+      toast.success('Đã lưu cấu hình Google Sheets vào Supabase!');
+    } else {
+      toast.success('Đã lưu cấu hình Google Sheets (local)!');
+    }
     setIsSaving(false);
   };
 
