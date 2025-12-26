@@ -203,22 +203,22 @@ function syncOrder(sheet, order) {
 
 // Get background color based on order status
 function getStatusColor(status, paymentStatus) {
-    // Pending + Unpaid = Orange
-    if (status === 'Pending' && paymentStatus === 'Unpaid') {
+    // Chờ xử lý + Unpaid = Orange
+    if (status === 'Chờ xử lý' && paymentStatus === 'Unpaid') {
         return '#FFE0B2'; // Light Orange
     }
 
     switch (status) {
-        case 'Pending':
-            return '#FFFFFF'; // White - Chờ xử lý
-        case 'Processing':
-            return '#FFF9C4'; // Light Yellow - Đang xử lý
-        case 'Shipped':
-            return '#BBDEFB'; // Light Blue - Đã gửi hàng
-        case 'Delivered':
-            return '#C8E6C9'; // Light Green - Đã giao hàng
-        case 'Cancelled':
-            return '#E0E0E0'; // Grey - Đã hủy
+        case 'Chờ xử lý':
+            return '#FFFFFF'; // White - Pending
+        case 'Đang xử lý':
+            return '#FFF9C4'; // Light Yellow - Processing
+        case 'Đã gửi hàng':
+            return '#BBDEFB'; // Light Blue - Shipped
+        case 'Đã giao hàng':
+            return '#C8E6C9'; // Light Green - Delivered
+        case 'Đã hủy':
+            return '#E0E0E0'; // Grey - Cancelled
         default:
             return '#FFFFFF'; // White default
     }
