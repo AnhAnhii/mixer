@@ -275,14 +275,14 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
                 <div className="text-sm">
                   <p className="font-medium text-muted-foreground">Nội dung chuyển khoản</p>
                   <div className="flex items-center gap-2">
-                    <p className="text-card-foreground font-semibold font-mono">{`TT don hang ${order.id.substring(0, 8)}`}</p>
-                    <CopyButton textToCopy={`TT don hang ${order.id.substring(0, 8)}`} />
+                    <p className="text-card-foreground font-semibold font-mono">{`Mixer ${order.id.substring(0, 8)}`}</p>
+                    <CopyButton textToCopy={`Mixer ${order.id.substring(0, 8)}`} />
                   </div>
                 </div>
               </div>
               <div className="flex justify-center items-center">
                 <img
-                  src={`https://img.vietqr.io/image/${bankInfo.bin}-${bankInfo.accountNumber}-compact2.png?amount=${order.totalAmount}&addInfo=${encodeURIComponent(`TT don hang ${order.id.substring(0, 8)}`)}&accountName=${encodeURIComponent(bankInfo.accountName)}`}
+                  src={`https://img.vietqr.io/image/${bankInfo.bin}-${bankInfo.accountNumber}-compact2.png?amount=${order.totalAmount}&addInfo=${encodeURIComponent(`Mixer ${order.id.substring(0, 8)}`)}&accountName=${encodeURIComponent(bankInfo.accountName)}`}
                   alt="VietQR Code"
                   className="w-48 h-48 rounded-md border"
                 />

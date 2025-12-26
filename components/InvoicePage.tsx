@@ -104,7 +104,7 @@ const InvoicePage: React.FC<InvoicePageProps> = ({ order, bankInfo, onBack }) =>
                         <p>Ngân hàng: {bankInfo.bin}</p>
                         <p>STK: {bankInfo.accountNumber}</p>
                         <p>Chủ TK: {bankInfo.accountName}</p>
-                        <p>Nội dung: TT don hang {order.id.substring(0, 8)}</p>
+                        <p>Nội dung: Mixer {order.id.substring(0, 8)}</p>
                     </div>
                 )}
             </div>

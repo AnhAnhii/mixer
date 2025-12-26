@@ -41,7 +41,7 @@ const MessageTemplatesModal: React.FC<MessageTemplatesModalProps> = ({
 MB BANK
 ${bankInfo.accountNumber}
 ${bankInfo.accountName}
-Bạn chuyển khoản theo nội dung: TT don hang ${order.id.substring(0, 8)}. Sau đó cho shop xin ảnh bill chuyển tiền, nhận được bên mình sẽ báo lại ngay. Cảm ơn bạn nhiều ❤`
+Bạn chuyển khoản theo nội dung: Mixer ${order.id.substring(0, 8)}. Sau đó cho shop xin ảnh bill chuyển tiền, nhận được bên mình sẽ báo lại ngay. Cảm ơn bạn nhiều ❤`
       : `[Vui lòng thêm thông tin tài khoản ngân hàng trong phần Cài đặt]`;
 
     const shippingDetails = order.shippingProvider && order.trackingCode
