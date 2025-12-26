@@ -70,9 +70,9 @@ const AppContent: React.FC = () => {
     const [isInitialSyncing, setIsInitialSyncing] = useState(false);
 
     // Main state - Using Supabase with localStorage fallback
-    const { products, setProducts, isLoading: productsLoading, source: productsSource } = useProductsData();
-    const { customers, setCustomers, isLoading: customersLoading } = useCustomersData();
-    const { orders, setOrders, isLoading: ordersLoading } = useOrdersData();
+    const { products, setProducts, addProduct, updateProduct, deleteProduct, isLoading: productsLoading, source: productsSource } = useProductsData();
+    const { customers, setCustomers, addCustomer, updateCustomer, deleteCustomer, isLoading: customersLoading } = useCustomersData();
+    const { orders, setOrders, addOrder, updateOrder, deleteOrder, isLoading: ordersLoading } = useOrdersData();
     const { vouchers, setVouchers, isLoading: vouchersLoading } = useVouchersData();
     const { bankInfo, setBankInfo, isLoading: bankInfoLoading } = useBankInfoData();
     const [socialConfigs, setSocialConfigs] = useLocalStorage<SocialPostConfig[]>('socialConfigs-v2', []);
@@ -649,8 +649,8 @@ const AppContent: React.FC = () => {
             <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} commands={commands} />
 
             <Modal isOpen={isOrderFormOpen} onClose={() => setIsOrderFormOpen(false)} title={editingOrder?.id ? "Sửa đơn hàng" : "Tạo đơn hàng mới"}><OrderForm order={editingOrder} customers={customers} products={products} vouchers={vouchers} onSave={handleSaveOrder} onClose={() => setIsOrderFormOpen(false)} /></Modal>
-            <Modal isOpen={isProductFormOpen} onClose={() => setIsProductFormOpen(false)} title={editingProduct ? "Sửa sản phẩm" : "Thêm sản phẩm mới"}><ProductForm product={editingProduct} onSave={(p) => { setProducts(prev => [...prev, p]); setIsProductFormOpen(false) }} onClose={() => setIsProductFormOpen(false)} /></Modal>
-            <Modal isOpen={isCustomerFormOpen} onClose={() => setIsCustomerFormOpen(false)} title={editingCustomer ? "Sửa khách hàng" : "Thêm khách hàng mới"}><CustomerForm customer={editingCustomer} onSave={(c) => { setCustomers(prev => editingCustomer ? prev.map(cu => cu.id === c.id ? c : cu) : [...prev, c]); setIsCustomerFormOpen(false) }} onClose={() => setIsCustomerFormOpen(false)} /></Modal>
+            <Modal isOpen={isProductFormOpen} onClose={() => setIsProductFormOpen(false)} title={editingProduct ? "Sửa sản phẩm" : "Thêm sản phẩm mới"}><ProductForm product={editingProduct} onSave={async (p) => { if (editingProduct) { await updateProduct(p.id, p); } else { await addProduct(p); } setIsProductFormOpen(false); }} onClose={() => setIsProductFormOpen(false)} /></Modal>
+            <Modal isOpen={isCustomerFormOpen} onClose={() => setIsCustomerFormOpen(false)} title={editingCustomer ? "Sửa khách hàng" : "Thêm khách hàng mới"}><CustomerForm customer={editingCustomer} onSave={async (c) => { if (editingCustomer) { await updateCustomer(c.id, c); } else { await addCustomer(c); } setIsCustomerFormOpen(false); }} onClose={() => setIsCustomerFormOpen(false)} /></Modal>
             <Modal isOpen={isVoucherFormOpen} onClose={() => setIsVoucherFormOpen(false)} title={editingVoucher ? "Sửa mã giảm giá" : "Tạo mã giảm giá"}><VoucherForm voucher={editingVoucher} onSave={(v) => { setVouchers(prev => editingVoucher ? prev.map(vo => vo.id === v.id ? v : vo) : [...prev, v]); setIsVoucherFormOpen(false) }} onClose={() => setIsVoucherFormOpen(false)} /></Modal>
             <Modal isOpen={isAutomationFormOpen} onClose={() => setIsAutomationFormOpen(false)} title={editingRule ? "Sửa quy tắc" : "Tạo quy tắc mới"}><AutomationForm rule={editingRule} onSave={(r) => { setAutomationRules(prev => editingRule ? prev.map(ru => ru.id === r.id ? r : ru) : [...prev, r]); setIsAutomationFormOpen(false) }} onClose={() => setIsAutomationFormOpen(false)} /></Modal>
 
