@@ -55,7 +55,7 @@ import {
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useAuth } from './hooks/useAuth';
 import { sampleProducts, sampleCustomers, sampleOrders, sampleFacebookPosts, sampleAutomationRules, sampleActivityLogs, sampleReturnRequests } from './data/sampleData';
-import { syncToGoogleSheets, fetchFromGoogleSheets } from './services/googleSheetsService';
+// Google Sheets removed - using Supabase instead
 import { GOOGLE_SCRIPT_URL, GEMINI_API_KEY } from './config';
 
 // Types
@@ -88,15 +88,12 @@ const AppContent: React.FC = () => {
     // Return/Exchange State
     const [returnRequests, setReturnRequests] = useLocalStorage<ReturnRequest[]>('returnRequests-v2', sampleReturnRequests);
 
-    // Google Sheets Config
-    const [googleSheetsConfig, setGoogleSheetsConfig] = useLocalStorage<GoogleSheetsConfig>('googleSheetsConfig-v1', { scriptUrl: '', autoSync: false });
+    // Note: Google Sheets removed - using Supabase for data storage
 
     const toast = useToast();
 
-    // Refs for Auto Sync
+    // Refs for data tracking
     const allDataRef = useRef<any>(null);
-    const googleConfigRef = useRef<GoogleSheetsConfig>(googleSheetsConfig);
-    const isSyncingRef = useRef(false);
 
     // New Theme Engine State
     const [theme, setTheme] = useLocalStorage<ThemeSettings>('themeSettings-v2', {
@@ -112,90 +109,22 @@ const AppContent: React.FC = () => {
     // Invoice State (must be outside renderView)
     const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
 
-    // --- AUTO LOAD ON STARTUP ---
+
+    // --- App Loading Complete ---
     useEffect(() => {
-        // 1. Update Config if Hardcoded URL is present
-        if (GOOGLE_SCRIPT_URL && googleSheetsConfig.scriptUrl !== GOOGLE_SCRIPT_URL) {
-            if ((import.meta as any).env.DEV) {
-                console.log("Updating Google Script URL from config file...");
-            }
-            setGoogleSheetsConfig(prev => ({ ...prev, scriptUrl: GOOGLE_SCRIPT_URL }));
-        }
-
-        // 2. Auto Fetch Data
-        const fetchData = async () => {
-            // Use GOOGLE_SCRIPT_URL directly or fall back to config state
-            const urlToUse = GOOGLE_SCRIPT_URL || googleSheetsConfig.scriptUrl;
-
-            if (urlToUse) {
-                setIsInitialSyncing(true);
-                try {
-                    if ((import.meta as any).env.DEV) {
-                        console.log("Auto-fetching data from Cloud...");
-                    }
-                    const data = await fetchFromGoogleSheets(urlToUse);
-
-                    if (data && (data.orders || data.products)) {
-                        // Batch updates to minimize re-renders
-                        // Note: We trust the cloud data as the "Source of Truth" on startup
-                        if (data.orders) setOrders(data.orders);
-                        if (data.products) setProducts(data.products);
-                        if (data.customers) setCustomers(data.customers);
-                        if (data.vouchers) setVouchers(data.vouchers);
-                        if (data.users) setUsers(data.users);
-                        if (data.bankInfo) setBankInfo(data.bankInfo);
-                        if (data.roles) setRoles(data.roles);
-                        if (data.socialConfigs) setSocialConfigs(data.socialConfigs);
-                        if (data.activityLog) setActivityLog(data.activityLog);
-                        if (data.automationRules) setAutomationRules(data.automationRules);
-                        if (data.returnRequests) setReturnRequests(data.returnRequests);
-
-                        toast.success("Đã đồng bộ dữ liệu mới nhất từ hệ thống.");
-                    }
-                } catch (e) {
-                    console.error("Auto-fetch failed:", e);
-                    toast.error("Không thể kết nối đến dữ liệu đám mây. Đang sử dụng dữ liệu offline.");
-                } finally {
-                    setIsInitialSyncing(false);
-                }
-            }
-        };
-
-        // Small delay to ensure app is mounted and hydration is done
-        const timer = setTimeout(() => fetchData(), 500);
+        // App is ready - Supabase will handle data loading via hooks
+        const timer = setTimeout(() => {
+            setAppIsLoading(false);
+        }, 500);
         return () => clearTimeout(timer);
-
     }, []); // Run once on mount
 
-    // Update refs whenever data changes
+    // Update refs whenever data changes (for automation/export features)
     useEffect(() => {
         allDataRef.current = {
             orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, theme, activityLog, automationRules, returnRequests, users
         };
-        googleConfigRef.current = googleSheetsConfig;
-    }, [orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, theme, activityLog, automationRules, returnRequests, users, googleSheetsConfig]);
-
-    // --- Auto Sync Interval (Background Push) ---
-    useEffect(() => {
-        const intervalId = setInterval(async () => {
-            const config = googleConfigRef.current;
-            const urlToUse = GOOGLE_SCRIPT_URL || config.scriptUrl;
-
-            if (config.autoSync && urlToUse && !isSyncingRef.current) {
-                isSyncingRef.current = true;
-                try {
-                    await syncToGoogleSheets(urlToUse, allDataRef.current);
-                    setGoogleSheetsConfig(prev => ({ ...prev, lastSynced: new Date().toISOString() }));
-                } catch (error) {
-                    console.error("Auto Sync Failed", error);
-                } finally {
-                    isSyncingRef.current = false;
-                }
-            }
-        }, 60000); // Run every 60 seconds
-
-        return () => clearInterval(intervalId);
-    }, []);
+    }, [orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, theme, activityLog, automationRules, returnRequests, users]);
 
     // --- Data Migration & Safety Checks ---
     useEffect(() => {
@@ -591,7 +520,7 @@ const AppContent: React.FC = () => {
             case 'reports': return <ReportsPage orders={orders} />;
             case 'staff': return <StaffManagement users={users} roles={roles} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onAddRole={handleAddRole} onUpdateRole={handleUpdateRole} onDeleteRole={handleDeleteRole} />;
             case 'profile': return <ProfilePage user={currentUser} activityLog={activityLog} onUpdateProfile={updateProfile} />;
-            case 'settings': return <SettingsPage bankInfo={bankInfo} allData={{ orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, theme, activityLog, automationRules, returnRequests, users: users }} onImportData={() => { }} theme={theme} setTheme={setTheme} googleSheetsConfig={googleSheetsConfig} setGoogleSheetsConfig={setGoogleSheetsConfig} />;
+            case 'settings': return <SettingsPage bankInfo={bankInfo} allData={{ orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, theme, activityLog, automationRules, returnRequests, users: users }} onImportData={() => { }} theme={theme} setTheme={setTheme} />;
             default: return <div className="text-center py-20">Tính năng đang phát triển hoặc bạn không có quyền truy cập.</div>;
         }
     };
