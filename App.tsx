@@ -316,7 +316,9 @@ const AppContent: React.FC = () => {
         if (customerIndex > -1) {
             await updateCustomer(customerToSave.id, customerToSave);
         } else {
-            await addCustomer(customerToSave);
+            // Strip id for new customer - Supabase will generate UUID
+            const { id: _customerId, ...customerWithoutId } = customerToSave;
+            await addCustomer(customerWithoutId);
         }
 
         // Save/Update order using Supabase hooks
@@ -324,9 +326,13 @@ const AppContent: React.FC = () => {
             await updateOrder(order.id, order);
             logActivity(`<strong>${currentUser?.name}</strong> đã cập nhật đơn hàng <strong>#${orderIdShort}</strong>.`, order.id, 'order');
         } else {
-            await addOrder(order);
-            logActivity(`<strong>${currentUser?.name}</strong> đã tạo đơn hàng mới <strong>#${orderIdShort}</strong>.`, order.id, 'order');
-            runAutomations('ORDER_CREATED', { order });
+            // Strip id for new order - Supabase will generate UUID
+            const { id: _orderId, ...orderWithoutId } = order;
+            const newOrder = await addOrder(orderWithoutId);
+            if (newOrder) {
+                logActivity(`<strong>${currentUser?.name}</strong> đã tạo đơn hàng mới <strong>#${newOrder.id.substring(0, 8)}</strong>.`, newOrder.id, 'order');
+                runAutomations('ORDER_CREATED', { order: newOrder });
+            }
         }
         setIsOrderFormOpen(false);
         setEditingOrder(null);
