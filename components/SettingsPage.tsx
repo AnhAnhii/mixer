@@ -261,11 +261,16 @@ function updateStaffSheet(doc, users) {
 }
 `;
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImportData, theme, setTheme, googleSheetsConfig, setGoogleSheetsConfig }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImportData, theme, setTheme, googleSheetsConfig: propConfig, setGoogleSheetsConfig: propSetConfig }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showScript, setShowScript] = useState(false);
   const toast = useToast();
+
+  // Use local state as fallback when props are not provided
+  const [localConfig, setLocalConfig] = useState<GoogleSheetsConfig>({ scriptUrl: '', autoSync: false });
+  const googleSheetsConfig = propConfig || localConfig;
+  const setGoogleSheetsConfig = propSetConfig || setLocalConfig;
 
   const getBankName = (bin: string | undefined) => {
     if (!bin) return 'Không rõ';
