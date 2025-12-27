@@ -270,7 +270,7 @@ const AppContent: React.FC = () => {
             const response = await fetch('/api/facebook/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ recipientId, messageText: message })
+                body: JSON.stringify({ recipientId, message, messageType: 'text' })
             });
 
             if (!response.ok) {
