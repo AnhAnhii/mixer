@@ -610,14 +610,26 @@ Trả về JSON với cấu trúc:
         }
     };
 
-    // Get customer order history - priority: facebookUserId > exact name matching
+    // Normalize Vietnamese text - remove accents for matching
+    const normalizeVietnamese = (str: string): string => {
+        return str
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')  // Remove diacritics
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D')
+            .trim();
+    };
+
+    // Get customer order history - priority: facebookUserId > name matching (normalized)
     const getCustomerOrders = useCallback(() => {
         if (!selectedConversation) return [];
 
         const facebookId = selectedConversation.recipientId;
         const customerName = selectedConversation.customerName.toLowerCase().trim();
+        const customerNameNormalized = normalizeVietnamese(selectedConversation.customerName);
 
-        console.log('[getCustomerOrders] Searching:', { facebookId, customerName, totalOrders: orders.length });
+        console.log('[getCustomerOrders] Searching:', { facebookId, customerName, customerNameNormalized, totalOrders: orders.length });
 
         const matched = orders.filter(o => {
             // Priority 1: Match by Facebook User ID (most accurate)
@@ -626,16 +638,19 @@ Trả về JSON với cấu trúc:
                 return true;
             }
 
-            // Priority 2: Match by Facebook username (exact match only)
-            if (o.facebookUserName && o.facebookUserName.toLowerCase().trim() === customerName) {
-                console.log('[getCustomerOrders] Matched by facebookUserName:', o.id, o.facebookUserName);
-                return true;
+            // Priority 2: Match by Facebook username (normalized)
+            if (o.facebookUserName) {
+                const orderFbName = normalizeVietnamese(o.facebookUserName);
+                if (orderFbName === customerNameNormalized) {
+                    console.log('[getCustomerOrders] Matched by facebookUserName:', o.id, o.facebookUserName);
+                    return true;
+                }
             }
 
-            // Priority 3: Match by customer name (EXACT match only)
-            const orderName = o.customerName.toLowerCase().trim();
-            if (orderName === customerName) {
-                console.log('[getCustomerOrders] Matched by customerName:', o.id);
+            // Priority 3: Match by customer name (normalized - handles Vietnamese accents)
+            const orderNameNormalized = normalizeVietnamese(o.customerName);
+            if (orderNameNormalized === customerNameNormalized) {
+                console.log('[getCustomerOrders] Matched by customerName (normalized):', o.id);
                 return true;
             }
 
