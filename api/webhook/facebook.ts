@@ -102,10 +102,15 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
             console.log('🔍 Searching for product:', productName);
             console.log('📡 Supabase URL configured:', !!SUPABASE_URL);
 
-            // Tìm sản phẩm trong database
+            // Tìm sản phẩm trong database với variants
             const { data: products, error: searchError } = await supabase
                 .from('products')
-                .select('id, name, price, variants')
+                .select(`
+                    id, 
+                    name, 
+                    price,
+                    variants:product_variants(id, size, color, stock)
+                `)
                 .ilike('name', `%${productName}%`)
                 .limit(1);
 
@@ -113,14 +118,38 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
 
             if (products && products.length > 0) {
                 const product = products[0];
-                const size = sizeMatch ? sizeMatch[1].toUpperCase() : 'M';
-                const color = colorMatch ? colorMatch[1] : '';
+                const variants = product.variants || [];
+
+                // Tìm variant phù hợp với size/color người dùng yêu cầu
+                let selectedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
+                let selectedColor = colorMatch ? colorMatch[1] : null;
+
+                // Nếu có variants, tìm variant phù hợp
+                let matchedVariant = null;
+                if (variants.length > 0) {
+                    matchedVariant = variants.find((v: any) => {
+                        const sizeOk = !selectedSize || v.size?.toUpperCase() === selectedSize;
+                        const colorOk = !selectedColor || v.color?.toLowerCase().includes(selectedColor.toLowerCase());
+                        return sizeOk && colorOk;
+                    });
+
+                    // Nếu không tìm thấy exact match, lấy variant đầu tiên
+                    if (!matchedVariant) {
+                        matchedVariant = variants[0];
+                    }
+
+                    selectedSize = matchedVariant.size || 'M';
+                    selectedColor = matchedVariant.color || '';
+                } else {
+                    selectedSize = selectedSize || 'M';
+                    selectedColor = selectedColor || '';
+                }
 
                 await addToCart(senderId, {
                     product_id: product.id,
                     product_name: product.name,
-                    size,
-                    color,
+                    size: selectedSize,
+                    color: selectedColor,
                     quantity: 1,
                     unit_price: product.price
                 });
@@ -133,7 +162,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
                 return {
                     message: `✅ Đã thêm vào giỏ hàng!
 
-📦 ${product.name} (${size}${color ? ' - ' + color : ''}) x1
+📦 ${product.name} (${selectedSize}${selectedColor ? ' - ' + selectedColor : ''}) x1
 💰 ${formatCurrency(product.price)}
 
 🛒 Giỏ hàng: ${itemCount} sản phẩm - ${formatCurrency(total)}
