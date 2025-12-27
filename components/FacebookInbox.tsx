@@ -617,23 +617,39 @@ Trả về JSON với cấu trúc:
         const facebookId = selectedConversation.recipientId;
         const customerName = selectedConversation.customerName.toLowerCase().trim();
 
-        return orders.filter(o => {
+        console.log('[getCustomerOrders] Searching:', { facebookId, customerName, totalOrders: orders.length });
+
+        const matched = orders.filter(o => {
             // Priority 1: Match by Facebook User ID (most accurate)
-            if (facebookId && o.facebookUserId === facebookId) return true;
+            if (facebookId && o.facebookUserId === facebookId) {
+                console.log('[getCustomerOrders] Matched by facebookUserId:', o.id);
+                return true;
+            }
 
             // Priority 2: Match by Facebook username (exact match only)
-            if (o.facebookUserName && o.facebookUserName.toLowerCase().trim() === customerName) return true;
+            if (o.facebookUserName && o.facebookUserName.toLowerCase().trim() === customerName) {
+                console.log('[getCustomerOrders] Matched by facebookUserName:', o.id, o.facebookUserName);
+                return true;
+            }
 
-            // Priority 3: Match by customer name (EXACT match only - no partial matching)
+            // Priority 3: Match by customer name (EXACT match only)
             const orderName = o.customerName.toLowerCase().trim();
-            if (orderName === customerName) return true;
-
-            // REMOVED: Partial name matching was causing wrong customer orders to show
-            // Old code matched "Nguyễn Văn A" with "Nguyễn Văn B" because both contain "Nguyễn"
+            if (orderName === customerName) {
+                console.log('[getCustomerOrders] Matched by customerName:', o.id);
+                return true;
+            }
 
             return false;
-        }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .slice(0, 5);
+        });
+
+        console.log('[getCustomerOrders] Total matched:', matched.length);
+
+        // Sort by orderDate (Supabase) or createdAt (localStorage)
+        return matched.sort((a, b) => {
+            const dateA = new Date(a.orderDate || 0).getTime();
+            const dateB = new Date(b.orderDate || 0).getTime();
+            return dateB - dateA;
+        }).slice(0, 5);
     }, [selectedConversation, orders]);
 
     useEffect(() => {
