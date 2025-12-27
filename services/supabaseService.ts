@@ -309,7 +309,12 @@ export const orderService = {
     },
 
     async create(order: Omit<Order, 'id'>): Promise<Order | null> {
-        if (!isSupabaseConfigured()) return null;
+        if (!isSupabaseConfigured()) {
+            console.error('orderService.create: Supabase not configured');
+            return null;
+        }
+
+        console.log('orderService.create: Creating order...', order);
 
         const { data, error } = await supabase
             .from('orders')
@@ -332,13 +337,16 @@ export const orderService = {
             .single();
 
         if (error) {
-            console.error('Error creating order:', error);
+            console.error('orderService.create: Error creating order:', error);
+            console.error('orderService.create: Error details:', JSON.stringify(error, null, 2));
             return null;
         }
 
+        console.log('orderService.create: Order created successfully:', data);
+
         // Insert order items
         if (order.items?.length) {
-            await supabase.from('order_items').insert(
+            const { error: itemsError } = await supabase.from('order_items').insert(
                 order.items.map(i => ({
                     order_id: data.id,
                     product_id: i.productId,
@@ -351,6 +359,12 @@ export const orderService = {
                     cost_price: i.costPrice,
                 }))
             );
+
+            if (itemsError) {
+                console.error('orderService.create: Error inserting order items:', itemsError);
+            } else {
+                console.log('orderService.create: Order items inserted successfully');
+            }
         }
 
         return { ...order, id: data.id };
