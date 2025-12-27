@@ -359,18 +359,54 @@ export const orderService = {
     async update(id: string, order: Partial<Order>): Promise<boolean> {
         if (!isSupabaseConfigured()) return false;
 
+        // Build update object with only defined fields
+        const updateData: Record<string, any> = {};
+        if (order.customerName !== undefined) updateData.customer_name = order.customerName;
+        if (order.customerPhone !== undefined) updateData.customer_phone = order.customerPhone;
+        if (order.shippingAddress !== undefined) updateData.shipping_address = order.shippingAddress;
+        if (order.totalAmount !== undefined) updateData.total_amount = order.totalAmount;
+        if (order.status !== undefined) updateData.status = order.status;
+        if (order.paymentMethod !== undefined) updateData.payment_method = order.paymentMethod;
+        if (order.paymentStatus !== undefined) updateData.payment_status = order.paymentStatus;
+        if (order.shippingProvider !== undefined) updateData.shipping_provider = order.shippingProvider;
+        if (order.trackingCode !== undefined) updateData.tracking_code = order.trackingCode;
+        if (order.notes !== undefined) updateData.notes = order.notes;
+
+        // Update order
         const { error } = await supabase
             .from('orders')
-            .update({
-                status: order.status,
-                payment_status: order.paymentStatus,
-                shipping_provider: order.shippingProvider,
-                tracking_code: order.trackingCode,
-                notes: order.notes,
-            })
+            .update(updateData)
             .eq('id', id);
 
-        return !error;
+        if (error) {
+            console.error('Error updating order:', error);
+            return false;
+        }
+
+        // Update items if provided
+        if (order.items) {
+            // Delete existing items
+            await supabase.from('order_items').delete().eq('order_id', id);
+
+            // Insert new items
+            if (order.items.length > 0) {
+                await supabase.from('order_items').insert(
+                    order.items.map(i => ({
+                        order_id: id,
+                        product_id: i.productId,
+                        variant_id: i.variantId,
+                        product_name: i.productName,
+                        size: i.size,
+                        color: i.color,
+                        quantity: i.quantity,
+                        price: i.price,
+                        cost_price: i.costPrice,
+                    }))
+                );
+            }
+        }
+
+        return true;
     },
 
     async updateStatus(id: string, status: string): Promise<boolean> {
