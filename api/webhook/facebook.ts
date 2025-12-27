@@ -426,17 +426,24 @@ Ví dụ: Nguyễn Văn A, 0901234567, 123 ABC Q1 HCM, COD`
         };
     }
 
-    // Tạo đơn hàng
+    // Tạo đơn hàng (lưu lại cart items trước khi clear)
+    const cartItems = cart.items;
     const result = await createOrderFromCart(senderId, customerInfo);
     if (!result.success) {
         return { message: `❌ ${result.error}. Vui lòng thử lại sau!` };
     }
 
     const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+    const formatDate = () => new Date().toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const orderId = result.orderId?.substring(0, 8);
 
+    // Tạo danh sách sản phẩm
+    const productList = cartItems.map((item: any) =>
+        `- ${item.product_name} (${item.size}${item.color ? ' - ' + item.color : ''}) x ${item.quantity}`
+    ).join('\n');
+
     if (customerInfo.paymentMethod === 'bank_transfer') {
-        // Trả về với QR code
+        // Trả về với QR code - Template chuyển khoản giống hệ thống
         const bankInfo = await supabase.from('settings').select('value').eq('key', 'bank_info').single();
         let qrUrl = '';
         if (bankInfo.data?.value) {
@@ -445,35 +452,38 @@ Ví dụ: Nguyễn Văn A, 0901234567, 123 ABC Q1 HCM, COD`
         }
 
         return {
-            message: `🎉 ĐẶT HÀNG THÀNH CÔNG!
+            message: `📦 Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
+🆔 Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate()}
 
-📦 Mã đơn hàng: #${orderId}
-👤 ${customerInfo.name}
-📱 ${customerInfo.phone}
-📍 ${customerInfo.address}
-💰 Tổng: ${formatCurrency(result.total || 0)}
+👤 Tên người nhận: ${customerInfo.name}
+📱 Số điện thoại: ${customerInfo.phone}
+📍 Địa chỉ: ${customerInfo.address}
 
-💳 Vui lòng quét QR bên dưới để chuyển khoản.
-⏰ Đơn hàng sẽ được xử lý sau khi nhận được thanh toán.
+🛒 Sản phẩm bao gồm:
+${productList}
+💰 Tổng trị giá đơn hàng: ${formatCurrency(result.total || 0)}
 
-Cảm ơn bạn đã mua sắm tại Mixer! 💕`,
+💳 Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc, số lượng rồi quét mã QR bên dưới để chuyển khoản giúp mình nhé ♥
+⏰ Đơn hàng sẽ được giữ trong vòng 24h, sau 24h sẽ tự động huỷ nếu chưa chuyển khoản ạ.`,
             imageUrl: qrUrl || undefined
         };
     }
 
+    // Template COD giống hệ thống
     return {
-        message: `🎉 ĐẶT HÀNG THÀNH CÔNG!
+        message: `📦 Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
+🆔 Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate()}
 
-📦 Mã đơn hàng: #${orderId}
-👤 ${customerInfo.name}
-📱 ${customerInfo.phone}
-📍 ${customerInfo.address}
-💰 Tổng: ${formatCurrency(result.total || 0)}
+👤 Tên người nhận: ${customerInfo.name}
+📱 Số điện thoại: ${customerInfo.phone}
+📍 Địa chỉ: ${customerInfo.address}
 
-💵 Thanh toán: COD (khi nhận hàng)
-🚚 Đơn hàng sẽ được giao trong 2-4 ngày.
+🛒 Sản phẩm bao gồm:
+${productList}
+💰 Tổng trị giá đơn hàng: ${formatCurrency(result.total || 0)}
 
-Cảm ơn bạn đã mua sắm tại Mixer! 💕`
+💵 Đơn hàng của bạn sẽ được giao COD (thanh toán khi nhận hàng) ♥
+Cảm ơn bạn đã tin tưởng Mixer! 💕`
     };
 }
 
