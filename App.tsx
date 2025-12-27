@@ -285,6 +285,8 @@ const AppContent: React.FC = () => {
     const handleDeleteOrder = async (orderId: string) => {
         await deleteOrder(orderId);
         logActivity(`<strong>${currentUser?.name}</strong> đã xóa đơn hàng <strong>#${orderId.substring(0, 8)}</strong>.`, orderId, 'order');
+        // Sync delete to Google Sheets
+        syncOrderDirect({ id: orderId } as any, 'delete').catch(console.error);
         toast.success('Đã xóa đơn hàng.');
     };
 
