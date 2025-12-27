@@ -99,7 +99,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         let cleanedText = messageText
             .replace(/size\s+\w+/gi, '')
             .replace(/màu\s+\w+/gi, '')
-            .replace(/(đen|trắng|đỏ|xanh|vàng|hồng|tím|nâu|xám|be)/gi, '') // common colors
+            .replace(/\b(đen|trắng|đỏ|xanh|vàng|hồng|tím|nâu|xám)\b/gi, '') // common colors - use word boundary
             .trim();
 
         // Extract product name từ cleaned text
