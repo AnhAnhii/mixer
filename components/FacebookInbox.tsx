@@ -610,28 +610,26 @@ Trả về JSON với cấu trúc:
         }
     };
 
-    // Get customer order history - priority: facebookUserId > name matching
+    // Get customer order history - priority: facebookUserId > exact name matching
     const getCustomerOrders = useCallback(() => {
         if (!selectedConversation) return [];
 
         const facebookId = selectedConversation.recipientId;
         const customerName = selectedConversation.customerName.toLowerCase().trim();
-        const nameParts = customerName.split(/\s+/).filter(p => p.length > 1);
 
         return orders.filter(o => {
-            // Priority 1: Match by Facebook User ID (đảm bảo chính xác nhất)
+            // Priority 1: Match by Facebook User ID (most accurate)
             if (facebookId && o.facebookUserId === facebookId) return true;
 
-            // Priority 2: Match by Facebook username
-            if (o.facebookUserName && o.facebookUserName.toLowerCase() === customerName) return true;
+            // Priority 2: Match by Facebook username (exact match only)
+            if (o.facebookUserName && o.facebookUserName.toLowerCase().trim() === customerName) return true;
 
-            // Priority 3: Match by customer name (người nhận có thể khác người đặt)
+            // Priority 3: Match by customer name (EXACT match only - no partial matching)
             const orderName = o.customerName.toLowerCase().trim();
             if (orderName === customerName) return true;
-            if (nameParts.some(part => orderName.includes(part))) return true;
 
-            const orderParts = orderName.split(/\s+/).filter(p => p.length > 1);
-            if (orderParts.some(part => customerName.includes(part))) return true;
+            // REMOVED: Partial name matching was causing wrong customer orders to show
+            // Old code matched "Nguyễn Văn A" with "Nguyễn Văn B" because both contain "Nguyễn"
 
             return false;
         }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
