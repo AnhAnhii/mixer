@@ -289,6 +289,62 @@ Chỉ trả về JSON, không giải thích:`;
     }
 }
 
+// Fallback: Parse thông tin bằng regex (không cần AI)
+function parseOrderInfoWithRegex(messageText: string): {
+    name: string;
+    phone: string;
+    address: string;
+    paymentMethod: 'cod' | 'bank_transfer';
+} | null {
+    // Extract phone number
+    const phoneMatch = messageText.match(/\b(0[0-9]{9,10})\b/);
+    if (!phoneMatch) return null;
+    const phone = phoneMatch[1];
+
+    // Tách payment method
+    const lowerText = messageText.toLowerCase();
+    let paymentMethod: 'cod' | 'bank_transfer' = 'cod';
+    if (/ck|chuyển khoản|banking|bank/i.test(messageText)) {
+        paymentMethod = 'bank_transfer';
+    }
+
+    // Bỏ phone, payment keywords khỏi text
+    let cleanedText = messageText
+        .replace(phoneMatch[0], '')
+        .replace(/\b(cod|ck|chuyển khoản|thanh toán|banking?)\b/gi, '')
+        .replace(/[,\n]+/g, ',')
+        .trim();
+
+    // Tách bằng dấu phẩy
+    const parts = cleanedText.split(',').map(p => p.trim()).filter(p => p.length > 0);
+
+    if (parts.length >= 2) {
+        // Giả định: phần đầu là tên, phần còn lại là địa chỉ
+        const name = parts[0];
+        const address = parts.slice(1).join(', ');
+
+        if (name.length > 1 && address.length > 5) {
+            console.log('📝 Parsed with regex:', { name, phone, address, paymentMethod });
+            return { name, phone, address, paymentMethod };
+        }
+    }
+
+    // Nếu không tách được bằng phẩy, thử cách khác
+    // Tìm địa chỉ bằng pattern (số + tên đường/phố)
+    const addressMatch = cleanedText.match(/(\d+[A-Za-z]?\s+.{10,})/);
+    if (addressMatch) {
+        const address = addressMatch[1].trim();
+        const name = cleanedText.replace(address, '').trim() || 'Khách';
+
+        if (address.length > 5) {
+            console.log('📝 Parsed with regex (method 2):', { name, phone, address, paymentMethod });
+            return { name, phone, address, paymentMethod };
+        }
+    }
+
+    return null;
+}
+
 // Tạo đơn hàng từ giỏ hàng
 async function createOrderFromCart(
     senderId: string,
@@ -350,16 +406,23 @@ async function handleOrderInfo(senderId: string, messageText: string): Promise<C
     if (!cart || !cart.items || cart.items.length === 0) return null;
     if (!looksLikeOrderInfo(messageText)) return null;
 
-    console.log('📋 Detected order info, parsing with AI...');
+    console.log('📋 Detected order info, parsing...');
 
-    const customerInfo = await parseOrderInfoWithAI(messageText);
+    // Thử AI trước
+    let customerInfo = await parseOrderInfoWithAI(messageText);
+
+    // Nếu AI fail (quota hết, lỗi, etc.), fallback sang regex
+    if (!customerInfo) {
+        console.log('📝 AI parse failed, trying regex fallback...');
+        customerInfo = parseOrderInfoWithRegex(messageText);
+    }
+
     if (!customerInfo) {
         return {
-            message: `❓ Mình chưa nhận đủ thông tin. Vui lòng gửi lại:
-👤 Họ tên:
-📱 SĐT:
-📍 Địa chỉ:
-💳 Thanh toán: (COD/CK)`
+            message: `❓ Mình chưa nhận đủ thông tin. Vui lòng gửi lại theo format:
+Họ tên, SĐT, Địa chỉ, COD/CK
+
+Ví dụ: Nguyễn Văn A, 0901234567, 123 ABC Q1 HCM, COD`
         };
     }
 
