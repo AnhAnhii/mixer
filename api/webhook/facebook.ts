@@ -222,6 +222,198 @@ Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
     return null;
 }
 
+// ==================== ORDER INFO HANDLER ====================
+
+// Kiểm tra xem message có vẻ là thông tin đặt hàng không (chứa SĐT)
+function looksLikeOrderInfo(messageText: string): boolean {
+    // Có số điện thoại Việt Nam
+    const hasPhone = /\b(0[0-9]{9}|84[0-9]{9}|\+84[0-9]{9})\b/.test(messageText);
+    // Có pattern địa chỉ (số + đường/phố/quận)
+    const hasAddress = /(đường|phố|quận|huyện|phường|xã|tp\.|tỉnh|số\s*\d+|p\.\s*\d+|q\.\s*\d+)/i.test(messageText);
+
+    return hasPhone && (hasAddress || messageText.length > 30);
+}
+
+// Parse thông tin khách hàng từ message bằng AI
+async function parseOrderInfoWithAI(messageText: string): Promise<{
+    name: string;
+    phone: string;
+    address: string;
+    paymentMethod: 'cod' | 'bank_transfer';
+} | null> {
+    if (!GEMINI_API_KEY) return null;
+
+    try {
+        const { GoogleGenAI } = await import('@google/genai');
+        const client = new GoogleGenAI({ apiKey: GEMINI_API_KEY! });
+
+        const prompt = `Trích xuất thông tin đặt hàng từ tin nhắn sau. Trả về JSON thuần túy (không markdown).
+
+Tin nhắn: "${messageText}"
+
+Format JSON cần trả về:
+{"name": "Họ tên", "phone": "0901234567", "address": "Địa chỉ đầy đủ", "paymentMethod": "cod" hoặc "bank_transfer"}
+
+Quy tắc:
+- phone: chỉ số, bỏ dấu cách, starting with 0
+- paymentMethod: "cod" nếu có COD/tiền mặt/nhận hàng, "bank_transfer" nếu có CK/chuyển khoản
+- Nếu không rõ paymentMethod, mặc định "cod"
+- Nếu không tìm thấy đủ thông tin, trả về null
+
+Chỉ trả về JSON, không giải thích:`;
+
+        const response = await client.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: prompt
+        });
+
+        const text = (response.text || '').trim();
+        console.log('🤖 AI parsed order info:', text);
+
+        // Parse JSON từ response
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return null;
+
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (!parsed.name || !parsed.phone || !parsed.address) return null;
+
+        return {
+            name: parsed.name,
+            phone: parsed.phone.replace(/\s+/g, ''),
+            address: parsed.address,
+            paymentMethod: parsed.paymentMethod === 'bank_transfer' ? 'bank_transfer' : 'cod'
+        };
+    } catch (error) {
+        console.error('❌ Error parsing order info:', error);
+        return null;
+    }
+}
+
+// Tạo đơn hàng từ giỏ hàng
+async function createOrderFromCart(
+    senderId: string,
+    customerInfo: { name: string; phone: string; address: string; paymentMethod: 'cod' | 'bank_transfer' }
+): Promise<{ success: boolean; orderId?: string; total?: number; error?: string }> {
+    const cart = await getCart(senderId);
+    if (!cart || !cart.items || cart.items.length === 0) {
+        return { success: false, error: 'Giỏ hàng trống' };
+    }
+
+    const total = cart.items.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity, 0);
+
+    // Tạo order trong Supabase
+    const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+            customer_name: customerInfo.name,
+            customer_phone: customerInfo.phone,
+            shipping_address: customerInfo.address,
+            payment_method: customerInfo.paymentMethod,
+            payment_status: customerInfo.paymentMethod === 'cod' ? 'Unpaid' : 'Unpaid',
+            status: 'Chờ xử lý',
+            total_amount: total,
+            facebook_user_id: senderId,
+            order_date: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+    if (orderError || !order) {
+        console.error('❌ Error creating order:', orderError);
+        return { success: false, error: 'Không thể tạo đơn hàng' };
+    }
+
+    // Tạo order items
+    const orderItems = cart.items.map((item: any) => ({
+        order_id: order.id,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        size: item.size,
+        color: item.color,
+        quantity: item.quantity,
+        unit_price: item.unit_price
+    }));
+
+    await supabase.from('order_items').insert(orderItems);
+
+    // Xóa giỏ hàng
+    await clearCart(senderId);
+
+    console.log('✅ Order created:', order.id);
+    return { success: true, orderId: order.id, total };
+}
+
+// Handle message có thông tin đặt hàng
+async function handleOrderInfo(senderId: string, messageText: string): Promise<CartResponse | null> {
+    // Kiểm tra xem có giỏ hàng và message có vẻ là order info không
+    const cart = await getCart(senderId);
+    if (!cart || !cart.items || cart.items.length === 0) return null;
+    if (!looksLikeOrderInfo(messageText)) return null;
+
+    console.log('📋 Detected order info, parsing with AI...');
+
+    const customerInfo = await parseOrderInfoWithAI(messageText);
+    if (!customerInfo) {
+        return {
+            message: `❓ Mình chưa nhận đủ thông tin. Vui lòng gửi lại:
+👤 Họ tên:
+📱 SĐT:
+📍 Địa chỉ:
+💳 Thanh toán: (COD/CK)`
+        };
+    }
+
+    // Tạo đơn hàng
+    const result = await createOrderFromCart(senderId, customerInfo);
+    if (!result.success) {
+        return { message: `❌ ${result.error}. Vui lòng thử lại sau!` };
+    }
+
+    const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+    const orderId = result.orderId?.substring(0, 8);
+
+    if (customerInfo.paymentMethod === 'bank_transfer') {
+        // Trả về với QR code
+        const bankInfo = await supabase.from('settings').select('value').eq('key', 'bank_info').single();
+        let qrUrl = '';
+        if (bankInfo.data?.value) {
+            const bank = bankInfo.data.value;
+            qrUrl = `https://img.vietqr.io/image/${bank.bin}-${bank.accountNumber}-compact2.png?amount=${result.total}&addInfo=${encodeURIComponent(`Mixer ${orderId}`)}&accountName=${encodeURIComponent(bank.accountName)}`;
+        }
+
+        return {
+            message: `🎉 ĐẶT HÀNG THÀNH CÔNG!
+
+📦 Mã đơn hàng: #${orderId}
+👤 ${customerInfo.name}
+📱 ${customerInfo.phone}
+📍 ${customerInfo.address}
+💰 Tổng: ${formatCurrency(result.total || 0)}
+
+💳 Vui lòng quét QR bên dưới để chuyển khoản.
+⏰ Đơn hàng sẽ được xử lý sau khi nhận được thanh toán.
+
+Cảm ơn bạn đã mua sắm tại Mixer! 💕`,
+            imageUrl: qrUrl || undefined
+        };
+    }
+
+    return {
+        message: `🎉 ĐẶT HÀNG THÀNH CÔNG!
+
+📦 Mã đơn hàng: #${orderId}
+👤 ${customerInfo.name}
+📱 ${customerInfo.phone}
+📍 ${customerInfo.address}
+💰 Tổng: ${formatCurrency(result.total || 0)}
+
+💵 Thanh toán: COD (khi nhận hàng)
+🚚 Đơn hàng sẽ được giao trong 2-4 ngày.
+
+Cảm ơn bạn đã mua sắm tại Mixer! 💕`
+    };
+}
+
 // ==================== CART HELPERS ====================
 
 async function getOrCreateCart(facebookUserId: string) {
@@ -427,6 +619,17 @@ async function handleMessage(event: MessagingEvent) {
         }
         console.log(`🛒 Cart command handled: ${messageText.substring(0, 30)}...`);
         return; // Đã xử lý cart command, không cần AI
+    }
+
+    // ==================== ORDER INFO DETECTION (FROM CART CHECKOUT) ====================
+    const orderResponse = await handleOrderInfo(senderId, messageText);
+    if (orderResponse) {
+        await sendMessage(senderId, orderResponse.message);
+        if (orderResponse.imageUrl) {
+            await sendImage(senderId, orderResponse.imageUrl);
+        }
+        console.log(`📦 Order created from cart: ${messageText.substring(0, 30)}...`);
+        return;
     }
 
     // ==================== AI AUTO-REPLY ====================
