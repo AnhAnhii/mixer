@@ -337,6 +337,12 @@ const AppContent: React.FC = () => {
                 status: OrderStatus.Processing,
                 staffName: currentUser?.name
             }, 'update').catch(console.error);
+
+            // Auto send Facebook message if order has facebookUserId
+            if (orderToSync.facebookUserId) {
+                const message = `✅ Đơn hàng #${orderId.substring(0, 8)} đã được xác nhận thanh toán!\n\n🔄 Trạng thái: Đang xử lý\n📦 Đơn hàng của bạn sẽ được đóng gói và gửi đi sớm.\n\nCảm ơn quý khách đã mua hàng tại Mixer! 💕`;
+                sendMessageToFacebook(message, orderToSync.facebookUserId).catch(console.error);
+            }
         }
 
         // Update viewingOrder if currently viewing this order
@@ -376,6 +382,15 @@ const AppContent: React.FC = () => {
                 runAutomations('ORDER_CREATED', { order: newOrder });
                 // Sync to Google Sheets
                 syncOrderDirect({ ...newOrder, staffName: currentUser?.name }, 'create').catch(console.error);
+
+                // Auto send Facebook message if order was created from Inbox (has facebookUserId)
+                if (newOrder.facebookUserId) {
+                    const paymentInfo = newOrder.paymentMethod === 'cod'
+                        ? '💵 Thanh toán: Thu hộ (COD)'
+                        : `💳 Thanh toán: Chuyển khoản\n📱 Vui lòng chuyển khoản để đơn hàng được xử lý nhanh hơn!`;
+                    const message = `🎉 Đơn hàng #${newOrder.id.substring(0, 8)} đã được tạo thành công!\n\n📦 Trạng thái: Chờ xử lý\n💰 Tổng tiền: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(newOrder.totalAmount)}\n${paymentInfo}\n\nCảm ơn quý khách đã tin tưởng Mixer! 💕`;
+                    sendMessageToFacebook(message, newOrder.facebookUserId).catch(console.error);
+                }
             }
         }
         setIsOrderFormOpen(false);
