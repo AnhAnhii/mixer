@@ -45,6 +45,219 @@ interface WebhookBody {
     entry: WebhookEntry[];
 }
 
+// ==================== SUPABASE CLIENT ====================
+
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ==================== CART COMMAND HANDLER ====================
+
+interface CartResponse {
+    message: string;
+    imageUrl?: string;
+}
+
+async function handleCartCommand(senderId: string, messageText: string): Promise<CartResponse | null> {
+    const lowerText = messageText.toLowerCase();
+
+    // Kiểm tra có phải cart command không
+    const isCartCmd = lowerText.includes('thêm vào giỏ') ||
+        lowerText.includes('add to cart') ||
+        lowerText.includes('xem giỏ') ||
+        lowerText === 'giỏ hàng' ||
+        lowerText.includes('xóa giỏ') ||
+        lowerText.includes('clear cart');
+
+    if (!isCartCmd) return null;
+
+    // Xem giỏ hàng
+    if (lowerText.includes('xem giỏ') || lowerText === 'giỏ hàng') {
+        const cart = await getCart(senderId);
+        if (!cart || !cart.items || cart.items.length === 0) {
+            return { message: '🛒 Giỏ hàng của bạn đang trống.\nGõ "thêm [tên sản phẩm] vào giỏ" để bắt đầu mua sắm!' };
+        }
+        return { message: formatCartMessage(cart) };
+    }
+
+    // Xóa giỏ hàng
+    if (lowerText.includes('xóa giỏ') || lowerText.includes('clear cart')) {
+        await clearCart(senderId);
+        return { message: '🗑️ Đã xóa toàn bộ giỏ hàng!' };
+    }
+
+    // Thêm vào giỏ
+    if (lowerText.includes('thêm vào giỏ') || lowerText.includes('add to cart')) {
+        // Parse: "thêm [product] size [size] màu [color] vào giỏ"
+        const productMatch = messageText.match(/thêm\s+(.+?)\s*(size\s+\w+)?\s*(màu\s+\w+)?\s*vào giỏ/i);
+
+        if (productMatch) {
+            const productName = productMatch[1].trim();
+            const sizeMatch = messageText.match(/size\s+(\w+)/i);
+            const colorMatch = messageText.match(/màu\s+(\w+)/i);
+
+            // Tìm sản phẩm trong database
+            const { data: products } = await supabase
+                .from('products')
+                .select('id, name, price, variants')
+                .ilike('name', `%${productName}%`)
+                .limit(1);
+
+            if (products && products.length > 0) {
+                const product = products[0];
+                const size = sizeMatch ? sizeMatch[1].toUpperCase() : 'M';
+                const color = colorMatch ? colorMatch[1] : '';
+
+                await addToCart(senderId, {
+                    product_id: product.id,
+                    product_name: product.name,
+                    size,
+                    color,
+                    quantity: 1,
+                    unit_price: product.price
+                });
+
+                const cart = await getCart(senderId);
+                const total = cart?.items?.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity, 0) || 0;
+                const itemCount = cart?.items?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 0;
+                const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+
+                return {
+                    message: `✅ Đã thêm vào giỏ hàng!
+
+📦 ${product.name} (${size}${color ? ' - ' + color : ''}) x1
+💰 ${formatCurrency(product.price)}
+
+🛒 Giỏ hàng: ${itemCount} sản phẩm - ${formatCurrency(total)}
+
+📝 Gõ "xem giỏ" để xem chi tiết
+📝 Gõ "đặt hàng" để checkout`
+                };
+            } else {
+                return { message: `❌ Không tìm thấy sản phẩm "${productName}".\nVui lòng kiểm tra lại tên sản phẩm!` };
+            }
+        }
+
+        return { message: `📝 Để thêm vào giỏ, gõ:\n"Thêm [tên sản phẩm] size [S/M/L/XL] màu [màu] vào giỏ"\n\nVí dụ: "Thêm áo hoodie size L màu đen vào giỏ"` };
+    }
+
+    return null;
+}
+
+// ==================== CART HELPERS ====================
+
+async function getOrCreateCart(facebookUserId: string) {
+    const { data: existing } = await supabase
+        .from('carts')
+        .select('*')
+        .eq('facebook_user_id', facebookUserId)
+        .single();
+
+    if (existing) return existing;
+
+    const { data: newCart } = await supabase
+        .from('carts')
+        .insert({ facebook_user_id: facebookUserId })
+        .select()
+        .single();
+
+    return newCart;
+}
+
+async function getCart(facebookUserId: string) {
+    const { data } = await supabase
+        .from('carts')
+        .select('*, items:cart_items(*)')
+        .eq('facebook_user_id', facebookUserId)
+        .single();
+    return data;
+}
+
+async function addToCart(facebookUserId: string, item: any) {
+    const cart = await getOrCreateCart(facebookUserId);
+    if (!cart) return null;
+
+    // Check if item already exists
+    const { data: existing } = await supabase
+        .from('cart_items')
+        .select('*')
+        .eq('cart_id', cart.id)
+        .eq('product_name', item.product_name)
+        .eq('size', item.size || '')
+        .single();
+
+    if (existing) {
+        await supabase
+            .from('cart_items')
+            .update({ quantity: existing.quantity + item.quantity })
+            .eq('id', existing.id);
+    } else {
+        await supabase
+            .from('cart_items')
+            .insert({ cart_id: cart.id, ...item });
+    }
+}
+
+async function clearCart(facebookUserId: string) {
+    const cart = await getCart(facebookUserId);
+    if (cart) {
+        await supabase.from('cart_items').delete().eq('cart_id', cart.id);
+    }
+}
+
+function formatCartMessage(cart: any): string {
+    const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+    const items = cart.items || [];
+    const total = items.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity, 0);
+    const itemCount = items.reduce((sum: number, i: any) => sum + i.quantity, 0);
+
+    const list = items.map((item: any, idx: number) => {
+        const sizeColor = [item.size, item.color].filter(Boolean).join(' - ');
+        return `${idx + 1}. ${item.product_name}${sizeColor ? ` (${sizeColor})` : ''} x${item.quantity} - ${formatCurrency(item.unit_price * item.quantity)}`;
+    }).join('\n');
+
+    return `🛒 Giỏ hàng của bạn (${itemCount} sản phẩm)
+
+${list}
+
+💰 Tổng cộng: ${formatCurrency(total)}
+
+📝 Gõ "đặt hàng" để checkout
+🗑️ Gõ "xóa giỏ" để xóa toàn bộ`;
+}
+
+// ==================== SEND IMAGE ====================
+
+async function sendImage(recipientId: string, imageUrl: string): Promise<boolean> {
+    if (!PAGE_ACCESS_TOKEN) return false;
+
+    try {
+        const response = await fetch(
+            `https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recipient: { id: recipientId },
+                    message: {
+                        attachment: {
+                            type: 'image',
+                            payload: { url: imageUrl, is_reusable: true }
+                        }
+                    },
+                    messaging_type: 'RESPONSE',
+                }),
+            }
+        );
+        return response.ok;
+    } catch (error) {
+        console.error('❌ Error sending image:', error);
+        return false;
+    }
+}
+
 // ==================== MAIN HANDLER ====================
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -129,6 +342,18 @@ async function handleMessage(event: MessagingEvent) {
         return;
     }
 
+    // ==================== CART COMMANDS (ALWAYS ON) ====================
+    const cartResponse = await handleCartCommand(senderId, messageText);
+    if (cartResponse) {
+        await sendMessage(senderId, cartResponse.message);
+        if (cartResponse.imageUrl) {
+            await sendImage(senderId, cartResponse.imageUrl);
+        }
+        console.log(`🛒 Cart command handled: ${messageText.substring(0, 30)}...`);
+        return; // Đã xử lý cart command, không cần AI
+    }
+
+    // ==================== AI AUTO-REPLY ====================
     // Kiểm tra xem có bật auto-reply không (gọi API settings)
     try {
         // Trong production, gọi API. Tạm thời dùng env var + global state
