@@ -122,10 +122,19 @@ function syncOrder(sheet, order) {
 
     // Delete existing rows (reverse order to preserve indices)
     rowsToDelete.reverse().forEach(row => sheet.deleteRow(row));
+    // Format payment display: method + status
+    const formatPayment = (order) => {
+        const method = order.paymentMethod === 'cod' ? 'Thu hộ (COD)' :
+            order.paymentMethod === 'bank_transfer' ? 'Chuyển khoản' :
+                order.paymentMethod || '';
+        const status = order.paymentStatus === 'Paid' ? '✓' : '';
+        return method + (status ? ' ' + status : '');
+    };
 
     // Insert new rows for each item
     const items = order.items || [];
     const now = new Date().toLocaleString('vi-VN');
+    const paymentDisplay = formatPayment(order);
 
     items.forEach((item, index) => {
         const isFirstRow = index === 0;
@@ -140,7 +149,7 @@ function syncOrder(sheet, order) {
             item.color || '',  // Màu - luôn hiển thị
             item.quantity || 1,  // Số lượng - luôn hiển thị
             isFirstRow ? order.totalAmount : '',  // Tổng tiền - chỉ dòng đầu
-            isFirstRow ? (order.paymentStatus || 'Unpaid') : '',  // Thanh toán
+            isFirstRow ? paymentDisplay : '',  // Thanh toán - COD/Chuyển khoản + trạng thái
             isFirstRow ? (order.status || 'Pending') : '',  // Trạng thái
             isFirstRow ? (order.trackingCode || '') : '',  // Mã vận đơn
             isFirstRow ? (order.staffName || '') : '',  // Nhân viên
@@ -171,7 +180,7 @@ function syncOrder(sheet, order) {
             '',
             '',
             order.totalAmount || 0,
-            order.paymentStatus || 'Unpaid',
+            paymentDisplay,  // Thu hộ (COD) / Chuyển khoản
             order.status || 'Pending',
             order.trackingCode || '',
             order.staffName || '',
