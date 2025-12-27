@@ -321,6 +321,30 @@ const AppContent: React.FC = () => {
         toast.success('Đã cập nhật trạng thái.');
     };
 
+    const handleConfirmPayment = async (orderId: string) => {
+        // Update order: payment = Paid, status = Processing
+        await updateOrder(orderId, { paymentStatus: 'Paid', status: OrderStatus.Processing });
+        logActivity(`<strong>${currentUser?.name}</strong> đã xác nhận thanh toán cho đơn hàng <strong>#${orderId.substring(0, 8)}</strong>.`, orderId, 'order');
+
+        // Sync to Google Sheets
+        const orderToSync = orders.find(o => o.id === orderId);
+        if (orderToSync) {
+            syncOrderDirect({
+                ...orderToSync,
+                paymentStatus: 'Paid',
+                status: OrderStatus.Processing,
+                staffName: currentUser?.name
+            }, 'update').catch(console.error);
+        }
+
+        // Update viewingOrder if currently viewing this order
+        if (viewingOrder && viewingOrder.id === orderId) {
+            setViewingOrder({ ...viewingOrder, paymentStatus: 'Paid', status: OrderStatus.Processing });
+        }
+
+        toast.success('Đã xác nhận thanh toán!');
+    };
+
     const handleSaveOrder = async (order: Order, customerToSave: Customer) => {
         const orderIdShort = order.id.substring(0, 8);
         const isEditing = orders.some(o => o.id === order.id);
@@ -689,7 +713,7 @@ const AppContent: React.FC = () => {
                     setOrders(prev => prev.map(o => o.id === id ? { ...o, discussion: [...(o.discussion || []), entry] } : o));
                     if (viewingOrder && viewingOrder.id === id) setViewingOrder({ ...viewingOrder, discussion: [...(viewingOrder.discussion || []), entry] });
                 }}
-                onConfirmPayment={(id) => setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentStatus: 'Paid', status: OrderStatus.Processing } : o))}
+                onConfirmPayment={handleConfirmPayment}
                 onOpenReturnRequest={(order) => { setViewingOrder(null); setReturnRequestOrder(order); }}
                 onPrintInvoice={(order) => {
                     setViewingOrder(null);
