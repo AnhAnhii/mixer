@@ -122,13 +122,14 @@ function syncOrder(sheet, order) {
 
     // Delete existing rows (reverse order to preserve indices)
     rowsToDelete.reverse().forEach(row => sheet.deleteRow(row));
-    // Format payment display: method + status
+    // Format payment display based on method
     const formatPayment = (order) => {
-        const method = order.paymentMethod === 'cod' ? 'Thu hộ (COD)' :
-            order.paymentMethod === 'bank_transfer' ? 'Chuyển khoản' :
-                order.paymentMethod || '';
-        const status = order.paymentStatus === 'Paid' ? '✓' : '';
-        return method + (status ? ' ' + status : '');
+        if (order.paymentMethod === 'cod') {
+            return 'Thu hộ (COD)';
+        } else if (order.paymentMethod === 'bank_transfer') {
+            return order.paymentStatus === 'Paid' ? 'Đã thanh toán' : 'Đợi chuyển khoản';
+        }
+        return order.paymentStatus || 'Unpaid';
     };
 
     // Insert new rows for each item
