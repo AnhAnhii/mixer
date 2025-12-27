@@ -284,6 +284,110 @@ const AppContent: React.FC = () => {
         }
     };
 
+    // Gửi ảnh qua Facebook Messenger
+    const sendImageToFacebook = async (imageUrl: string, recipientId: string): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/facebook/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipientId, imageUrl, messageType: 'image' })
+            });
+            return response.ok;
+        } catch (err) {
+            console.error('Facebook send image error:', err);
+            return false;
+        }
+    };
+
+    // Generate VietQR URL
+    const getVietQRUrl = (amount: number, orderId: string) => {
+        if (!bankInfo) return '';
+        const content = encodeURIComponent(`Mixer ${orderId}`);
+        return `https://img.vietqr.io/image/${bankInfo.bin}-${bankInfo.accountNumber}-compact2.png?amount=${amount}&addInfo=${content}&accountName=${encodeURIComponent(bankInfo.accountName)}`;
+    };
+
+    // Tạo tin nhắn trạng thái đơn hàng chi tiết
+    const generateOrderStatusMessage = (order: Order, status: 'Chờ xử lý' | 'Đang xử lý' | 'Đã gửi hàng' | 'Đã giao hàng') => {
+        const formatCurrency = (amount: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+        const formatDate = (dateString: string) => new Date(dateString).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        const orderId = order.id.substring(0, 8);
+        const productList = order.items.map(item => `- ${item.productName} (${item.size} - ${item.color}) x ${item.quantity}`).join('\n');
+
+        if (status === 'Chờ xử lý') {
+            if (order.paymentMethod === 'cod') {
+                return `Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
+Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(order.orderDate)}
+
+- Tên người nhận: ${order.customerName}
+- Số điện thoại: ${order.customerPhone}
+- Địa chỉ: ${order.shippingAddress}
+
+Sản phẩm bao gồm:
+${productList}
+- Tổng trị giá đơn hàng: ${formatCurrency(order.totalAmount)}
+
+Đơn hàng của bạn sẽ được giao COD (thanh toán khi nhận hàng) ♥
+Dự kiến giao hàng trong 2-4 ngày. Cảm ơn bạn!`;
+            } else {
+                return `Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
+Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(order.orderDate)}
+
+- Tên người nhận: ${order.customerName}
+- Số điện thoại: ${order.customerPhone}
+- Địa chỉ: ${order.shippingAddress}
+
+Sản phẩm bao gồm:
+${productList}
+- Tổng trị giá đơn hàng: ${formatCurrency(order.totalAmount)}
+
+Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc, số lượng rồi quét mã QR bên dưới để chuyển khoản giúp mình nhé ♥
+Đơn hàng sẽ được giữ trong vòng 24h, sau 24h sẽ tự động huỷ nếu chưa chuyển khoản ạ.`;
+            }
+        }
+
+        if (status === 'Đang xử lý') {
+            return `Mixer xác nhận đã nhận được thanh toán cho đơn hàng #${orderId}.
+Đơn hàng của bạn đang được chuẩn bị và sẽ sớm được gửi đi.
+Cảm ơn bạn đã mua sắm!`;
+        }
+
+        if (status === 'Đã gửi hàng') {
+            const shippingDetails = order.shippingProvider && order.trackingCode
+                ? `Đơn vị vận chuyển: ${order.shippingProvider} - Mã vận đơn: ${order.trackingCode}`
+                : `Đơn vị vận chuyển: [Vui lòng cập nhật trong chi tiết đơn hàng]`;
+            return `Mixer xin thông báo: Đơn hàng #${orderId} của bạn đã được gửi đi.
+${shippingDetails}
+Bạn vui lòng để ý điện thoại để nhận hàng trong vài ngày tới nhé. Cảm ơn bạn!`;
+        }
+
+        if (status === 'Đã giao hàng') {
+            return `Mixer xin thông báo: Đơn hàng #${orderId} đã được giao thành công.
+Cảm ơn bạn đã tin tưởng và mua sắm tại Mixer. Hẹn gặp lại bạn ở những đơn hàng tiếp theo nhé!`;
+        }
+
+        return '';
+    };
+
+    // Gửi trạng thái đơn hàng đến khách (bao gồm QR nếu cần)
+    const sendOrderStatusToCustomer = async (order: Order, status: 'Chờ xử lý' | 'Đang xử lý' | 'Đã gửi hàng' | 'Đã giao hàng') => {
+        if (!order.facebookUserId) return;
+
+        const message = generateOrderStatusMessage(order, status);
+        if (message) {
+            await sendMessageToFacebook(message, order.facebookUserId);
+
+            // Nếu là Chờ xử lý + chuyển khoản → gửi QR
+            if (status === 'Chờ xử lý' && order.paymentMethod !== 'cod' && bankInfo) {
+                const qrUrl = getVietQRUrl(order.totalAmount, order.id.substring(0, 8));
+                if (qrUrl) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await sendImageToFacebook(qrUrl, order.facebookUserId);
+                }
+            }
+        }
+    };
+
     const handleDeleteOrder = async (orderId: string) => {
         await deleteOrder(orderId);
         logActivity(`<strong>${currentUser?.name}</strong> đã xóa đơn hàng <strong>#${orderId.substring(0, 8)}</strong>.`, orderId, 'order');
@@ -338,10 +442,13 @@ const AppContent: React.FC = () => {
                 staffName: currentUser?.name
             }, 'update').catch(console.error);
 
-            // Auto send Facebook message if order has facebookUserId
+            // Auto send Facebook message: Đang xử lý
             if (orderToSync.facebookUserId) {
-                const message = `✅ Đơn hàng #${orderId.substring(0, 8)} đã được xác nhận thanh toán!\n\n🔄 Trạng thái: Đang xử lý\n📦 Đơn hàng của bạn sẽ được đóng gói và gửi đi sớm.\n\nCảm ơn quý khách đã mua hàng tại Mixer! 💕`;
-                sendMessageToFacebook(message, orderToSync.facebookUserId).catch(console.error);
+                sendOrderStatusToCustomer({
+                    ...orderToSync,
+                    paymentStatus: 'Paid',
+                    status: OrderStatus.Processing
+                }, 'Đang xử lý').catch(console.error);
             }
         }
 
@@ -385,11 +492,7 @@ const AppContent: React.FC = () => {
 
                 // Auto send Facebook message if order was created from Inbox (has facebookUserId)
                 if (newOrder.facebookUserId) {
-                    const paymentInfo = newOrder.paymentMethod === 'cod'
-                        ? '💵 Thanh toán: Thu hộ (COD)'
-                        : `💳 Thanh toán: Chuyển khoản\n📱 Vui lòng chuyển khoản để đơn hàng được xử lý nhanh hơn!`;
-                    const message = `🎉 Đơn hàng #${newOrder.id.substring(0, 8)} đã được tạo thành công!\n\n📦 Trạng thái: Chờ xử lý\n💰 Tổng tiền: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(newOrder.totalAmount)}\n${paymentInfo}\n\nCảm ơn quý khách đã tin tưởng Mixer! 💕`;
-                    sendMessageToFacebook(message, newOrder.facebookUserId).catch(console.error);
+                    sendOrderStatusToCustomer(newOrder, 'Chờ xử lý').catch(console.error);
                 }
             }
         }
