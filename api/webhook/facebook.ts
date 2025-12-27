@@ -99,12 +99,17 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
             const sizeMatch = messageText.match(/size\s+(\w+)/i);
             const colorMatch = messageText.match(/màu\s+(\w+)/i);
 
+            console.log('🔍 Searching for product:', productName);
+            console.log('📡 Supabase URL configured:', !!SUPABASE_URL);
+
             // Tìm sản phẩm trong database
-            const { data: products } = await supabase
+            const { data: products, error: searchError } = await supabase
                 .from('products')
                 .select('id, name, price, variants')
                 .ilike('name', `%${productName}%`)
                 .limit(1);
+
+            console.log('📦 Search result:', { products, error: searchError });
 
             if (products && products.length > 0) {
                 const product = products[0];
