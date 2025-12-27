@@ -678,60 +678,61 @@ Trả về JSON với cấu trúc:
         const productList = order.items.map(item => `- ${item.productName} (${item.size} - ${item.color}) x ${item.quantity}`).join('\n');
 
         const shippingDetails = order.shippingProvider && order.trackingCode
-            ? `Đơn vị vận chuyển: ${order.shippingProvider} - Mã vận đơn: ${order.trackingCode}`
-            : `Đơn vị vận chuyển: [Vui lòng cập nhật trong chi tiết đơn hàng]`;
+            ? `🚚 Đơn vị vận chuyển: ${order.shippingProvider}\n📋 Mã vận đơn: ${order.trackingCode}`
+            : `🚚 Đơn vị vận chuyển: [Đang cập nhật]`;
 
         // Template cho COD  
-        const codTemplate = `Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
-Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(order.orderDate)}
+        const codTemplate = `📦 Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
+🆔 Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(order.orderDate)}
 
-- Tên người nhận: ${order.customerName}
-- Số điện thoại: ${order.customerPhone}
-- Địa chỉ: ${order.shippingAddress}
+👤 Tên người nhận: ${order.customerName}
+📱 Số điện thoại: ${order.customerPhone}
+📍 Địa chỉ: ${order.shippingAddress}
 
-Sản phẩm bao gồm:
+🛒 Sản phẩm bao gồm:
 ${productList}
-- Tổng trị giá đơn hàng: ${formatCurrency(order.totalAmount)}
+💰 Tổng trị giá đơn hàng: ${formatCurrency(order.totalAmount)}
 
-Đơn hàng của bạn sẽ được giao COD (thanh toán khi nhận hàng) ♥
-Dự kiến giao hàng trong 2-4 ngày. Cảm ơn bạn!`;
+💵 Đơn hàng của bạn sẽ được giao COD (thanh toán khi nhận hàng) ♥
+Cảm ơn bạn đã tin tưởng Mixer! 💕`;
 
         // Template cho chuyển khoản
-        const bankTransferTemplate = `Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
-Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(order.orderDate)}
+        const bankTransferTemplate = `📦 Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
+🆔 Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(order.orderDate)}
 
-- Tên người nhận: ${order.customerName}
-- Số điện thoại: ${order.customerPhone}
-- Địa chỉ: ${order.shippingAddress}
+👤 Tên người nhận: ${order.customerName}
+📱 Số điện thoại: ${order.customerPhone}
+📍 Địa chỉ: ${order.shippingAddress}
 
-Sản phẩm bao gồm:
+🛒 Sản phẩm bao gồm:
 ${productList}
-- Tổng trị giá đơn hàng: ${formatCurrency(order.totalAmount)}
+💰 Tổng trị giá đơn hàng: ${formatCurrency(order.totalAmount)}
 
-Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc, số lượng rồi quét mã QR bên dưới để chuyển khoản giúp mình nhé ♥
-Đơn hàng sẽ được giữ trong vòng 24h, sau 24h sẽ tự động huỷ nếu chưa chuyển khoản ạ.`;
+💳 Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc, số lượng rồi quét mã QR bên dưới để chuyển khoản giúp mình nhé ♥
+⏰ Đơn hàng sẽ được giữ trong vòng 24h, sau 24h sẽ tự động huỷ nếu chưa chuyển khoản ạ.`;
 
         switch (status) {
             case 'Chờ xử lý':
                 return order.paymentMethod === 'cod' ? codTemplate : bankTransferTemplate;
 
             case 'Đang xử lý':
-                return `Mixer xác nhận đã nhận được thanh toán cho đơn hàng #${orderId}.
-Đơn hàng của bạn đang được chuẩn bị và sẽ sớm được gửi đi.
-Cảm ơn bạn đã mua sắm!`;
+                return `✅ Mixer xác nhận đã nhận được thanh toán cho đơn hàng #${orderId}.
+📦 Đơn hàng của bạn đang được chuẩn bị và sẽ sớm được gửi đi.
+💕 Cảm ơn bạn đã mua sắm tại Mixer!`;
 
             case 'Đã gửi hàng':
-                return `Mixer xin thông báo: Đơn hàng #${orderId} của bạn đã được gửi đi.
+                return `🎉 Mixer xin thông báo: Đơn hàng #${orderId} của bạn đã được gửi đi!
 ${shippingDetails}
-Bạn vui lòng để ý điện thoại để nhận hàng trong vài ngày tới nhé. Cảm ơn bạn!`;
+📞 Bạn vui lòng để ý điện thoại để nhận hàng nhé. Cảm ơn bạn! 💕`;
 
             case 'Đã giao hàng':
-                return `Mixer xin thông báo: Đơn hàng #${orderId} đã được giao thành công.
-Cảm ơn bạn đã tin tưởng và mua sắm tại Mixer. Hẹn gặp lại bạn ở những đơn hàng tiếp theo nhé!`;
+                return `🎊 Mixer xin thông báo: Đơn hàng #${orderId} đã được giao thành công!
+💕 Cảm ơn bạn đã tin tưởng và mua sắm tại Mixer.
+🛍️ Hẹn gặp lại bạn ở những đơn hàng tiếp theo nhé!`;
 
             case 'Đã hủy':
-                return `Đơn hàng #${orderId} đã được hủy theo yêu cầu.
-Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé!`;
+                return `❌ Đơn hàng #${orderId} đã được hủy theo yêu cầu.
+Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! 💬`;
 
             default:
                 return '';
