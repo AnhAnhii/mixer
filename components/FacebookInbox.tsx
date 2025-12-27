@@ -19,6 +19,7 @@ import { useToast } from './Toast';
 import { GoogleGenAI } from '@google/genai';
 import { GEMINI_API_KEY } from '../config';
 import type { Order, Product, OrderItem, Customer } from '../types';
+import { cartService } from '../services/cartService';
 
 // Types
 interface Conversation {
@@ -344,6 +345,102 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
         if (!bankInfo) return '';
         const content = encodeURIComponent(`Mixer ${orderId}`);
         return `https://img.vietqr.io/image/${bankInfo.bin}-${bankInfo.accountNumber}-compact2.png?amount=${amount}&addInfo=${content}&accountName=${encodeURIComponent(bankInfo.accountName)}`;
+    };
+
+    // ==================== VIRTUAL CART HANDLERS ====================
+
+    // Kiểm tra xem tin nhắn có phải là cart command không
+    const isCartCommand = (text: string): boolean => {
+        const lowerText = text.toLowerCase();
+        return lowerText.includes('thêm vào giỏ') ||
+            lowerText.includes('add to cart') ||
+            lowerText.includes('xem giỏ') ||
+            lowerText.includes('giỏ hàng') ||
+            lowerText.includes('xóa giỏ') ||
+            lowerText.includes('clear cart') ||
+            (lowerText.includes('đặt hàng') && lowerText.includes('giỏ'));
+    };
+
+    // Xử lý cart command
+    const handleCartCommand = async (text: string): Promise<string | null> => {
+        if (!selectedConversation) return null;
+
+        const lowerText = text.toLowerCase();
+        const facebookUserId = selectedConversation.recipientId;
+
+        // Xem giỏ hàng
+        if (lowerText.includes('xem giỏ') || lowerText === 'giỏ hàng') {
+            const cart = await cartService.getCart(facebookUserId);
+            if (!cart) {
+                return '🛒 Giỏ hàng của bạn đang trống.\nGõ "thêm [tên sản phẩm] vào giỏ" để bắt đầu mua sắm!';
+            }
+            return cartService.formatCartMessage(cart);
+        }
+
+        // Xóa giỏ hàng
+        if (lowerText.includes('xóa giỏ') || lowerText.includes('clear cart')) {
+            await cartService.clearCart(facebookUserId);
+            return '🗑️ Đã xóa toàn bộ giỏ hàng!';
+        }
+
+        // Thêm vào giỏ
+        if (lowerText.includes('thêm vào giỏ') || lowerText.includes('add to cart')) {
+            // Parse product info from text
+            // Pattern: "thêm [product] size [size] màu [color] vào giỏ"
+            const productMatch = text.match(/thêm\s+(.+?)\s+(size\s+\w+)?\s*(màu\s+\w+)?\s*vào giỏ/i);
+
+            if (productMatch) {
+                const productName = productMatch[1].trim();
+                const sizeMatch = text.match(/size\s+(\w+)/i);
+                const colorMatch = text.match(/màu\s+(\w+)/i);
+                const quantityMatch = text.match(/(\d+)\s*(cái|chiếc|áo|quần)?/i);
+
+                // Find product in catalog
+                const foundProduct = products.find(p =>
+                    p.name.toLowerCase().includes(productName.toLowerCase())
+                );
+
+                if (foundProduct) {
+                    const size = sizeMatch ? sizeMatch[1].toUpperCase() : foundProduct.variants[0]?.size || 'M';
+                    const color = colorMatch ? colorMatch[1] : foundProduct.variants[0]?.color || '';
+                    const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
+
+                    await cartService.addItem(facebookUserId, {
+                        product_id: foundProduct.id,
+                        product_name: foundProduct.name,
+                        size,
+                        color,
+                        quantity,
+                        unit_price: foundProduct.price
+                    });
+
+                    const cart = await cartService.getCart(facebookUserId);
+                    const { itemCount, totalAmount } = cart ? cartService.getCartTotal(cart) : { itemCount: 0, totalAmount: 0 };
+                    const formatCurrency = (amount: number) =>
+                        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+
+                    return `✅ Đã thêm vào giỏ hàng!
+
+📦 ${foundProduct.name} (${size}${color ? ' - ' + color : ''}) x${quantity}
+💰 ${formatCurrency(foundProduct.price * quantity)}
+
+🛒 Giỏ hàng: ${itemCount} sản phẩm - ${formatCurrency(totalAmount)}
+
+📝 Gõ "xem giỏ" để xem chi tiết
+📝 Gõ "đặt hàng" để checkout`;
+                } else {
+                    return `❌ Không tìm thấy sản phẩm "${productName}" trong danh mục.
+Vui lòng kiểm tra lại tên sản phẩm!`;
+                }
+            }
+
+            return `📝 Để thêm vào giỏ, gõ theo format:
+"Thêm [tên sản phẩm] size [S/M/L/XL] màu [màu] vào giỏ"
+
+Ví dụ: "Thêm áo hoodie size L màu đen vào giỏ"`;
+        }
+
+        return null; // Not a cart command
     };
 
     // Gửi tin nhắn xác nhận đơn hàng với mẫu đầy đủ (COD / Chuyển khoản + VietQR)
@@ -1225,7 +1322,7 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
 
                         {/* Quick Actions */}
                         <div className="p-3 border-b border-border">
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                                 <button className="flex flex-col items-center gap-1 p-2 bg-card rounded-lg hover:bg-muted transition-colors">
                                     <PhoneIcon className="w-4 h-4 text-primary" />
                                     <span className="text-xs">Gọi điện</span>
@@ -1244,6 +1341,20 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                         <span className="text-xs">AI Tạo đơn</span>
                                     </button>
                                 )}
+                                <button
+                                    onClick={async () => {
+                                        if (selectedConversation) {
+                                            const response = await handleCartCommand('xem giỏ');
+                                            if (response) {
+                                                await sendMessage(response);
+                                            }
+                                        }
+                                    }}
+                                    className="flex flex-col items-center gap-1 p-2 bg-card rounded-lg hover:bg-muted transition-colors"
+                                >
+                                    <ShoppingBagIcon className="w-4 h-4 text-green-600" />
+                                    <span className="text-xs">Giỏ hàng</span>
+                                </button>
                             </div>
                         </div>
 
