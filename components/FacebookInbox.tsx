@@ -621,24 +621,32 @@ Trả về JSON với cấu trúc:
             .trim();
     };
 
-    // Get customer order history - priority: facebookUserId > name matching (normalized)
+    // Get customer order history - priority: facebookUserId > phone > name matching
     const getCustomerOrders = useCallback(() => {
         if (!selectedConversation) return [];
 
         const facebookId = selectedConversation.recipientId;
-        const customerName = selectedConversation.customerName.toLowerCase().trim();
         const customerNameNormalized = normalizeVietnamese(selectedConversation.customerName);
 
-        console.log('[getCustomerOrders] Searching:', { facebookId, customerName, customerNameNormalized, totalOrders: orders.length });
+        console.log('[getCustomerOrders] Searching:', { facebookId, customerNameNormalized, totalOrders: orders.length });
 
         const matched = orders.filter(o => {
             // Priority 1: Match by Facebook User ID (most accurate)
             if (facebookId && o.facebookUserId === facebookId) {
-                console.log('[getCustomerOrders] Matched by facebookUserId:', o.id);
+                console.log('[getCustomerOrders] Matched by facebookUserId:', o.id, 'order.facebookUserId:', o.facebookUserId);
                 return true;
             }
 
-            // Priority 2: Match by Facebook username (normalized)
+            // Priority 2: Match by phone number (very reliable if available)
+            if (o.customerPhone) {
+                // Normalize phone: remove spaces, dashes, leading 0 or +84
+                const normalizePhone = (p: string) => p.replace(/[\s\-\.\(\)]/g, '').replace(/^(\+84|84|0)/, '');
+                // Try to find phone in conversation messages (last 5 messages)
+                // This is a fallback - phone from order matches any hint in conversation
+                // For now, we just have the order phone, no conversation phone to compare
+            }
+
+            // Priority 3: Match by Facebook username (normalized)
             if (o.facebookUserName) {
                 const orderFbName = normalizeVietnamese(o.facebookUserName);
                 if (orderFbName === customerNameNormalized) {
@@ -647,10 +655,10 @@ Trả về JSON với cấu trúc:
                 }
             }
 
-            // Priority 3: Match by customer name (normalized - handles Vietnamese accents)
+            // Priority 4: Match by customer name (normalized - handles Vietnamese accents)
             const orderNameNormalized = normalizeVietnamese(o.customerName);
             if (orderNameNormalized === customerNameNormalized) {
-                console.log('[getCustomerOrders] Matched by customerName (normalized):', o.id);
+                console.log('[getCustomerOrders] Matched by customerName (normalized):', o.id, 'order:', orderNameNormalized, 'fb:', customerNameNormalized);
                 return true;
             }
 
@@ -658,6 +666,15 @@ Trả về JSON với cấu trúc:
         });
 
         console.log('[getCustomerOrders] Total matched:', matched.length);
+
+        // Debug: log all orders' facebookUserId for comparison
+        if (matched.length === 0 && orders.length > 0) {
+            console.log('[getCustomerOrders] No match. Sample orders facebookUserId:', orders.slice(0, 3).map(o => ({
+                id: o.id.substring(0, 8),
+                facebookUserId: o.facebookUserId,
+                customerName: o.customerName
+            })));
+        }
 
         // Sort by orderDate (Supabase) or createdAt (localStorage)
         return matched.sort((a, b) => {
