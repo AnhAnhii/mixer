@@ -63,18 +63,19 @@ interface CartResponse {
 async function handleCartCommand(senderId: string, messageText: string): Promise<CartResponse | null> {
     const lowerText = messageText.toLowerCase();
 
-    // Kiểm tra có phải cart command không
-    const isCartCmd = lowerText.includes('thêm vào giỏ') ||
-        lowerText.includes('add to cart') ||
-        lowerText.includes('xem giỏ') ||
-        lowerText === 'giỏ hàng' ||
-        lowerText.includes('xóa giỏ') ||
-        lowerText.includes('clear cart');
+    // Kiểm tra có phải cart command không - sử dụng regex linh hoạt hơn
+    const isAddToCart = /thêm\s+.+\s+vào\s+giỏ/i.test(messageText) || lowerText.includes('add to cart');
+    const isViewCart = lowerText.includes('xem giỏ') || lowerText === 'giỏ hàng' || lowerText.includes('giỏ hàng của');
+    const isClearCart = lowerText.includes('xóa giỏ') || lowerText.includes('clear cart');
+
+    const isCartCmd = isAddToCart || isViewCart || isClearCart;
 
     if (!isCartCmd) return null;
 
+    console.log('🛒 Cart command detected:', { isAddToCart, isViewCart, isClearCart });
+
     // Xem giỏ hàng
-    if (lowerText.includes('xem giỏ') || lowerText === 'giỏ hàng') {
+    if (isViewCart) {
         const cart = await getCart(senderId);
         if (!cart || !cart.items || cart.items.length === 0) {
             return { message: '🛒 Giỏ hàng của bạn đang trống.\nGõ "thêm [tên sản phẩm] vào giỏ" để bắt đầu mua sắm!' };
@@ -83,15 +84,15 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
     }
 
     // Xóa giỏ hàng
-    if (lowerText.includes('xóa giỏ') || lowerText.includes('clear cart')) {
+    if (isClearCart) {
         await clearCart(senderId);
         return { message: '🗑️ Đã xóa toàn bộ giỏ hàng!' };
     }
 
     // Thêm vào giỏ
-    if (lowerText.includes('thêm vào giỏ') || lowerText.includes('add to cart')) {
-        // Parse: "thêm [product] size [size] màu [color] vào giỏ"
-        const productMatch = messageText.match(/thêm\s+(.+?)\s*(size\s+\w+)?\s*(màu\s+\w+)?\s*vào giỏ/i);
+    if (isAddToCart) {
+        // Parse: "thêm [product] size [size] màu [color] vào giỏ [hàng]"
+        const productMatch = messageText.match(/thêm\s+(.+?)\s+vào\s+giỏ/i);
 
         if (productMatch) {
             const productName = productMatch[1].trim();
