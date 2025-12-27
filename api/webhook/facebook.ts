@@ -91,13 +91,22 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
 
     // Thêm vào giỏ
     if (isAddToCart) {
-        // Parse: "thêm [product] size [size] màu [color] vào giỏ [hàng]"
-        const productMatch = messageText.match(/thêm\s+(.+?)\s+vào\s+giỏ/i);
+        // Parse size và color trước
+        const sizeMatch = messageText.match(/size\s+(\w+)/i);
+        const colorMatch = messageText.match(/màu\s+(\w+)/i);
+
+        // Lọc bỏ size, màu, và color keywords khỏi product name
+        let cleanedText = messageText
+            .replace(/size\s+\w+/gi, '')
+            .replace(/màu\s+\w+/gi, '')
+            .replace(/(đen|trắng|đỏ|xanh|vàng|hồng|tím|nâu|xám|be)/gi, '') // common colors
+            .trim();
+
+        // Extract product name từ cleaned text
+        const productMatch = cleanedText.match(/thêm\s+(.+?)\s+vào\s+giỏ/i);
 
         if (productMatch) {
             const productName = productMatch[1].trim();
-            const sizeMatch = messageText.match(/size\s+(\w+)/i);
-            const colorMatch = messageText.match(/màu\s+(\w+)/i);
 
             console.log('🔍 Searching for product:', productName);
             console.log('📡 Supabase URL configured:', !!SUPABASE_URL);
