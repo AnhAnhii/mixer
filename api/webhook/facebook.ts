@@ -355,7 +355,9 @@ async function createOrderFromCart(
         return { success: false, error: 'Giỏ hàng trống' };
     }
 
-    const total = cart.items.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity, 0);
+    const SHIPPING_FEE = 30000; // Phí ship cố định
+    const subtotal = cart.items.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity, 0);
+    const total = subtotal + SHIPPING_FEE;
 
     // Tạo order trong Supabase
     const { data: order, error: orderError } = await supabase
@@ -368,6 +370,7 @@ async function createOrderFromCart(
             payment_status: customerInfo.paymentMethod === 'cod' ? 'Unpaid' : 'Unpaid',
             status: 'Chờ xử lý',
             total_amount: total,
+            shipping_fee: SHIPPING_FEE,
             facebook_user_id: senderId,
             order_date: new Date().toISOString()
         })
@@ -461,7 +464,7 @@ Ví dụ: Nguyễn Văn A, 0901234567, 123 ABC Q1 HCM, COD`
 
 🛒 Sản phẩm bao gồm:
 ${productList}
-💰 Tổng trị giá đơn hàng: ${formatCurrency(result.total || 0)}
+💰 Tổng trị giá đơn hàng: ${formatCurrency(result.total || 0)} (đã bao gồm phí ship 30.000đ)
 
 💳 Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc, số lượng rồi quét mã QR bên dưới để chuyển khoản giúp mình nhé ♥
 ⏰ Đơn hàng sẽ được giữ trong vòng 24h, sau 24h sẽ tự động huỷ nếu chưa chuyển khoản ạ.`,
@@ -480,7 +483,7 @@ ${productList}
 
 🛒 Sản phẩm bao gồm:
 ${productList}
-💰 Tổng trị giá đơn hàng: ${formatCurrency(result.total || 0)}
+💰 Tổng trị giá đơn hàng: ${formatCurrency(result.total || 0)} (đã bao gồm phí ship 30.000đ)
 
 💵 Đơn hàng của bạn sẽ được giao COD (thanh toán khi nhận hàng) ♥
 Cảm ơn bạn đã tin tưởng Mixer! 💕`
