@@ -19,6 +19,7 @@ import VoucherForm from './components/VoucherForm';
 import OrderDetailModal from './components/OrderDetailModal';
 import CustomerDetailModal from './components/CustomerDetailModal';
 import QuickOrderModal from './components/QuickOrderModal';
+import QuickPaymentConfirmModal from './components/QuickPaymentConfirmModal';
 import MessageTemplatesModal from './components/MessageTemplatesModal';
 import InvoicePage from './components/InvoicePage';
 import SocialPage from './components/SocialPage';
@@ -237,6 +238,7 @@ const AppContent: React.FC = () => {
     const [isVnPayModalOpen, setIsVnPayModalOpen] = useState(false);
     const [payingOrder, setPayingOrder] = useState<Order | null>(null);
     const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+    const [isQuickPaymentOpen, setIsQuickPaymentOpen] = useState(false);
 
     const isAnyModalOpen = isOrderFormOpen || isProductFormOpen || isCustomerFormOpen || isVoucherFormOpen || !!viewingOrder || !!viewingCustomer || isQuickOrderOpen || !!messageTemplateOrder || isZenMenuOpen || isAutomationFormOpen || isCommandPaletteOpen || !!returnRequestOrder || !!viewingReturnRequest || isVnPayModalOpen || isStrategyModalOpen;
 
@@ -547,7 +549,7 @@ const AppContent: React.FC = () => {
         }
 
         switch (view) {
-            case 'dashboard': return <Dashboard orders={orders} products={products} customers={customers} activityLog={activityLog} onViewOrder={handleViewOrderDetails} onViewCustomer={handleViewCustomerDetails} onNavigate={(viewId) => setView(viewId as Page)} onOpenVoucherForm={handleOpenVoucherForm} onOpenStrategy={() => setIsStrategyModalOpen(true)} />;
+            case 'dashboard': return <Dashboard orders={orders} products={products} customers={customers} activityLog={activityLog} onViewOrder={handleViewOrderDetails} onViewCustomer={handleViewCustomerDetails} onNavigate={(viewId) => setView(viewId as Page)} onOpenVoucherForm={handleOpenVoucherForm} onOpenStrategy={() => setIsStrategyModalOpen(true)} onOpenQuickPayment={() => setIsQuickPaymentOpen(true)} />;
             case 'inbox': return <InboxCommandCenter products={products} orders={orders} bankInfo={bankInfo} onOpenOrderForm={handleOpenOrderForm} onViewOrder={handleViewOrderDetails} onUpdateOrderStatus={handleUpdateStatus} />;
             case 'orders': return <OrderListPage orders={orders} onViewDetails={handleViewOrderDetails} onEdit={handleOpenOrderForm} onDelete={handleDeleteOrder} onUpdateStatus={handleUpdateStatus} onAddOrder={() => handleOpenOrderForm(null)} onAddQuickOrder={() => setIsQuickOrderOpen(true)} isAnyModalOpen={isAnyModalOpen} />;
             case 'workflow': return <KanbanBoardPage orders={orders} onUpdateStatus={handleUpdateStatus} onViewDetails={handleViewOrderDetails} />;
@@ -805,6 +807,13 @@ const AppContent: React.FC = () => {
                 orders={orders}
                 products={products}
                 customers={customers}
+            />
+
+            <QuickPaymentConfirmModal
+                isOpen={isQuickPaymentOpen}
+                onClose={() => setIsQuickPaymentOpen(false)}
+                orders={orders}
+                onConfirmPayment={handleConfirmPayment}
             />
 
         </div>

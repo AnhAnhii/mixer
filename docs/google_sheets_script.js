@@ -234,18 +234,31 @@ function getStatusColor(status, paymentStatus) {
     }
 }
 
-// Delete order from sheet
+// Delete order from sheet (including sub-rows without orderId)
 function deleteOrder(sheet, orderId) {
     const shortId = orderId.substring(0, 8);
     const data = sheet.getDataRange().getValues();
 
     const rowsToDelete = [];
+    let foundMainRow = false;
+
     for (let i = 1; i < data.length; i++) {
-        if (data[i][0] === shortId) {
+        const rowOrderId = data[i][0];
+
+        if (rowOrderId === shortId) {
+            // Found main row with order ID
             rowsToDelete.push(i + 1);
+            foundMainRow = true;
+        } else if (foundMainRow && rowOrderId === '') {
+            // Found sub-row (no order ID) immediately after main row
+            rowsToDelete.push(i + 1);
+        } else if (foundMainRow && rowOrderId !== '') {
+            // Found next order, stop searching
+            break;
         }
     }
 
+    // Delete rows from bottom to top to preserve indices
     rowsToDelete.reverse().forEach(row => sheet.deleteRow(row));
 }
 
