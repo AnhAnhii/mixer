@@ -67,12 +67,13 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
     const isAddToCart = /thêm\s+.+\s+vào\s+giỏ/i.test(messageText) || lowerText.includes('add to cart');
     const isViewCart = lowerText.includes('xem giỏ') || lowerText === 'giỏ hàng' || lowerText.includes('giỏ hàng của');
     const isClearCart = lowerText.includes('xóa giỏ') || lowerText.includes('clear cart');
+    const isCheckout = lowerText.includes('đặt hàng') || lowerText.includes('checkout') || lowerText.includes('thanh toán giỏ');
 
-    const isCartCmd = isAddToCart || isViewCart || isClearCart;
+    const isCartCmd = isAddToCart || isViewCart || isClearCart || isCheckout;
 
     if (!isCartCmd) return null;
 
-    console.log('🛒 Cart command detected:', { isAddToCart, isViewCart, isClearCart });
+    console.log('🛒 Cart command detected:', { isAddToCart, isViewCart, isClearCart, isCheckout });
 
     // Xem giỏ hàng
     if (isViewCart) {
@@ -87,6 +88,37 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
     if (isClearCart) {
         await clearCart(senderId);
         return { message: '🗑️ Đã xóa toàn bộ giỏ hàng!' };
+    }
+
+    // Checkout - Đặt hàng
+    if (isCheckout) {
+        const cart = await getCart(senderId);
+        if (!cart || !cart.items || cart.items.length === 0) {
+            return { message: '🛒 Giỏ hàng của bạn đang trống!\nHãy thêm sản phẩm trước khi đặt hàng nhé.' };
+        }
+
+        const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+        const total = cart.items.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity, 0);
+        const itemsList = cart.items.map((item: any, idx: number) => {
+            const sizeColor = [item.size, item.color].filter(Boolean).join(' - ');
+            return `${idx + 1}. ${item.product_name}${sizeColor ? ` (${sizeColor})` : ''} x${item.quantity}`;
+        }).join('\n');
+
+        return {
+            message: `📦 XÁC NHẬN ĐẶT HÀNG
+
+${itemsList}
+
+💰 Tổng cộng: ${formatCurrency(total)}
+
+Để hoàn tất đơn hàng, vui lòng gửi cho mình:
+👤 Họ tên:
+📱 SĐT:
+📍 Địa chỉ nhận hàng:
+💳 Thanh toán: (COD / Chuyển khoản)
+
+Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
+        };
     }
 
     // Thêm vào giỏ
