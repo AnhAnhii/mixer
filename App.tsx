@@ -372,18 +372,28 @@ ${shippingDetails}
 
     // Gửi trạng thái đơn hàng đến khách (bao gồm QR nếu cần)
     const sendOrderStatusToCustomer = async (order: Order, status: 'Chờ xử lý' | 'Đang xử lý' | 'Đã gửi hàng' | 'Đã giao hàng') => {
-        if (!order.facebookUserId) return;
+        if (!order.facebookUserId) {
+            console.log('No facebookUserId for order:', order.id);
+            return;
+        }
 
         const message = generateOrderStatusMessage(order, status);
+        console.log('Sending order status message:', { orderId: order.id, status, messageLength: message.length });
+
         if (message) {
-            await sendMessageToFacebook(message, order.facebookUserId);
+            // Gửi tin nhắn text trước
+            const textSent = await sendMessageToFacebook(message, order.facebookUserId);
+            console.log('Text message sent:', textSent);
 
             // Nếu là Chờ xử lý + chuyển khoản → gửi QR
             if (status === 'Chờ xử lý' && order.paymentMethod !== 'cod' && bankInfo) {
                 const qrUrl = getVietQRUrl(order.totalAmount, order.id.substring(0, 8));
+                console.log('Sending QR image:', qrUrl ? 'URL generated' : 'No URL');
                 if (qrUrl) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    await sendImageToFacebook(qrUrl, order.facebookUserId);
+                    // Đợi 1 giây để đảm bảo text gửi xong
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    const qrSent = await sendImageToFacebook(qrUrl, order.facebookUserId);
+                    console.log('QR image sent:', qrSent);
                 }
             }
         }
