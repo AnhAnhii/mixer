@@ -21,6 +21,10 @@ export interface Product {
   price: number;
   costPrice: number;
   image_url?: string;
+  image_url_2?: string;
+  image_url_3?: string;
+  image_url_4?: string;
+  image_url_5?: string;
   description?: string;
   variants: ProductVariant[];
 }

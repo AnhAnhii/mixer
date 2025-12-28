@@ -1089,10 +1089,10 @@ ${product.description ? '\n📝 ' + product.description : ''}
     if (payload.startsWith('VIEW_IMAGE_')) {
         const productId = payload.replace('VIEW_IMAGE_', '');
 
-        // Fetch product với variants
+        // Fetch product với variants và tất cả ảnh
         const { data: product } = await supabase
             .from('products')
-            .select('id, name, price, image_url, variants:product_variants(size, color, stock)')
+            .select('id, name, price, image_url, image_url_2, image_url_3, image_url_4, image_url_5, variants:product_variants(size, color, stock)')
             .eq('id', productId)
             .single();
 
@@ -1105,9 +1105,17 @@ ${product.description ? '\n📝 ' + product.description : ''}
                 return `${v.size} - ${v.color || 'Mặc định'}: ${stockStatus} ${v.stock > 0 ? `(còn ${v.stock})` : '(hết hàng)'}`;
             }).join('\n');
 
-            // Gửi ảnh trước
-            if (product.image_url) {
-                await sendImage(senderId, product.image_url);
+            // Gửi tất cả ảnh (lần lượt)
+            const allImages = [
+                product.image_url,
+                product.image_url_2,
+                product.image_url_3,
+                product.image_url_4,
+                product.image_url_5
+            ].filter(Boolean);
+
+            for (const imgUrl of allImages) {
+                await sendImage(senderId, imgUrl);
             }
 
             // Gửi bảng size

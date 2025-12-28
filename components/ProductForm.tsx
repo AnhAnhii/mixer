@@ -12,7 +12,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onClose, product }) =
   const [name, setName] = useState('');
   const [price, setPrice] = useState(0);
   const [costPrice, setCostPrice] = useState(0);
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrls, setImageUrls] = useState<string[]>(['', '', '', '', '']); // 5 ảnh
   const [description, setDescription] = useState('');
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -22,7 +22,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onClose, product }) =
       setName(product.name);
       setPrice(product.price);
       setCostPrice(product.costPrice || 0);
-      setImageUrl(product.image_url || '');
+      setImageUrls([
+        product.image_url || '',
+        product.image_url_2 || '',
+        product.image_url_3 || '',
+        product.image_url_4 || '',
+        product.image_url_5 || ''
+      ]);
       setDescription(product.description || '');
       setVariants(product.variants);
     } else {
@@ -30,7 +36,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onClose, product }) =
       setName('');
       setPrice(0);
       setCostPrice(0);
-      setImageUrl('');
+      setImageUrls(['', '', '', '', '']);
       setDescription('');
       setVariants([{ id: crypto.randomUUID(), size: '', color: '', stock: 0, lowStockThreshold: 5 }]);
     }
@@ -61,7 +67,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onClose, product }) =
       name,
       price,
       costPrice,
-      image_url: imageUrl || undefined,
+      image_url: imageUrls[0] || undefined,
+      image_url_2: imageUrls[1] || undefined,
+      image_url_3: imageUrls[2] || undefined,
+      image_url_4: imageUrls[3] || undefined,
+      image_url_5: imageUrls[4] || undefined,
       description: description || undefined,
       variants
     });
@@ -108,47 +118,56 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onClose, product }) =
         </div>
       </div>
 
-      {/* Ảnh và Mô tả sản phẩm */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 mb-1">
-            Ảnh sản phẩm (URL)
-          </label>
-          <input
-            type="url"
-            id="imageUrl"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://example.com/image.jpg"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-          />
-          <p className="text-xs text-gray-500 mt-1">Paste URL ảnh từ Facebook, Shopee, hoặc website khác</p>
-          {imageUrl && (
-            <div className="mt-3">
-              <img
-                src={imageUrl}
-                alt="Preview"
-                className="w-32 h-32 object-cover rounded-lg border border-gray-200"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/128x128?text=Lỗi+URL';
+      {/* Ảnh sản phẩm (5 ảnh) */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Ảnh sản phẩm (tối đa 5 ảnh)</h3>
+        <p className="text-xs text-gray-500">Paste URL ảnh từ Facebook, Shopee, hoặc website khác</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+          {imageUrls.map((url, index) => (
+            <div key={index} className="space-y-2">
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => {
+                  const newUrls = [...imageUrls];
+                  newUrls[index] = e.target.value;
+                  setImageUrls(newUrls);
                 }}
+                placeholder={`Ảnh ${index + 1}`}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
               />
+              <div className="aspect-square bg-gray-100 rounded-lg border border-gray-200 overflow-hidden flex items-center justify-center">
+                {url ? (
+                  <img
+                    src={url}
+                    alt={`Ảnh ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150x150?text=Lỗi';
+                    }}
+                  />
+                ) : (
+                  <span className="text-gray-400 text-xs">Ảnh {index + 1}</span>
+                )}
+              </div>
             </div>
-          )}
+          ))}
         </div>
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-            Mô tả sản phẩm
-          </label>
-          <textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            placeholder="Mô tả chi tiết về sản phẩm..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary resize-none"
-          />
-        </div>
+      </div>
+
+      {/* Mô tả sản phẩm */}
+      <div>
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+          Mô tả sản phẩm
+        </label>
+        <textarea
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          placeholder="Mô tả chi tiết về sản phẩm..."
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary resize-none"
+        />
       </div>
 
       <div className="space-y-4">
