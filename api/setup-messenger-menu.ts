@@ -29,52 +29,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             composer_input_disabled: false,
                             call_to_actions: [
                                 {
-                                    type: 'nested',
-                                    title: '🛍️ Mua hàng',
-                                    call_to_actions: [
-                                        {
-                                            type: 'postback',
-                                            title: '🛍️ Xem sản phẩm',
-                                            payload: 'VIEW_PRODUCTS'
-                                        },
-                                        {
-                                            type: 'postback',
-                                            title: '🛒 Xem giỏ hàng',
-                                            payload: 'VIEW_CART'
-                                        },
-                                        {
-                                            type: 'postback',
-                                            title: '📦 Đặt hàng',
-                                            payload: 'CHECKOUT'
-                                        },
-                                        {
-                                            type: 'postback',
-                                            title: '🗑️ Xóa giỏ hàng',
-                                            payload: 'CLEAR_CART'
-                                        }
-                                    ]
+                                    type: 'postback',
+                                    title: '🛍️ Xem sản phẩm',
+                                    payload: 'VIEW_PRODUCTS'
                                 },
                                 {
-                                    type: 'nested',
-                                    title: '📞 Hỗ trợ',
-                                    call_to_actions: [
-                                        {
-                                            type: 'postback',
-                                            title: '❓ Hướng dẫn mua hàng',
-                                            payload: 'HELP'
-                                        },
-                                        {
-                                            type: 'postback',
-                                            title: '📱 Liên hệ Hotline',
-                                            payload: 'CONTACT'
-                                        },
-                                        {
-                                            type: 'web_url',
-                                            title: '🛒 Shopee',
-                                            url: 'https://s.shopee.vn/VzxlZeu4F',
-                                            webview_height_ratio: 'full'
-                                        }
-                                    ]
+                                    type: 'postback',
+                                    title: '🛒 Xem giỏ hàng',
+                                    payload: 'VIEW_CART'
+                                },
+                                {
+                                    type: 'postback',
+                                    title: '📦 Đặt hàng',
+                                    payload: 'CHECKOUT'
+                                },
+                                {
+                                    type: 'postback',
+                                    title: '📞 Liên hệ Hotline',
+                                    payload: 'CONTACT'
+                                },
+                                {
+                                    type: 'web_url',
+                                    title: '🛒 Shopee',
+                                    url: 'https://s.shopee.vn/VzxlZeu4F',
+                                    webview_height_ratio: 'full'
                                 }
                             ]
                         }
