@@ -20,6 +20,8 @@ export interface Product {
   name: string;
   price: number;
   costPrice: number;
+  image_url?: string;
+  description?: string;
   variants: ProductVariant[];
 }
 
