@@ -71,8 +71,10 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
     const isViewProducts = lowerText.includes('xem sản phẩm') || lowerText.includes('có gì bán') ||
         lowerText.includes('danh sách sp') || lowerText.includes('danh sách sản phẩm') ||
         lowerText.includes('sản phẩm') && !isAddToCart || lowerText.includes('menu');
+    const isOrderHistory = lowerText.includes('lịch sử đơn') || lowerText.includes('đơn hàng của tôi') ||
+        lowerText.includes('đơn của tôi') || lowerText.includes('xem đơn hàng') || lowerText.includes('order history');
 
-    const isCartCmd = isAddToCart || isViewCart || isClearCart || isCheckout || isViewProducts;
+    const isCartCmd = isAddToCart || isViewCart || isClearCart || isCheckout || isViewProducts || isOrderHistory;
 
     if (!isCartCmd) return null;
 
@@ -96,6 +98,45 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
     if (isClearCart) {
         await clearCart(senderId);
         return { message: '🗑️ Đã xóa toàn bộ giỏ hàng!' };
+    }
+
+    // Lịch sử đơn hàng
+    if (isOrderHistory) {
+        const { data: orders, error } = await supabase
+            .from('orders')
+            .select('id, total_amount, status, created_at, items')
+            .eq('customer_fb_id', senderId)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        if (error || !orders || orders.length === 0) {
+            return { message: '📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️' };
+        }
+
+        const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
+        const formatDate = (d: string) => new Date(d).toLocaleString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+        const statusEmoji: Record<string, string> = {
+            'pending': '⏳ Chờ xử lý',
+            'confirmed': '✅ Đã xác nhận',
+            'shipping': '🚚 Đang giao',
+            'delivered': '📦 Đã giao',
+            'cancelled': '❌ Đã hủy'
+        };
+
+        const orderList = orders.map((o: any, idx: number) => {
+            const items = o.items || [];
+            const itemSummary = items.slice(0, 2).map((i: any) => `${i.product_name} x${i.quantity}`).join(', ');
+            const moreItems = items.length > 2 ? ` +${items.length - 2} sp` : '';
+            return `${idx + 1}️⃣ #${o.id.substring(0, 8)} - ${formatDate(o.created_at)}
+   ${itemSummary}${moreItems}
+   💰 ${formatCurrency(o.total_amount)} - ${statusEmoji[o.status] || o.status}`;
+        }).join('\n\n');
+
+        return { message: `📦 ĐƠN HÀNG CỦA BẠN (5 đơn gần nhất)\n\n${orderList}\n\n📝 Cần hỗ trợ? Nhắn tin cho shop nhé!` };
     }
 
     // Checkout - Đặt hàng
