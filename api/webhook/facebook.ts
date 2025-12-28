@@ -1059,6 +1059,25 @@ Cần hỗ trợ thêm? Cứ nhắn tin, mình sẽ trả lời ngay! ♥`);
         return;
     }
 
+    if (payload === 'CLEAR_CART') {
+        await clearCart(senderId);
+        await sendMessage(senderId, '🗑️ Đã xóa toàn bộ giỏ hàng!\n\nGõ "xem sản phẩm" để tiếp tục mua sắm! 🛍️');
+        return;
+    }
+
+    if (payload === 'CONTACT') {
+        await sendMessage(senderId, `📞 LIÊN HỆ MIXER
+
+☎️ Hotline: 0559131315
+📱 Zalo: 0559131315
+🛒 Shopee: s.shopee.vn/VzxlZeu4F
+
+⏰ Thời gian hỗ trợ: 8:00 - 22:00 hàng ngày
+
+Rất vui được phục vụ bạn! ♥`);
+        return;
+    }
+
     // Xử lý ADD_TO_CART từ carousel
     if (payload.startsWith('ADD_TO_CART_')) {
         const productId = payload.replace('ADD_TO_CART_', '');
