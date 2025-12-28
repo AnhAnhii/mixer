@@ -445,7 +445,7 @@ Ví dụ: Nguyễn Văn A, 0901234567, 123 ABC Q1 HCM, COD`
     }
 
     const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
-    const formatDate = () => new Date().toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const formatDate = () => new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const orderId = result.orderId?.substring(0, 8);
 
     // Tạo danh sách sản phẩm
