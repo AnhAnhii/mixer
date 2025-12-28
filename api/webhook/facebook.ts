@@ -68,12 +68,20 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
     const isViewCart = lowerText.includes('xem giỏ') || lowerText === 'giỏ hàng' || lowerText.includes('giỏ hàng của');
     const isClearCart = lowerText.includes('xóa giỏ') || lowerText.includes('clear cart');
     const isCheckout = lowerText.includes('đặt hàng') || lowerText.includes('checkout') || lowerText.includes('thanh toán giỏ');
+    const isViewProducts = lowerText.includes('xem sản phẩm') || lowerText.includes('có gì bán') ||
+        lowerText.includes('danh sách sp') || lowerText.includes('danh sách sản phẩm') ||
+        lowerText.includes('sản phẩm') && !isAddToCart || lowerText.includes('menu');
 
-    const isCartCmd = isAddToCart || isViewCart || isClearCart || isCheckout;
+    const isCartCmd = isAddToCart || isViewCart || isClearCart || isCheckout || isViewProducts;
 
     if (!isCartCmd) return null;
 
-    console.log('🛒 Cart command detected:', { isAddToCart, isViewCart, isClearCart, isCheckout });
+    console.log('🛒 Cart command detected:', { isAddToCart, isViewCart, isClearCart, isCheckout, isViewProducts });
+
+    // Xem sản phẩm - Carousel
+    if (isViewProducts) {
+        return { message: '__VIEW_PRODUCTS_CAROUSEL__' }; // Special marker để trigger carousel
+    }
 
     // Xem giỏ hàng
     if (isViewCart) {
@@ -572,6 +580,130 @@ ${list}
 🗑️ Gõ "xóa giỏ" để xóa toàn bộ`;
 }
 
+// ==================== PRODUCT CAROUSEL ====================
+
+async function sendProductCarousel(recipientId: string): Promise<boolean> {
+    if (!PAGE_ACCESS_TOKEN) return false;
+
+    try {
+        // Fetch products from Supabase
+        const { data: products, error } = await supabase
+            .from('products')
+            .select(`
+                id, 
+                name, 
+                price, 
+                image_url,
+                variants:product_variants(size, color, stock)
+            `)
+            .limit(10); // Facebook giới hạn 10 cards
+
+        if (error || !products || products.length === 0) {
+            console.error('❌ Error fetching products:', error);
+            // Gửi text message thay thế
+            await sendMessage(recipientId, '🛍️ Hiện tại shop chưa có sản phẩm nào. Vui lòng quay lại sau nhé!');
+            return false;
+        }
+
+        const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
+
+        // Tạo carousel elements
+        const elements = products.map((product: any) => {
+            const variants = product.variants || [];
+            const sizes = [...new Set(variants.map((v: any) => v.size).filter(Boolean))].join(', ') || 'Liên hệ';
+            const colors = [...new Set(variants.map((v: any) => v.color).filter(Boolean))].join(', ') || '';
+
+            const subtitle = `💰 ${formatCurrency(product.price)}\n📏 Size: ${sizes}${colors ? '\n🎨 Màu: ' + colors : ''}`;
+
+            return {
+                title: product.name,
+                subtitle: subtitle.substring(0, 80), // Facebook giới hạn 80 ký tự
+                image_url: product.image_url || 'https://via.placeholder.com/300x300?text=No+Image',
+                buttons: [
+                    {
+                        type: 'postback',
+                        title: '🛒 Thêm vào giỏ',
+                        payload: `ADD_TO_CART_${product.id}`
+                    },
+                    {
+                        type: 'postback',
+                        title: '📋 Chi tiết',
+                        payload: `VIEW_DETAIL_${product.id}`
+                    }
+                ]
+            };
+        });
+
+        // Gửi carousel
+        const response = await fetch(
+            `https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recipient: { id: recipientId },
+                    message: {
+                        attachment: {
+                            type: 'template',
+                            payload: {
+                                template_type: 'generic',
+                                elements: elements
+                            }
+                        }
+                    },
+                    messaging_type: 'RESPONSE',
+                }),
+            }
+        );
+
+        const result = await response.json();
+
+        if (result.error) {
+            console.error('❌ Facebook carousel error:', result.error);
+            // Fallback: gửi text list
+            await sendProductListAsText(recipientId, products);
+            return false;
+        }
+
+        console.log('🎠 Carousel sent successfully');
+
+        // Gửi hướng dẫn sử dụng
+        setTimeout(async () => {
+            await sendMessage(recipientId, `📌 HƯỚNG DẪN MUA HÀNG:
+
+1️⃣ Vuốt trái/phải để xem sản phẩm
+2️⃣ Bấm "Thêm vào giỏ" để chọn mua
+3️⃣ Gõ "xem giỏ" để xem giỏ hàng
+4️⃣ Gõ "đặt hàng" rồi gửi thông tin để hoàn tất
+
+💡 Hoặc gõ: "thêm [tên sp] size [size] vào giỏ"`);
+        }, 500);
+
+        return true;
+    } catch (error) {
+        console.error('❌ Error sending carousel:', error);
+        return false;
+    }
+}
+
+// Fallback: Gửi danh sách sản phẩm dạng text
+async function sendProductListAsText(recipientId: string, products: any[]): Promise<void> {
+    const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
+
+    const list = products.map((p: any, idx: number) => {
+        const variants = p.variants || [];
+        const sizes = [...new Set(variants.map((v: any) => v.size).filter(Boolean))].join(', ') || 'Liên hệ';
+        return `${idx + 1}. ${p.name} - ${formatCurrency(p.price)}\n   Size: ${sizes}`;
+    }).join('\n\n');
+
+    await sendMessage(recipientId, `🛍️ DANH SÁCH SẢN PHẨM:
+
+${list}
+
+📌 Gõ "thêm [tên sản phẩm] vào giỏ" để mua
+📌 Gõ "xem giỏ" để xem giỏ hàng`);
+}
+
 // ==================== SEND IMAGE ====================
 
 async function sendImage(recipientId: string, imageUrl: string): Promise<boolean> {
@@ -689,6 +821,13 @@ async function handleMessage(event: MessagingEvent) {
     // ==================== CART COMMANDS (ALWAYS ON) ====================
     const cartResponse = await handleCartCommand(senderId, messageText);
     if (cartResponse) {
+        // Special case: Carousel sản phẩm
+        if (cartResponse.message === '__VIEW_PRODUCTS_CAROUSEL__') {
+            await sendProductCarousel(senderId);
+            console.log(`🎠 Product carousel sent for: ${messageText.substring(0, 30)}...`);
+            return;
+        }
+
         await sendMessage(senderId, cartResponse.message);
         if (cartResponse.imageUrl) {
             await sendImage(senderId, cartResponse.imageUrl);
@@ -848,16 +987,100 @@ async function handlePostback(event: MessagingEvent) {
 
     console.log(`🔘 Postback from ${senderId}: ${payload}`);
 
-    switch (payload) {
-        case 'GET_STARTED':
-            await sendMessage(
-                senderId,
-                'Chào mừng bạn đến với shop! 🎉\n\nBạn có thể nhắn tin để hỏi về:\n• Sản phẩm & giá cả\n• Size & màu sắc\n• Ship & thanh toán\n\nMình sẽ phản hồi sớm nhất có thể ạ!'
-            );
-            break;
-        default:
-            console.log(`⚠️ Unknown postback: ${payload}`);
+    // Xử lý GET_STARTED
+    if (payload === 'GET_STARTED') {
+        await sendMessage(
+            senderId,
+            `Chào mừng bạn đến với MIXER! 🎉
+
+🛍️ Gõ "xem sản phẩm" để xem danh sách
+🛒 Gõ "xem giỏ" để xem giỏ hàng
+📦 Gõ "đặt hàng" để checkout
+
+Mình sẽ phản hồi sớm nhất có thể ạ! ♥`
+        );
+        return;
     }
+
+    // Xử lý ADD_TO_CART từ carousel
+    if (payload.startsWith('ADD_TO_CART_')) {
+        const productId = payload.replace('ADD_TO_CART_', '');
+
+        // Fetch product info
+        const { data: product } = await supabase
+            .from('products')
+            .select('id, name, price, variants:product_variants(size, color)')
+            .eq('id', productId)
+            .single();
+
+        if (product) {
+            const variants = product.variants || [];
+            const defaultSize = variants[0]?.size || 'M';
+            const defaultColor = variants[0]?.color || '';
+
+            await addToCart(senderId, {
+                product_id: product.id,
+                product_name: product.name,
+                size: defaultSize,
+                color: defaultColor,
+                quantity: 1,
+                unit_price: product.price
+            });
+
+            const cart = await getCart(senderId);
+            const itemCount = cart?.items?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 0;
+            const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
+
+            await sendMessage(senderId, `✅ Đã thêm ${product.name} (${defaultSize}) vào giỏ!
+
+🛒 Giỏ hàng: ${itemCount} sản phẩm
+
+📝 Gõ "xem giỏ" để xem chi tiết
+📝 Gõ "đặt hàng" để checkout
+📝 Gõ "thêm ${product.name} size [size] vào giỏ" để đổi size`);
+        } else {
+            await sendMessage(senderId, '❌ Không tìm thấy sản phẩm. Vui lòng thử lại!');
+        }
+        return;
+    }
+
+    // Xử lý VIEW_DETAIL từ carousel
+    if (payload.startsWith('VIEW_DETAIL_')) {
+        const productId = payload.replace('VIEW_DETAIL_', '');
+
+        // Fetch product detail
+        const { data: product } = await supabase
+            .from('products')
+            .select('id, name, price, description, image_url, variants:product_variants(size, color, stock)')
+            .eq('id', productId)
+            .single();
+
+        if (product) {
+            const variants = product.variants || [];
+            const sizes = [...new Set(variants.map((v: any) => v.size).filter(Boolean))].join(', ') || 'Liên hệ';
+            const colors = [...new Set(variants.map((v: any) => v.color).filter(Boolean))].join(', ') || 'Liên hệ';
+            const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
+
+            await sendMessage(senderId, `📦 ${product.name.toUpperCase()}
+
+💰 Giá: ${formatCurrency(product.price)}
+📏 Size: ${sizes}
+🎨 Màu: ${colors}
+${product.description ? '\n📝 ' + product.description : ''}
+
+🛒 Gõ "thêm ${product.name} size [size] vào giỏ" để mua`);
+
+            // Gửi ảnh nếu có
+            if (product.image_url) {
+                await sendImage(senderId, product.image_url);
+            }
+        } else {
+            await sendMessage(senderId, '❌ Không tìm thấy sản phẩm. Vui lòng thử lại!');
+        }
+        return;
+    }
+
+    console.log(`⚠️ Unknown postback: ${payload}`);
 }
 
 // ==================== SEND MESSAGE ====================
