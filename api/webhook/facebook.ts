@@ -1007,6 +1007,58 @@ Mình sẽ phản hồi sớm nhất có thể ạ! ♥`
         return;
     }
 
+    // Handler cho Persistent Menu items
+    if (payload === 'VIEW_PRODUCTS') {
+        await sendProductCarousel(senderId);
+        return;
+    }
+
+    if (payload === 'VIEW_CART') {
+        const cart = await getCart(senderId);
+        if (!cart || !cart.items || cart.items.length === 0) {
+            await sendMessage(senderId, '🛒 Giỏ hàng của bạn đang trống.\nGõ "xem sản phẩm" để bắt đầu mua sắm!');
+        } else {
+            await sendMessage(senderId, formatCartMessage(cart));
+        }
+        return;
+    }
+
+    if (payload === 'CHECKOUT') {
+        const cart = await getCart(senderId);
+        if (!cart || !cart.items || cart.items.length === 0) {
+            await sendMessage(senderId, '🛒 Giỏ hàng trống! Hãy thêm sản phẩm trước khi đặt hàng.\nGõ "xem sản phẩm" để xem danh sách.');
+        } else {
+            const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+            const total = cart.items.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity, 0);
+            await sendMessage(senderId, `📦 ĐẶT HÀNG
+
+${formatCartMessage(cart)}
+
+📝 Để hoàn tất đơn hàng, vui lòng gửi thông tin theo format:
+Họ tên, SĐT, Địa chỉ, COD/CK
+
+Ví dụ: Nguyễn Văn A, 0901234567, 123 ABC Q1 HCM, COD`);
+        }
+        return;
+    }
+
+    if (payload === 'HELP') {
+        await sendMessage(senderId, `📌 HƯỚNG DẪN MUA HÀNG TẠI MIXER
+
+1️⃣ Xem sản phẩm: Gõ "xem sản phẩm" hoặc bấm menu
+2️⃣ Thêm vào giỏ: Bấm nút hoặc gõ "thêm [tên sp] vào giỏ"
+3️⃣ Xem giỏ hàng: Gõ "xem giỏ"
+4️⃣ Đặt hàng: Gõ "đặt hàng" rồi gửi thông tin
+
+📍 Format thông tin đặt hàng:
+Họ tên, SĐT, Địa chỉ, COD/CK
+
+💡 Mẹo: Bấm ≡ để mở menu nhanh!
+
+Cần hỗ trợ thêm? Cứ nhắn tin, mình sẽ trả lời ngay! ♥`);
+        return;
+    }
+
     // Xử lý ADD_TO_CART từ carousel
     if (payload.startsWith('ADD_TO_CART_')) {
         const productId = payload.replace('ADD_TO_CART_', '');
