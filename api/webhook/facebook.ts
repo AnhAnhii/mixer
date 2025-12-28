@@ -102,6 +102,8 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
 
     // Lịch sử đơn hàng
     if (isOrderHistory) {
+        console.log('📋 Order history request from:', senderId);
+
         const { data: orders, error } = await supabase
             .from('orders')
             .select('id, total_amount, status, created_at, items')
@@ -109,8 +111,10 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
             .order('created_at', { ascending: false })
             .limit(5);
 
+        console.log('📋 Order history result:', { error, ordersCount: orders?.length, senderId });
+
         if (error || !orders || orders.length === 0) {
-            return { message: '📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️' };
+            return { message: `📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️\n\n(Debug: senderId=${senderId})` };
         }
 
         const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
