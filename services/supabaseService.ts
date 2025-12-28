@@ -43,6 +43,12 @@ export const productService = {
             name: p.name,
             price: p.price,
             costPrice: p.cost_price,
+            image_url: p.image_url,
+            image_url_2: p.image_url_2,
+            image_url_3: p.image_url_3,
+            image_url_4: p.image_url_4,
+            image_url_5: p.image_url_5,
+            description: p.description,
             variants: (p.product_variants || []).map((v: any) => ({
                 id: v.id,
                 size: v.size,
@@ -62,6 +68,12 @@ export const productService = {
                 name: product.name,
                 price: product.price,
                 cost_price: product.costPrice,
+                image_url: product.image_url,
+                image_url_2: product.image_url_2,
+                image_url_3: product.image_url_3,
+                image_url_4: product.image_url_4,
+                image_url_5: product.image_url_5,
+                description: product.description,
             })
             .select()
             .single();
@@ -96,6 +108,12 @@ export const productService = {
                 name: product.name,
                 price: product.price,
                 cost_price: product.costPrice,
+                image_url: product.image_url,
+                image_url_2: product.image_url_2,
+                image_url_3: product.image_url_3,
+                image_url_4: product.image_url_4,
+                image_url_5: product.image_url_5,
+                description: product.description,
             })
             .eq('id', id);
 
