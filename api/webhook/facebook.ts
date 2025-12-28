@@ -105,7 +105,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         const { data: orders, error } = await supabase
             .from('orders')
             .select('id, total_amount, status, created_at, items')
-            .eq('customer_fb_id', senderId)
+            .eq('facebook_user_id', senderId)
             .order('created_at', { ascending: false })
             .limit(5);
 
