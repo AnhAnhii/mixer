@@ -6,8 +6,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+    // Cho phép cả GET và POST để dễ setup từ browser
+    if (req.method !== 'POST' && req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed. Use GET or POST.' });
     }
 
     if (!PAGE_ACCESS_TOKEN) {
