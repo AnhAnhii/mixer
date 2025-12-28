@@ -45,8 +45,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 },
                                 {
                                     type: 'postback',
-                                    title: '📞 Liên hệ Hotline',
-                                    payload: 'CONTACT'
+                                    title: '🗑️ Xóa giỏ hàng',
+                                    payload: 'CLEAR_CART'
                                 },
                                 {
                                     type: 'web_url',
