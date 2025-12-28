@@ -104,17 +104,22 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
     if (isOrderHistory) {
         console.log('📋 Order history request from:', senderId);
 
+        // Thử query với filter khác
         const { data: orders, error } = await supabase
             .from('orders')
-            .select('id, total_amount, status, created_at, items')
-            .eq('facebook_user_id', senderId)
+            .select('id, total_amount, status, created_at, items, facebook_user_id')
             .order('created_at', { ascending: false })
-            .limit(5);
+            .limit(10);
 
-        console.log('📋 Order history result:', { error, ordersCount: orders?.length, senderId });
+        console.log('📋 All orders:', orders?.map(o => ({ id: o.id.substring(0, 8), fb_id: o.facebook_user_id })));
 
-        if (error || !orders || orders.length === 0) {
-            return { message: `📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️\n\n(Debug: senderId=${senderId})` };
+        // Filter manually
+        const userOrders = (orders || []).filter((o: any) => o.facebook_user_id === senderId).slice(0, 5);
+
+        console.log('📋 User orders:', userOrders.length);
+
+        if (error || userOrders.length === 0) {
+            return { message: `📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️\n\n(Debug: senderId=${senderId}, total=${orders?.length || 0})` };
         }
 
         const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
@@ -131,7 +136,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
             'cancelled': '❌ Đã hủy'
         };
 
-        const orderList = orders.map((o: any, idx: number) => {
+        const orderList = userOrders.map((o: any, idx: number) => {
             const items = o.items || [];
             const itemSummary = items.slice(0, 2).map((i: any) => `${i.product_name} x${i.quantity}`).join(', ');
             const moreItems = items.length > 2 ? ` +${items.length - 2} sp` : '';
@@ -140,7 +145,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
    💰 ${formatCurrency(o.total_amount)} - ${statusEmoji[o.status] || o.status}`;
         }).join('\n\n');
 
-        return { message: `📦 ĐƠN HÀNG CỦA BẠN (5 đơn gần nhất)\n\n${orderList}\n\n📝 Cần hỗ trợ? Nhắn tin cho shop nhé!` };
+        return { message: `📦 ĐƠN HÀNG CỦA BẠN (${userOrders.length} đơn gần nhất)\n\n${orderList}\n\n📝 Cần hỗ trợ? Nhắn tin cho shop nhé!` };
     }
 
     // Checkout - Đặt hàng
