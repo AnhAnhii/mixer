@@ -627,6 +627,11 @@ async function sendProductCarousel(recipientId: string): Promise<boolean> {
                     },
                     {
                         type: 'postback',
+                        title: '📷 Xem ảnh',
+                        payload: `VIEW_IMAGE_${product.id}`
+                    },
+                    {
+                        type: 'postback',
                         title: '📋 Chi tiết',
                         payload: `VIEW_DETAIL_${product.id}`
                     }
@@ -1074,6 +1079,46 @@ ${product.description ? '\n📝 ' + product.description : ''}
             if (product.image_url) {
                 await sendImage(senderId, product.image_url);
             }
+        } else {
+            await sendMessage(senderId, '❌ Không tìm thấy sản phẩm. Vui lòng thử lại!');
+        }
+        return;
+    }
+
+    // Xử lý VIEW_IMAGE từ carousel - gửi ảnh và bảng size
+    if (payload.startsWith('VIEW_IMAGE_')) {
+        const productId = payload.replace('VIEW_IMAGE_', '');
+
+        // Fetch product với variants
+        const { data: product } = await supabase
+            .from('products')
+            .select('id, name, price, image_url, variants:product_variants(size, color, stock)')
+            .eq('id', productId)
+            .single();
+
+        if (product) {
+            const variants = product.variants || [];
+
+            // Tạo bảng size
+            const sizeChart = variants.map((v: any) => {
+                const stockStatus = v.stock > 5 ? '✅' : v.stock > 0 ? '⚠️' : '❌';
+                return `${v.size} - ${v.color || 'Mặc định'}: ${stockStatus} ${v.stock > 0 ? `(còn ${v.stock})` : '(hết hàng)'}`;
+            }).join('\n');
+
+            // Gửi ảnh trước
+            if (product.image_url) {
+                await sendImage(senderId, product.image_url);
+            }
+
+            // Gửi bảng size
+            await sendMessage(senderId, `📦 ${product.name.toUpperCase()}
+
+📏 BẢNG SIZE & TỒN KHO:
+${sizeChart || 'Chưa có thông tin size'}
+
+✅ Còn hàng | ⚠️ Sắp hết | ❌ Hết hàng
+
+🛒 Gõ "thêm ${product.name} size [size] vào giỏ" để mua`);
         } else {
             await sendMessage(senderId, '❌ Không tìm thấy sản phẩm. Vui lòng thử lại!');
         }
