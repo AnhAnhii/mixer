@@ -705,7 +705,7 @@ async function sendProductCarousel(recipientId: string): Promise<boolean> {
     if (!PAGE_ACCESS_TOKEN) return false;
 
     try {
-        // Fetch products from Supabase
+        // Fetch products from Supabase (chỉ lấy sản phẩm active)
         const { data: products, error } = await supabase
             .from('products')
             .select(`
@@ -715,6 +715,7 @@ async function sendProductCarousel(recipientId: string): Promise<boolean> {
                 image_url,
                 variants:product_variants(size, color, stock)
             `)
+            .eq('is_active', true)
             .limit(10); // Facebook giới hạn 10 cards
 
         if (error || !products || products.length === 0) {

@@ -23,13 +23,13 @@ export const productService = {
     async getAll(): Promise<Product[]> {
         if (!isSupabaseConfigured()) return [];
 
+        // Cho Admin: lấy tất cả sản phẩm (kể cả ẩn)
         const { data: products, error } = await supabase
             .from('products')
             .select(`
                 *,
                 product_variants (*)
             `)
-            .eq('is_active', true)
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -43,6 +43,7 @@ export const productService = {
             name: p.name,
             price: p.price,
             costPrice: p.cost_price,
+            is_active: p.is_active !== false, // default true nếu null
             image_url: p.image_url,
             image_url_2: p.image_url_2,
             image_url_3: p.image_url_3,
@@ -57,6 +58,21 @@ export const productService = {
                 lowStockThreshold: v.low_stock_threshold,
             })),
         }));
+    },
+
+    async toggleVisibility(productId: string, isActive: boolean): Promise<boolean> {
+        if (!isSupabaseConfigured()) return false;
+
+        const { error } = await supabase
+            .from('products')
+            .update({ is_active: isActive })
+            .eq('id', productId);
+
+        if (error) {
+            console.error('Error toggling product visibility:', error);
+            return false;
+        }
+        return true;
     },
 
     async create(product: Omit<Product, 'id'>): Promise<Product | null> {

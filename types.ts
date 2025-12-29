@@ -20,6 +20,7 @@ export interface Product {
   name: string;
   price: number;
   costPrice: number;
+  is_active?: boolean;
   image_url?: string;
   image_url_2?: string;
   image_url_3?: string;
