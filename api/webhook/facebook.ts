@@ -969,6 +969,13 @@ async function handleWebhookEvent(req: VercelRequest, res: VercelResponse) {
     try {
         for (const entry of body.entry) {
             for (const event of entry.messaging) {
+                // Bỏ qua echo messages (tin nhắn do page gửi đi)
+                const isEcho = (event.message as any)?.is_echo;
+                if (isEcho) {
+                    console.log('⏭️ Skipping echo message from page');
+                    continue;
+                }
+
                 if (event.message) {
                     await handleMessage(event);
                 } else if (event.postback) {
