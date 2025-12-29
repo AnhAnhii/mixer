@@ -222,11 +222,10 @@ Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
 
         const colorMatch = messageText.match(/màu\s+(\w+)/i);
 
-        // Lọc bỏ size, màu, và color keywords khỏi product name
+        // Lọc bỏ size và 'màu xxx' (nếu có), giữ nguyên màu trong tên sản phẩm
         let cleanedText = messageText
-            .replace(/size\s+[\w\s,và&]+(?=\s+(màu|vào|$))/gi, '') // size với các separators
-            .replace(/màu\s+\w+/gi, '')
-            .replace(/\s+(đen|trắng|đỏ|xanh|vàng|hồng|tím|nâu|xám|be|cam)(\s+|$)/gi, ' ') // màu sắc phổ biến
+            .replace(/size\s+[\w\s,và&]+(?=\s+(màu|vào|$))/gi, '') // Loại bỏ "size M, L và XL"
+            .replace(/màu\s+\w+/gi, '') // Loại bỏ "màu đen" chỉ khi có từ "màu"
             .replace(/\s+/g, ' ') // Clean multiple spaces
             .trim();
 
