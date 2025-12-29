@@ -997,9 +997,18 @@ async function handleMessage(event: MessagingEvent) {
     const senderId = event.sender.id;
     let messageText = event.message?.text || '';
 
-    // Xử lý quick_reply payload - convert thành text command
+    // Xử lý quick_reply payload - convert thành text command hoặc postback
     const quickReplyPayload = (event.message as any)?.quick_reply?.payload;
     if (quickReplyPayload) {
+        // Các payloads đặc biệt -> xử lý như postback
+        if (quickReplyPayload.startsWith('VIEW_SIZE_CHART_') ||
+            quickReplyPayload.startsWith('ADD_TO_CART_') ||
+            quickReplyPayload.startsWith('VIEW_IMAGE_')) {
+            console.log(`🔘 Quick reply redirecting to postback: ${quickReplyPayload}`);
+            await handlePostback({ sender: event.sender, postback: { payload: quickReplyPayload } } as any);
+            return;
+        }
+
         const payloadToCommand: Record<string, string> = {
             'XEM_SAN_PHAM': 'xem sản phẩm',
             'XEM_GIO_HANG': 'xem giỏ',
