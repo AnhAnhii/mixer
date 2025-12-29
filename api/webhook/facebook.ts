@@ -73,12 +73,66 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         lowerText.includes('sản phẩm') && !isAddToCart || lowerText.includes('menu');
     const isOrderHistory = lowerText.includes('lịch sử đơn') || lowerText.includes('đơn hàng của tôi') ||
         lowerText.includes('đơn của tôi') || lowerText.includes('xem đơn hàng') || lowerText.includes('order history');
+    const isHelp = lowerText === 'help' || lowerText === 'trợ giúp' || lowerText === 'hướng dẫn' ||
+        lowerText.includes('các lệnh') || lowerText === '?' || lowerText === 'h';
 
-    const isCartCmd = isAddToCart || isViewCart || isClearCart || isCheckout || isViewProducts || isOrderHistory;
+    const isCartCmd = isAddToCart || isViewCart || isClearCart || isCheckout || isViewProducts || isOrderHistory || isHelp;
 
     if (!isCartCmd) return null;
 
-    console.log('🛒 Cart command detected:', { isAddToCart, isViewCart, isClearCart, isCheckout, isViewProducts });
+    console.log('🛒 Cart command detected:', { isAddToCart, isViewCart, isClearCart, isCheckout, isViewProducts, isHelp });
+
+    // Hiển thị hướng dẫn các lệnh
+    if (isHelp) {
+        return {
+            message: `📚 HƯỚNG DẪN SỬ DỤNG BOT MIXER
+
+━━━━━━━━━━━━━━━━━━━━
+🛍️ XEM SẢN PHẨM
+━━━━━━━━━━━━━━━━━━━━
+Gõ: "xem sản phẩm" hoặc "menu"
+→ Hiển thị danh sách sản phẩm
+
+━━━━━━━━━━━━━━━━━━━━
+🛒 THÊM VÀO GIỎ
+━━━━━━━━━━━━━━━━━━━━
+Gõ: "thêm [tên SP] size [size] vào giỏ"
+Ví dụ:
+• thêm hoodie swan đen size L vào giỏ
+• thêm hoodie swan đen size M, L, XL vào giỏ
+
+━━━━━━━━━━━━━━━━━━━━
+👀 XEM GIỎ HÀNG
+━━━━━━━━━━━━━━━━━━━━
+Gõ: "xem giỏ" hoặc "giỏ hàng"
+→ Xem các sản phẩm trong giỏ
+
+━━━━━━━━━━━━━━━━━━━━
+📦 ĐẶT HÀNG
+━━━━━━━━━━━━━━━━━━━━
+Gõ: "đặt hàng"
+→ Bot sẽ hướng dẫn điền thông tin
+
+━━━━━━━━━━━━━━━━━━━━
+🗑️ XÓA GIỎ HÀNG
+━━━━━━━━━━━━━━━━━━━━
+Gõ: "xóa giỏ"
+→ Xóa toàn bộ sản phẩm trong giỏ
+
+━━━━━━━━━━━━━━━━━━━━
+📋 XEM LỊCH SỬ ĐƠN
+━━━━━━━━━━━━━━━━━━━━
+Gõ: "lịch sử đơn" hoặc "đơn của tôi"
+→ Xem các đơn hàng đã đặt
+
+━━━━━━━━━━━━━━━━━━━━
+❓ TRỢ GIÚP
+━━━━━━━━━━━━━━━━━━━━
+Gõ: "help" hoặc "hướng dẫn"
+→ Hiển thị hướng dẫn này
+
+💬 Cần hỗ trợ thêm? Nhắn tin trực tiếp cho shop nhé!` };
+    }
 
     // Xem sản phẩm - Carousel
     if (isViewProducts) {
