@@ -1352,7 +1352,7 @@ ${product.description ? '\n📝 ' + product.description : ''}
         return;
     }
 
-    // Xử lý VIEW_IMAGE từ carousel - gửi ảnh và bảng size
+    // Xử lý VIEW_IMAGE từ carousel - gửi 4 ảnh sản phẩm (không gửi bảng size)
     if (payload.startsWith('VIEW_IMAGE_')) {
         const productId = payload.replace('VIEW_IMAGE_', '');
 
@@ -1365,35 +1365,74 @@ ${product.description ? '\n📝 ' + product.description : ''}
 
         if (product) {
             const variants = product.variants || [];
+            const sizes = [...new Set(variants.map((v: any) => v.size))].join(', ') || 'Liên hệ';
+            const colors = [...new Set(variants.map((v: any) => v.color).filter(Boolean))].join(', ') || '';
+            const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
 
-            // Tạo bảng size
+            // Gửi 4 ảnh sản phẩm (KHÔNG gửi image_url_5 - bảng size)
+            const productImages = [
+                product.image_url,
+                product.image_url_2,
+                product.image_url_3,
+                product.image_url_4
+            ].filter(Boolean);
+
+            for (const imgUrl of productImages) {
+                await sendImage(senderId, imgUrl);
+            }
+
+            // Gửi thông tin sản phẩm với quick reply Bảng Size
+            const sizeChartQuickReplies = [
+                { content_type: 'text', title: '📏 Bảng Size', payload: `VIEW_SIZE_CHART_${productId}` },
+                { content_type: 'text', title: '🛒 Thêm giỏ', payload: `ADD_TO_CART_${productId}` },
+                ...DEFAULT_QUICK_REPLIES.slice(0, 3)
+            ];
+
+            await sendMessage(senderId, `📦 ${product.name.toUpperCase()}
+
+💰 Giá: ${formatCurrency(product.price)}
+📏 Size: ${sizes}${colors ? `\n🎨 Màu: ${colors}` : ''}
+
+🛒 Gõ "thêm ${product.name} size [size] vào giỏ" để mua
+📏 Bấm "Bảng Size" để xem chi tiết tồn kho`, sizeChartQuickReplies);
+        } else {
+            await sendMessage(senderId, '❌ Không tìm thấy sản phẩm. Vui lòng thử lại!');
+        }
+        return;
+    }
+
+    // Xử lý VIEW_SIZE_CHART - gửi image_url_5 (bảng size) và thông tin tồn kho chi tiết
+    if (payload.startsWith('VIEW_SIZE_CHART_')) {
+        const productId = payload.replace('VIEW_SIZE_CHART_', '');
+
+        const { data: product } = await supabase
+            .from('products')
+            .select('id, name, image_url_5, variants:product_variants(size, color, stock)')
+            .eq('id', productId)
+            .single();
+
+        if (product) {
+            const variants = product.variants || [];
+
+            // Gửi ảnh bảng size nếu có
+            if (product.image_url_5) {
+                await sendImage(senderId, product.image_url_5);
+            }
+
+            // Tạo bảng tồn kho chi tiết
             const sizeChart = variants.map((v: any) => {
                 const stockStatus = v.stock > 5 ? '✅' : v.stock > 0 ? '⚠️' : '❌';
                 return `${v.size} - ${v.color || 'Mặc định'}: ${stockStatus} ${v.stock > 0 ? `(còn ${v.stock})` : '(hết hàng)'}`;
             }).join('\n');
 
-            // Gửi tất cả ảnh (lần lượt)
-            const allImages = [
-                product.image_url,
-                product.image_url_2,
-                product.image_url_3,
-                product.image_url_4,
-                product.image_url_5
-            ].filter(Boolean);
+            await sendMessage(senderId, `📏 BẢNG SIZE & TỒN KHO
+${product.name.toUpperCase()}
 
-            for (const imgUrl of allImages) {
-                await sendImage(senderId, imgUrl);
-            }
-
-            // Gửi bảng size
-            await sendMessage(senderId, `📦 ${product.name.toUpperCase()}
-
-📏 BẢNG SIZE & TỒN KHO:
 ${sizeChart || 'Chưa có thông tin size'}
 
 ✅ Còn hàng | ⚠️ Sắp hết | ❌ Hết hàng
 
-🛒 Gõ "thêm ${product.name} size [size] vào giỏ" để mua`);
+🛒 Gõ "thêm ${product.name} size [size] vào giỏ" để mua`, DEFAULT_QUICK_REPLIES);
         } else {
             await sendMessage(senderId, '❌ Không tìm thấy sản phẩm. Vui lòng thử lại!');
         }
