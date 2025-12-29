@@ -51,7 +51,61 @@ import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+const GOOGLE_SCRIPT_URL = process.env.VITE_GOOGLE_SCRIPT_URL || process.env.GOOGLE_SCRIPT_URL || '';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ==================== GOOGLE SHEETS SYNC ====================
+
+async function syncToGoogleSheets(order: any, items: any[], action: 'create' | 'update' = 'create') {
+    if (!GOOGLE_SCRIPT_URL) {
+        console.log('⚠️ Google Sheets URL not configured, skipping sync');
+        return;
+    }
+
+    try {
+        // Format order data for Google Sheets
+        const orderData = {
+            id: order.id,
+            orderDate: order.order_date || order.created_at,
+            customerName: order.customer_name,
+            customerPhone: order.customer_phone,
+            shippingAddress: order.shipping_address,
+            items: items.map((i: any) => ({
+                productName: i.product_name,
+                size: i.size || '',
+                color: i.color || '',
+                quantity: i.quantity,
+                unitPrice: i.unit_price
+            })),
+            totalAmount: order.total_amount,
+            paymentMethod: order.payment_method === 'cod' ? 'COD' : 'Chuyển khoản',
+            paymentStatus: order.payment_status || 'Unpaid',
+            status: order.status,
+            trackingCode: order.tracking_code || '',
+            staffName: order.staff_name || 'Bot Messenger',
+            notes: order.notes || 'Đơn từ Messenger'
+        };
+
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: action,
+                order: orderData,
+                sheetName: '' // Use default sheet name from script
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            console.log('✅ Order synced to Google Sheets');
+        } else {
+            console.error('❌ Google Sheets sync failed:', result.error);
+        }
+    } catch (error) {
+        console.error('❌ Error syncing to Google Sheets:', error);
+    }
+}
 
 // ==================== CART COMMAND HANDLER ====================
 
@@ -581,6 +635,12 @@ async function createOrderFromCart(
     await clearCart(senderId);
 
     console.log('✅ Order created:', order.id);
+
+    // Sync to Google Sheets (background, không block)
+    syncToGoogleSheets(order, orderItems).catch(err =>
+        console.error('❌ Background sync failed:', err)
+    );
+
     return { success: true, orderId: order.id, total };
 }
 
