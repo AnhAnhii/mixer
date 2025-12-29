@@ -797,8 +797,8 @@ async function sendProductCarousel(recipientId: string): Promise<boolean> {
                 buttons: [
                     {
                         type: 'postback',
-                        title: '🛒 Thêm vào giỏ',
-                        payload: `ADD_TO_CART_${product.id}`
+                        title: '📏 Bảng Size',
+                        payload: `VIEW_SIZE_CHART_${product.id}`
                     },
                     {
                         type: 'postback',
