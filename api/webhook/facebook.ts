@@ -108,7 +108,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         // Thử query với filter khác
         const { data: orders, error } = await supabase
             .from('orders')
-            .select('id, total_amount, status, created_at, items, facebook_user_id')
+            .select('id, total_amount, status, created_at, facebook_user_id, order_items(product_name, quantity)')
             .order('created_at', { ascending: false })
             .limit(10);
 
@@ -140,7 +140,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         };
 
         const orderList = userOrders.map((o: any, idx: number) => {
-            const items = o.items || [];
+            const items = o.order_items || [];
             const itemSummary = items.slice(0, 2).map((i: any) => `${i.product_name} x${i.quantity}`).join(', ');
             const moreItems = items.length > 2 ? ` +${items.length - 2} sp` : '';
             return `${idx + 1}️⃣ #${o.id.substring(0, 8)} - ${formatDate(o.created_at)}
