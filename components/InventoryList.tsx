@@ -95,13 +95,14 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onToggleVisibility?.(product.id, !product.is_active);
+                            const newValue = product.is_active === false ? true : false;
+                            onToggleVisibility?.(product.id, newValue);
                           }}
                           className={`p-2 rounded-full transition-colors ${product.is_active !== false
                             ? 'text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-900/50'
                             : 'text-gray-400 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700'
                             }`}
-                          title={product.is_active !== false ? 'Đang hiển thị trên Messenger' : 'Đang ẩn trên Messenger'}
+                          title={product.is_active !== false ? 'Bấm để ẩn khỏi Messenger' : 'Bấm để hiện trên Messenger'}
                         >
                           {product.is_active !== false ? <EyeIcon className="w-5 h-5" /> : <EyeSlashIcon className="w-5 h-5" />}
                         </button>
