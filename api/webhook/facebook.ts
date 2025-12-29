@@ -207,7 +207,8 @@ Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
     // Thêm vào giỏ
     if (isAddToCart) {
         // Parse MULTIPLE sizes (e.g., "size L và XL", "size M, L, XL")
-        const sizePattern = /size\s+([\w\s,và&]+)/i;
+        // Regex dừng trước 'màu' hoặc 'vào'
+        const sizePattern = /size\s+((?:[SMLX0-9]+(?:\s*[,&và]\s*|$))+)/i;
         const sizeMatchFull = messageText.match(sizePattern);
         let parsedSizes: string[] = [];
 
@@ -215,9 +216,9 @@ Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
             // Split by common separators: "và", ",", "&", "and", space
             const sizeString = sizeMatchFull[1];
             parsedSizes = sizeString
-                .split(/[,&]|\s+và\s+|\s+and\s+/i)
+                .split(/[,&]|\s+và\s+|\s+and\s+|\s+/i)
                 .map(s => s.trim().toUpperCase())
-                .filter(s => s.length > 0 && /^[SMLX]{1,3}$/.test(s)); // Only valid sizes
+                .filter(s => s.length > 0 && /^[0-9]?[SMLX]{1,3}$/.test(s)); // Valid sizes: S,M,L,XL,XXL,2XL,3XL
         }
 
         const colorMatch = messageText.match(/màu\s+(\w+)/i);
