@@ -105,10 +105,10 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         console.log('📋 Order history request from:', senderId);
         console.log('📋 Supabase URL:', SUPABASE_URL?.substring(0, 30) + '...');
 
-        // Thử query với filter khác
+        // Query orders với chi tiết
         const { data: orders, error } = await supabase
             .from('orders')
-            .select('id, total_amount, status, created_at, facebook_user_id, order_items(product_name, quantity)')
+            .select('id, total_amount, status, created_at, facebook_user_id, customer_name, customer_phone, shipping_address, payment_method, order_items(product_name, quantity, size, color, unit_price)')
             .order('created_at', { ascending: false })
             .limit(10);
 
@@ -122,7 +122,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
 
         if (error || userOrders.length === 0) {
             const errMsg = error ? `Error: ${error.message}` : '';
-            return { message: `📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️\n\n(Debug: id=${senderId}, total=${orders?.length || 0}, url=${SUPABASE_URL ? 'OK' : 'MISSING'}) ${errMsg}` };
+            return { message: `📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️` };
         }
 
         const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
@@ -133,22 +133,43 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         });
         const statusEmoji: Record<string, string> = {
             'pending': '⏳ Chờ xử lý',
+            'Chờ xử lý': '⏳ Chờ xử lý',
             'confirmed': '✅ Đã xác nhận',
+            'Đã xác nhận': '✅ Đã xác nhận',
             'shipping': '🚚 Đang giao',
+            'Đang giao': '🚚 Đang giao',
             'delivered': '📦 Đã giao',
-            'cancelled': '❌ Đã hủy'
+            'Đã giao': '📦 Đã giao',
+            'cancelled': '❌ Đã hủy',
+            'Đã hủy': '❌ Đã hủy'
+        };
+        const paymentEmoji: Record<string, string> = {
+            'cod': '💵 COD',
+            'bank_transfer': '🏦 Chuyển khoản'
         };
 
         const orderList = userOrders.map((o: any, idx: number) => {
             const items = o.order_items || [];
-            const itemSummary = items.slice(0, 2).map((i: any) => `${i.product_name} x${i.quantity}`).join(', ');
-            const moreItems = items.length > 2 ? ` +${items.length - 2} sp` : '';
-            return `${idx + 1}️⃣ #${o.id.substring(0, 8)} - ${formatDate(o.created_at)}
-   ${itemSummary}${moreItems}
-   💰 ${formatCurrency(o.total_amount)} - ${statusEmoji[o.status] || o.status}`;
+            const itemList = items.map((i: any) => {
+                const sizeColor = [i.size, i.color].filter(Boolean).join(' - ');
+                return `   • ${i.product_name}${sizeColor ? ` (${sizeColor})` : ''} x${i.quantity} - ${formatCurrency(i.unit_price * i.quantity)}`;
+            }).join('\n');
+
+            return `━━━━━━━━━━━━━━━━━━━━
+📦 ĐƠN #${o.id.substring(0, 8)}
+🕐 ${formatDate(o.created_at)}
+${statusEmoji[o.status] || o.status}
+
+🛒 SẢN PHẨM:
+${itemList || '   (Không có thông tin)'}
+
+👤 ${o.customer_name || 'N/A'} - ${o.customer_phone || 'N/A'}
+📍 ${o.shipping_address || 'N/A'}
+💳 ${paymentEmoji[o.payment_method] || o.payment_method || 'N/A'}
+💰 TỔNG: ${formatCurrency(o.total_amount)}`;
         }).join('\n\n');
 
-        return { message: `📦 ĐƠN HÀNG CỦA BẠN (${userOrders.length} đơn gần nhất)\n\n${orderList}\n\n📝 Cần hỗ trợ? Nhắn tin cho shop nhé!` };
+        return { message: `📋 LỊCH SỬ ĐƠN HÀNG (${userOrders.length} đơn gần nhất)\n\n${orderList}\n\n━━━━━━━━━━━━━━━━━━━━\n📝 Cần hỗ trợ? Nhắn tin cho shop!` };
     }
 
     // Checkout - Đặt hàng
