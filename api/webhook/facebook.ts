@@ -206,15 +206,27 @@ Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
 
     // Thêm vào giỏ
     if (isAddToCart) {
-        // Parse size và color trước
-        const sizeMatch = messageText.match(/size\s+(\w+)/i);
+        // Parse MULTIPLE sizes (e.g., "size L và XL", "size M, L, XL")
+        const sizePattern = /size\s+([\w\s,và&]+)/i;
+        const sizeMatchFull = messageText.match(sizePattern);
+        let parsedSizes: string[] = [];
+
+        if (sizeMatchFull) {
+            // Split by common separators: "và", ",", "&", "and", space
+            const sizeString = sizeMatchFull[1];
+            parsedSizes = sizeString
+                .split(/[,&]|\s+và\s+|\s+and\s+/i)
+                .map(s => s.trim().toUpperCase())
+                .filter(s => s.length > 0 && /^[SMLX]{1,3}$/.test(s)); // Only valid sizes
+        }
+
         const colorMatch = messageText.match(/màu\s+(\w+)/i);
 
         // Lọc bỏ size, màu, và color keywords khỏi product name
         let cleanedText = messageText
-            .replace(/size\s+\w+/gi, '')
+            .replace(/size\s+[\w\s,và&]+/gi, '')
             .replace(/màu\s+\w+/gi, '')
-            .replace(/\b(đen|trắng|đỏ|xanh|vàng|hồng|tím|nâu|xám)\b/gi, '') // common colors - use word boundary
+            .replace(/\b(đen|trắng|đỏ|xanh|vàng|hồng|tím|nâu|xám)\b/gi, '')
             .trim();
 
         // Extract product name từ cleaned text
@@ -224,7 +236,7 @@ Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
             const productName = productMatch[1].trim();
 
             console.log('🔍 Searching for product:', productName);
-            console.log('📡 Supabase URL configured:', !!SUPABASE_URL);
+            console.log('📏 Parsed sizes:', parsedSizes);
 
             // Tìm sản phẩm trong database với variants
             const { data: products, error: searchError } = await supabase
@@ -243,12 +255,46 @@ Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
             if (products && products.length > 0) {
                 const product = products[0];
                 const variants = product.variants || [];
+                const selectedColor = colorMatch ? colorMatch[1] : null;
+
+                // Nếu có nhiều sizes, thêm từng size vào giỏ
+                if (parsedSizes.length > 1) {
+                    const addedItems: string[] = [];
+
+                    for (const size of parsedSizes) {
+                        // Tìm variant cho size này
+                        const matchedVariant = variants.find((v: any) =>
+                            v.size?.toUpperCase() === size &&
+                            (!selectedColor || v.color?.toLowerCase().includes(selectedColor.toLowerCase()))
+                        );
+
+                        if (matchedVariant && matchedVariant.stock > 0) {
+                            await addToCart(senderId, {
+                                product_id: product.id,
+                                product_name: product.name,
+                                size: matchedVariant.size,
+                                color: matchedVariant.color || '',
+                                quantity: 1,
+                                unit_price: product.price
+                            });
+                            addedItems.push(`${size}${matchedVariant.color ? ` - ${matchedVariant.color}` : ''}`);
+                        }
+                    }
+
+                    if (addedItems.length > 0) {
+                        const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+                        return {
+                            message: `✅ Đã thêm ${product.name} vào giỏ:\n${addedItems.map(i => `   • ${i} x1`).join('\n')}\n💰 Đơn giá: ${formatCurrency(product.price)}/sp\n\n🛒 Gõ "xem giỏ" để xem giỏ hàng!`
+                        };
+                    } else {
+                        return { message: `❌ Không tìm thấy các size ${parsedSizes.join(', ')} trong kho.\nGõ "xem sản phẩm" để xem các size còn hàng!` };
+                    }
+                }
+
+                // Logic cũ cho 1 size hoặc không có size
+                let selectedSize = parsedSizes.length === 1 ? parsedSizes[0] : null;
 
                 // Tìm variant phù hợp với size/color người dùng yêu cầu
-                let selectedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
-                let selectedColor = colorMatch ? colorMatch[1] : null;
-
-                // Nếu có variants, tìm variant phù hợp
                 let matchedVariant = null;
                 if (variants.length > 0) {
                     matchedVariant = variants.find((v: any) => {
@@ -263,17 +309,15 @@ Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
                     }
 
                     selectedSize = matchedVariant.size || 'M';
-                    selectedColor = matchedVariant.color || '';
                 } else {
                     selectedSize = selectedSize || 'M';
-                    selectedColor = selectedColor || '';
                 }
 
                 await addToCart(senderId, {
                     product_id: product.id,
                     product_name: product.name,
                     size: selectedSize,
-                    color: selectedColor,
+                    color: matchedVariant?.color || '',
                     quantity: 1,
                     unit_price: product.price
                 });
