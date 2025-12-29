@@ -224,9 +224,10 @@ Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
 
         // Lọc bỏ size, màu, và color keywords khỏi product name
         let cleanedText = messageText
-            .replace(/size\s+[\w\s,và&]+/gi, '')
+            .replace(/size\s+[\w\s,và&]+(?=\s+(màu|vào|$))/gi, '') // size với các separators
             .replace(/màu\s+\w+/gi, '')
-            .replace(/\b(đen|trắng|đỏ|xanh|vàng|hồng|tím|nâu|xám)\b/gi, '')
+            .replace(/\s+(đen|trắng|đỏ|xanh|vàng|hồng|tím|nâu|xám|be|cam)(\s+|$)/gi, ' ') // màu sắc phổ biến
+            .replace(/\s+/g, ' ') // Clean multiple spaces
             .trim();
 
         // Extract product name từ cleaned text
