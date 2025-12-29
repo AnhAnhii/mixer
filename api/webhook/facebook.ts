@@ -121,8 +121,8 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         console.log('📋 User orders:', userOrders.length);
 
         if (error || userOrders.length === 0) {
-            const errMsg = error ? `Error: ${error.message}` : '';
-            return { message: `📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️` };
+            const errMsg = error ? `\n\n(Error: ${error.message})` : '';
+            return { message: `📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️${errMsg}` };
         }
 
         const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
