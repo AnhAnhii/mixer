@@ -103,6 +103,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
     // Lịch sử đơn hàng
     if (isOrderHistory) {
         console.log('📋 Order history request from:', senderId);
+        console.log('📋 Supabase URL:', SUPABASE_URL?.substring(0, 30) + '...');
 
         // Thử query với filter khác
         const { data: orders, error } = await supabase
@@ -111,6 +112,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
             .order('created_at', { ascending: false })
             .limit(10);
 
+        console.log('📋 Query error:', error);
         console.log('📋 All orders:', orders?.map(o => ({ id: o.id.substring(0, 8), fb_id: o.facebook_user_id })));
 
         // Filter manually
@@ -119,7 +121,8 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         console.log('📋 User orders:', userOrders.length);
 
         if (error || userOrders.length === 0) {
-            return { message: `📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️\n\n(Debug: senderId=${senderId}, total=${orders?.length || 0})` };
+            const errMsg = error ? `Error: ${error.message}` : '';
+            return { message: `📦 Bạn chưa có đơn hàng nào.\nGõ "xem sản phẩm" để bắt đầu mua sắm! 🛍️\n\n(Debug: id=${senderId}, total=${orders?.length || 0}, url=${SUPABASE_URL ? 'OK' : 'MISSING'}) ${errMsg}` };
         }
 
         const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
