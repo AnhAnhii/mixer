@@ -108,7 +108,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         // Query orders với chi tiết
         const { data: orders, error } = await supabase
             .from('orders')
-            .select('id, total_amount, status, created_at, facebook_user_id, customer_name, customer_phone, shipping_address, payment_method, order_items(product_name, quantity, size, color, unit_price)')
+            .select('id, total_amount, status, created_at, facebook_user_id, customer_name, customer_phone, shipping_address, payment_method, order_items(product_name, quantity)')
             .order('created_at', { ascending: false })
             .limit(10);
 
@@ -151,8 +151,7 @@ async function handleCartCommand(senderId: string, messageText: string): Promise
         const orderList = userOrders.map((o: any, idx: number) => {
             const items = o.order_items || [];
             const itemList = items.map((i: any) => {
-                const sizeColor = [i.size, i.color].filter(Boolean).join(' - ');
-                return `   • ${i.product_name}${sizeColor ? ` (${sizeColor})` : ''} x${i.quantity} - ${formatCurrency(i.unit_price * i.quantity)}`;
+                return `   • ${i.product_name} x${i.quantity}`;
             }).join('\n');
 
             return `━━━━━━━━━━━━━━━━━━━━
