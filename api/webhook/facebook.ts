@@ -988,7 +988,21 @@ async function handleWebhookEvent(req: VercelRequest, res: VercelResponse) {
 
 async function handleMessage(event: MessagingEvent) {
     const senderId = event.sender.id;
-    const messageText = event.message?.text || '';
+    let messageText = event.message?.text || '';
+
+    // Xử lý quick_reply payload - convert thành text command
+    const quickReplyPayload = (event.message as any)?.quick_reply?.payload;
+    if (quickReplyPayload) {
+        const payloadToCommand: Record<string, string> = {
+            'XEM_SAN_PHAM': 'xem sản phẩm',
+            'XEM_GIO_HANG': 'xem giỏ',
+            'DAT_HANG': 'đặt hàng',
+            'LICH_SU_DON': 'lịch sử đơn',
+            'TRO_GIUP': 'hướng dẫn',
+        };
+        messageText = payloadToCommand[quickReplyPayload] || messageText;
+        console.log(`🔘 Quick reply received: ${quickReplyPayload} -> ${messageText}`);
+    }
 
     console.log(`💬 New message from ${senderId}: ${messageText}`);
 
@@ -1008,7 +1022,7 @@ async function handleMessage(event: MessagingEvent) {
             return;
         }
 
-        await sendMessage(senderId, cartResponse.message);
+        await sendMessage(senderId, cartResponse.message, DEFAULT_QUICK_REPLIES);
         if (cartResponse.imageUrl) {
             await sendImage(senderId, cartResponse.imageUrl);
         }
@@ -1384,13 +1398,29 @@ ${sizeChart || 'Chưa có thông tin size'}
 
 // ==================== SEND MESSAGE ====================
 
-async function sendMessage(recipientId: string, messageText: string): Promise<boolean> {
+// Quick Replies mặc định cho các lệnh phổ biến
+const DEFAULT_QUICK_REPLIES = [
+    { content_type: 'text', title: '🛍️ Xem SP', payload: 'XEM_SAN_PHAM' },
+    { content_type: 'text', title: '🛒 Xem giỏ', payload: 'XEM_GIO_HANG' },
+    { content_type: 'text', title: '📦 Đặt hàng', payload: 'DAT_HANG' },
+    { content_type: 'text', title: '📋 Lịch sử', payload: 'LICH_SU_DON' },
+    { content_type: 'text', title: '❓ Trợ giúp', payload: 'TRO_GIUP' },
+];
+
+async function sendMessage(recipientId: string, messageText: string, quickReplies?: any[]): Promise<boolean> {
     if (!PAGE_ACCESS_TOKEN) {
         console.error('❌ PAGE_ACCESS_TOKEN is not configured');
         return false;
     }
 
     try {
+        const messagePayload: any = { text: messageText };
+
+        // Thêm quick replies nếu có
+        if (quickReplies && quickReplies.length > 0) {
+            messagePayload.quick_replies = quickReplies;
+        }
+
         const response = await fetch(
             `https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
             {
@@ -1398,7 +1428,7 @@ async function sendMessage(recipientId: string, messageText: string): Promise<bo
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     recipient: { id: recipientId },
-                    message: { text: messageText },
+                    message: messagePayload,
                     messaging_type: 'RESPONSE',
                 }),
             }
