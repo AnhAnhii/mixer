@@ -77,8 +77,13 @@ async function getGoogleSheetsConfig(): Promise<{ scriptUrl: string; sheetName: 
 async function syncToGoogleSheets(order: any, items: any[], action: 'create' | 'update' = 'create') {
     // Lấy config từ Supabase (có sheetName từ Settings)
     const config = await getGoogleSheetsConfig();
+    console.log('📋 Google Sheets config from Supabase:', JSON.stringify(config));
+
     const scriptUrl = config?.scriptUrl || GOOGLE_SCRIPT_URL;
     const sheetName = config?.sheetName || '';
+
+    console.log(`📋 Using scriptUrl: ${scriptUrl ? 'Yes' : 'No'}, sheetName: "${sheetName}"`);
+
 
     if (!scriptUrl) {
         console.log('⚠️ Google Sheets URL not configured, skipping sync');
