@@ -58,11 +58,16 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function getGoogleSheetsConfig(): Promise<{ scriptUrl: string; sheetName: string } | null> {
     try {
-        const { data } = await supabase
-            .from('app_settings')
+        const { data, error } = await supabase
+            .from('settings')  // Fixed: use 'settings' table, not 'app_settings'
             .select('value')
             .eq('key', 'google_sheets_config')
             .single();
+
+        if (error) {
+            console.log('⚠️ Error getting Google Sheets config:', error.message);
+            return null;
+        }
 
         if (data?.value) {
             return typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
