@@ -56,8 +56,31 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==================== GOOGLE SHEETS SYNC ====================
 
+async function getGoogleSheetsConfig(): Promise<{ scriptUrl: string; sheetName: string } | null> {
+    try {
+        const { data } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'google_sheets_config')
+            .single();
+
+        if (data?.value) {
+            return typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        }
+        return null;
+    } catch (error) {
+        console.log('⚠️ Could not get Google Sheets config from Supabase');
+        return null;
+    }
+}
+
 async function syncToGoogleSheets(order: any, items: any[], action: 'create' | 'update' = 'create') {
-    if (!GOOGLE_SCRIPT_URL) {
+    // Lấy config từ Supabase (có sheetName từ Settings)
+    const config = await getGoogleSheetsConfig();
+    const scriptUrl = config?.scriptUrl || GOOGLE_SCRIPT_URL;
+    const sheetName = config?.sheetName || '';
+
+    if (!scriptUrl) {
         console.log('⚠️ Google Sheets URL not configured, skipping sync');
         return;
     }
@@ -86,19 +109,21 @@ async function syncToGoogleSheets(order: any, items: any[], action: 'create' | '
             notes: order.notes || 'Đơn từ Messenger'
         };
 
-        const response = await fetch(GOOGLE_SCRIPT_URL, {
+        console.log(`📤 Syncing order to Google Sheets (sheet: ${sheetName || 'default'})...`);
+
+        const response = await fetch(scriptUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 action: action,
                 order: orderData,
-                sheetName: '' // Use default sheet name from script
+                sheetName: sheetName // Sử dụng sheetName từ Settings
             })
         });
 
         const result = await response.json();
         if (result.success) {
-            console.log('✅ Order synced to Google Sheets');
+            console.log(`✅ Order synced to Google Sheets (sheet: ${result.sheet || sheetName})`);
         } else {
             console.error('❌ Google Sheets sync failed:', result.error);
         }
