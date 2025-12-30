@@ -666,10 +666,14 @@ async function createOrderFromCart(
 
     console.log('✅ Order created:', order.id);
 
-    // Sync to Google Sheets (background, không block)
-    syncToGoogleSheets(order, orderItems).catch(err =>
-        console.error('❌ Background sync failed:', err)
-    );
+    // Sync to Google Sheets (await để đảm bảo hoàn thành trước khi Vercel terminate)
+    try {
+        console.log('📊 Starting Google Sheets sync...');
+        await syncToGoogleSheets(order, orderItems);
+        console.log('📊 Google Sheets sync completed');
+    } catch (err) {
+        console.error('❌ Google Sheets sync error:', err);
+    }
 
     return { success: true, orderId: order.id, total };
 }
