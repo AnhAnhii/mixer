@@ -314,6 +314,93 @@ async function handleCommentWebhook(entry: any): Promise<void> {
     }
 }
 
+// ==================== INSTAGRAM HANDLERS ====================
+
+// Reply to Instagram comment
+async function replyToInstagramComment(commentId: string, message: string): Promise<boolean> {
+    if (!PAGE_ACCESS_TOKEN) return false;
+
+    try {
+        const response = await fetch(
+            `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${PAGE_ACCESS_TOKEN}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            }
+        );
+
+        const result = await response.json();
+        if (result.error) {
+            console.error('❌ Error replying to Instagram comment:', result.error);
+            return false;
+        }
+
+        console.log('✅ Replied to Instagram comment:', commentId);
+        return true;
+    } catch (error) {
+        console.error('❌ Error replying to Instagram comment:', error);
+        return false;
+    }
+}
+
+// Handle Instagram webhook events (comments & mentions)
+async function handleInstagramWebhook(entry: any): Promise<void> {
+    for (const change of entry.changes || []) {
+        const field = change.field;
+        const value = change.value;
+
+        console.log('📸 Instagram webhook field:', field);
+
+        // Handle comments on Instagram posts
+        if (field === 'comments') {
+            const mediaId = value.media?.id;
+            const commentId = value.id;
+            const commentText = value.text;
+            const commenterId = value.from?.id;
+
+            console.log(`💬 New Instagram comment: "${commentText}"`);
+
+            // Get config for this post (using media_id as post_id)
+            const config = await getSocialConfig(mediaId);
+            if (!config) {
+                console.log('⏭️ No active config for this Instagram media');
+                continue;
+            }
+
+            console.log('🤖 Instagram auto-reply config found, processing...');
+
+            // Reply to comment
+            if (config.comment_replies && config.comment_replies.length > 0) {
+                const randomReply = config.comment_replies[
+                    Math.floor(Math.random() * config.comment_replies.length)
+                ];
+                await replyToInstagramComment(commentId, randomReply.text);
+            }
+        }
+
+        // Handle mentions in Instagram stories/posts
+        if (field === 'mentions') {
+            const mediaId = value.media_id;
+            const commentId = value.comment_id;
+
+            console.log('📢 Instagram mention detected in media:', mediaId);
+
+            // Could add mention handling here
+        }
+
+        // Handle Instagram DMs (requires instagram_manage_messages permission)
+        if (field === 'messages') {
+            const senderId = value.sender?.id;
+            const messageText = value.message?.text;
+
+            console.log(`📩 Instagram DM from ${senderId}: "${messageText}"`);
+
+            // TODO: Add Instagram DM auto-reply when permission is approved
+        }
+    }
+}
+
 // ==================== CART COMMAND HANDLER ====================
 
 interface CartResponse {
@@ -1229,24 +1316,31 @@ async function handleWebhookEvent(req: VercelRequest, res: VercelResponse) {
     const body = req.body as WebhookBody;
 
     console.log('📨 Webhook event received');
+    console.log('   Object type:', body.object);
 
-    // Validate event type
-    if (body.object !== 'page') {
-        console.log('⚠️ Not a page event, ignoring');
-        return res.status(404).json({ error: 'Not a page event' });
+    // Handle both Facebook Page and Instagram events
+    if (body.object !== 'page' && body.object !== 'instagram') {
+        console.log('⚠️ Unknown event type, ignoring:', body.object);
+        return res.status(404).json({ error: 'Unknown event type' });
     }
 
     // Process each entry
     try {
         for (const entry of body.entry) {
-            // Handle feed events (comments on posts)
-            if (entry.changes) {
-                console.log('📰 Feed event detected (comments)');
+            // Handle Facebook feed events (comments on posts)
+            if (body.object === 'page' && entry.changes) {
+                console.log('📰 Facebook feed event detected (comments)');
                 await handleCommentWebhook(entry);
             }
 
-            // Handle messaging events (direct messages)
-            if (entry.messaging) {
+            // Handle Instagram events
+            if (body.object === 'instagram' && entry.changes) {
+                console.log('📸 Instagram event detected');
+                await handleInstagramWebhook(entry);
+            }
+
+            // Handle messaging events (direct messages - Facebook)
+            if (body.object === 'page' && entry.messaging) {
                 for (const event of entry.messaging) {
                     // Bỏ qua echo messages (tin nhắn do page gửi đi)
                     const isEcho = (event.message as any)?.is_echo;
