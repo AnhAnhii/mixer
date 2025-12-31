@@ -47,8 +47,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log('   Limit:', limit);
         console.log('   Token starts with:', PAGE_ACCESS_TOKEN?.substring(0, 20) + '...');
 
-        // Thử dùng /posts thay vì /feed để lấy posts của Page
-        const url = `https://graph.facebook.com/v21.0/${PAGE_ID}/posts?` +
+        // Thử dùng /published_posts thay vì /posts - thường trả về nhiều posts hơn
+        const url = `https://graph.facebook.com/v21.0/${PAGE_ID}/published_posts?` +
             `fields=id,message,full_picture,attachments{media,subattachments},created_time,reactions.summary(true),comments.summary(true)` +
             `&limit=${limit}` +
             `&access_token=${PAGE_ACCESS_TOKEN}`;
