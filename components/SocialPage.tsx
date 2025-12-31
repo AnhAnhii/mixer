@@ -1,10 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import type { FacebookPost, Product, SocialPostConfig, CommentReply, ProductVariant } from '../types';
 import { PaperClipIcon, PlusIcon, TrashIcon, XMarkIcon, SparklesIcon, ChatBubbleLeftEllipsisIcon } from './icons';
 import Modal from './Modal';
-import { GEMINI_API_KEY } from '../config';
 import { socialConfigService } from '../services/supabaseService';
 
 interface SocialPageProps {
@@ -132,44 +130,76 @@ const SocialPage: React.FC<SocialPageProps> = ({ products, configs, setConfigs }
     return allVariants.find(v => v.id === currentConfig.attachedProductVariantId);
   }, [currentConfig, allVariants]);
 
-  // AI Generation Logic
-  const handleGenerateSmartReply = async () => {
-    if (!simulatedComment.trim() || !GEMINI_API_KEY) return;
+  // Pre-defined smart reply templates (không cần AI)
+  const smartReplyTemplates = {
+    price: [
+      "Dạ giá sản phẩm này là {{price}} ạ! 💰 Inbox shop để đặt hàng ngay nhé! 🛒",
+      "Anh/chị ơi, giá {{price}} ạ! 🔥 Đang có khuyến mãi nha, inbox shop ngay đi ạ! 💜",
+      "Giá chỉ {{price}} thôi ạ! ✨ Inbox mình để được tư vấn thêm nha!"
+    ],
+    size: [
+      "Dạ còn đủ size ạ! Shop có S, M, L, XL. Inbox mình để kiểm tra size phù hợp nhé! 📏",
+      "Còn size nha anh/chị! 👍 Inbox shop để được tư vấn size chuẩn ạ!",
+      "Size đầy đủ luôn ạ! Anh/chị cao bao nhiêu để shop tư vấn nha? 💜"
+    ],
+    color: [
+      "Có nhiều màu lắm ạ! 🎨 Inbox shop để xem màu còn hàng nhé!",
+      "Màu đen, trắng, be đều có ạ! Anh/chị thích màu nào để shop check hàng nha! 🌈",
+      "Còn đủ màu luôn ạ! Inbox mình để xem hình thật các màu nhé! 📸"
+    ],
+    shipping: [
+      "Ship toàn quốc 30-50k ạ! 🚚 Free ship đơn từ 500k nha! Inbox shop đặt hàng ngay đi ạ! 💜",
+      "Giao hàng 2-3 ngày ạ! Ship COD được luôn nha anh/chị! 📦",
+      "Free ship nội thành, tỉnh 30-50k ạ! Inbox để shop báo phí ship chính xác nha! 🛒"
+    ],
+    general: [
+      "Shop đã inbox bạn rồi ạ! Check tin nhắn để xem chi tiết nha! 💜",
+      "Dạ inbox shop để được tư vấn chi tiết ạ! 📩 Cảm ơn anh/chị đã quan tâm! 💜",
+      "Cảm ơn anh/chị đã quan tâm! Shop đã nhắn tin cho bạn rồi ạ! 📨✨",
+      "Dạ shop vừa inbox bạn ạ! Check tin nhắn nha! Có gì cứ hỏi shop nhé! 💜",
+      "Mình vừa nhắn tin cho bạn ạ! 📩 Vào inbox xem chi tiết nha! 🛍️"
+    ]
+  };
+
+  // Smart Reply Logic - phân tích từ khóa để chọn template phù hợp
+  const handleGenerateSmartReply = () => {
+    if (!simulatedComment.trim()) return;
 
     setIsGeneratingReply(true);
     setAiReply('');
 
-    try {
-      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-      const postContent = posts.find(p => p.id === selectedPostId)?.content || '';
-      const productName = attachedVariant ? attachedVariant.productName : "Sản phẩm thời trang";
-      const productPrice = attachedVariant ? attachedVariant.price : "inbox";
+    // Giả lập delay như AI (để UI mượt hơn)
+    setTimeout(() => {
+      const comment = simulatedComment.toLowerCase();
+      let templates: string[];
 
-      const prompt = `
-            Bạn là nhân viên CSKH của shop thời trang Mixer. Hãy viết câu trả lời ngắn gọn, thân thiện và chốt sale cho bình luận sau của khách.
-            Bài viết gốc: "${postContent}"
-            Sản phẩm liên quan: ${productName} - Giá: ${productPrice}
-            Bình luận của khách: "${simulatedComment}"
-            
-            Yêu cầu:
-            - Giọng điệu vui vẻ, dùng icon.
-            - Nếu khách hỏi giá, hãy báo giá (nếu có) hoặc mời inbox.
-            - Khuyến khích mua ngay.
-          `;
+      // Phân tích từ khóa
+      if (comment.includes('giá') || comment.includes('bao nhiêu') || comment.includes('bnh') || comment.includes('bnhiu')) {
+        templates = smartReplyTemplates.price;
+      } else if (comment.includes('size') || comment.includes('số') || comment.includes('cỡ')) {
+        templates = smartReplyTemplates.size;
+      } else if (comment.includes('màu') || comment.includes('color') || comment.includes('mau')) {
+        templates = smartReplyTemplates.color;
+      } else if (comment.includes('ship') || comment.includes('giao') || comment.includes('vận chuyển') || comment.includes('phí')) {
+        templates = smartReplyTemplates.shipping;
+      } else {
+        templates = smartReplyTemplates.general;
+      }
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
+      // Chọn ngẫu nhiên 1 template
+      let reply = templates[Math.floor(Math.random() * templates.length)];
 
-      setAiReply(response.text || "Không thể tạo câu trả lời.");
+      // Thay thế biến {{price}} nếu có
+      if (attachedVariant) {
+        const formattedPrice = new Intl.NumberFormat('vi-VN').format(attachedVariant.price) + 'đ';
+        reply = reply.replace(/{{price}}/g, formattedPrice);
+      } else {
+        reply = reply.replace(/{{price}}/g, 'inbox shop để biết giá');
+      }
 
-    } catch (error) {
-      console.error(error);
-      setAiReply("Lỗi khi gọi AI.");
-    } finally {
+      setAiReply(reply);
       setIsGeneratingReply(false);
-    }
+    }, 500);
   }
 
 
