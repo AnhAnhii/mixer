@@ -187,7 +187,7 @@ async function replyToComment(commentId: string, message: string): Promise<boole
 
     try {
         const response = await fetch(
-            `https://graph.facebook.com/v18.0/${commentId}/comments?access_token=${PAGE_ACCESS_TOKEN}`,
+            `https://graph.facebook.com/v21.0/${commentId}/comments?access_token=${PAGE_ACCESS_TOKEN}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -205,6 +205,34 @@ async function replyToComment(commentId: string, message: string): Promise<boole
         return true;
     } catch (error) {
         console.error('❌ Error replying to comment:', error);
+        return false;
+    }
+}
+
+// Send private reply to commenter (no 24hr limit!)
+async function sendPrivateReply(commentId: string, message: string): Promise<boolean> {
+    if (!PAGE_ACCESS_TOKEN) return false;
+
+    try {
+        const response = await fetch(
+            `https://graph.facebook.com/v21.0/${commentId}/private_replies?access_token=${PAGE_ACCESS_TOKEN}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            }
+        );
+
+        const result = await response.json();
+        if (result.error) {
+            console.error('❌ Error sending private reply:', result.error);
+            return false;
+        }
+
+        console.log('✅ Private reply sent for comment:', commentId);
+        return true;
+    } catch (error) {
+        console.error('❌ Error sending private reply:', error);
         return false;
     }
 }
@@ -259,10 +287,10 @@ async function handleCommentWebhook(entry: any): Promise<void> {
             await replyToComment(commentId, randomReply.text);
         }
 
-        // 2. Send inbox message to commenter
-        if (config.inbox_message && senderId) {
+        // 2. Send private reply (inbox) to commenter - không bị giới hạn 24h!
+        if (config.inbox_message && commentId) {
             // Get user info for personalization
-            const userInfo = await getFacebookUserInfo(senderId);
+            const userInfo = senderId ? await getFacebookUserInfo(senderId) : null;
             let inboxText = config.inbox_message
                 .replace(/{{customer_name}}/gi, userInfo?.name || 'bạn');
 
@@ -280,8 +308,8 @@ async function handleCommentWebhook(entry: any): Promise<void> {
                 }
             }
 
-            await sendMessage(senderId, inboxText);
-            console.log('📨 Inbox sent to commenter:', senderId);
+            await sendPrivateReply(commentId, inboxText);
+            console.log('📨 Private reply sent for comment:', commentId);
         }
     }
 }
