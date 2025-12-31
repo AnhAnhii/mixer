@@ -678,7 +678,7 @@ ${shippingDetails}
             case 'customers': return <CustomerListPage customers={customers} onViewDetails={handleViewCustomerDetails} onEdit={handleOpenCustomerForm} onDelete={handleDeleteCustomer} onBulkDelete={handleBulkDeleteCustomers} onAddCustomer={() => handleOpenCustomerForm(null)} />;
             case 'returns': return <ReturnsPage returnRequests={returnRequests} onUpdateStatus={async (id, status) => { /* TODO: Add updateReturnRequestStatus hook */ }} onViewDetails={handleViewReturnDetails} />;
             case 'vouchers': return <VoucherListPage vouchers={vouchers} onEdit={handleOpenVoucherForm} onDelete={async (id) => await deleteVoucher(id)} onAdd={() => handleOpenVoucherForm(null)} />;
-            case 'social': return <SocialPage posts={sampleFacebookPosts} products={products} configs={socialConfigs} setConfigs={setSocialConfigs} />;
+            case 'social': return <SocialPage products={products} configs={socialConfigs} setConfigs={setSocialConfigs} />;
             case 'automation': return <AutomationPage rules={automationRules} onAdd={() => handleOpenAutomationForm(null)} onEdit={handleOpenAutomationForm} onDelete={async (id) => await deleteRule(id)} onToggle={async (id, isEnabled) => await toggleRule(id, isEnabled)} />;
             case 'activity': return <ActivityPage logs={activityLog} />;
             case 'reports': return <ReportsPage orders={orders} />;
