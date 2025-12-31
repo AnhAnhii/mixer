@@ -666,6 +666,67 @@ export const aiTrainingService = {
     },
 };
 
+// ==================== SOCIAL CONFIGS ====================
+
+export interface SocialConfigData {
+    id?: string;
+    postId: string;
+    isEnabled: boolean;
+    commentReplies: Array<{ id: string; text: string }>;
+    inboxMessage: string;
+    attachedProductVariantId?: string;
+}
+
+export const socialConfigService = {
+    async getAll(): Promise<SocialConfigData[]> {
+        if (!isSupabaseConfigured()) return [];
+
+        const { data, error } = await supabase
+            .from('social_configs')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) return [];
+
+        return (data || []).map(c => ({
+            id: c.id,
+            postId: c.post_id,
+            isEnabled: c.is_enabled,
+            commentReplies: c.comment_replies || [],
+            inboxMessage: c.inbox_message || '',
+            attachedProductVariantId: c.attached_product_variant_id,
+        }));
+    },
+
+    async upsert(config: SocialConfigData): Promise<boolean> {
+        if (!isSupabaseConfigured()) return false;
+
+        const { error } = await supabase
+            .from('social_configs')
+            .upsert({
+                post_id: config.postId,
+                is_enabled: config.isEnabled,
+                comment_replies: config.commentReplies,
+                inbox_message: config.inboxMessage,
+                attached_product_variant_id: config.attachedProductVariantId,
+                updated_at: new Date().toISOString(),
+            }, { onConflict: 'post_id' });
+
+        return !error;
+    },
+
+    async delete(postId: string): Promise<boolean> {
+        if (!isSupabaseConfigured()) return false;
+
+        const { error } = await supabase
+            .from('social_configs')
+            .delete()
+            .eq('post_id', postId);
+
+        return !error;
+    },
+};
+
 // ==================== RETURN REQUESTS ====================
 
 export const returnRequestService = {

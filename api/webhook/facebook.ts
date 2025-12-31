@@ -37,7 +37,18 @@ interface MessagingEvent {
 interface WebhookEntry {
     id: string;
     time: number;
-    messaging: MessagingEvent[];
+    messaging?: MessagingEvent[];
+    changes?: Array<{
+        field: string;
+        value: {
+            item: string;
+            verb: string;
+            post_id: string;
+            comment_id: string;
+            message: string;
+            from?: { id: string; name: string };
+        };
+    }>;
 }
 
 interface WebhookBody {
@@ -139,6 +150,139 @@ async function syncToGoogleSheets(order: any, items: any[], action: 'create' | '
         }
     } catch (error) {
         console.error('❌ Error syncing to Google Sheets:', error);
+    }
+}
+
+// ==================== SOCIAL AUTO-REPLY HANDLERS ====================
+
+interface SocialConfig {
+    id: string;
+    post_id: string;
+    is_enabled: boolean;
+    comment_replies: Array<{ id: string; text: string }>;
+    inbox_message: string;
+    attached_product_variant_id?: string;
+}
+
+// Get social config for a post
+async function getSocialConfig(postId: string): Promise<SocialConfig | null> {
+    try {
+        const { data, error } = await supabase
+            .from('social_configs')
+            .select('*')
+            .eq('post_id', postId)
+            .eq('is_enabled', true)
+            .single();
+
+        if (error || !data) return null;
+        return data as SocialConfig;
+    } catch {
+        return null;
+    }
+}
+
+// Reply to a comment on Facebook
+async function replyToComment(commentId: string, message: string): Promise<boolean> {
+    if (!PAGE_ACCESS_TOKEN) return false;
+
+    try {
+        const response = await fetch(
+            `https://graph.facebook.com/v18.0/${commentId}/comments?access_token=${PAGE_ACCESS_TOKEN}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            }
+        );
+
+        const result = await response.json();
+        if (result.error) {
+            console.error('❌ Error replying to comment:', result.error);
+            return false;
+        }
+
+        console.log('✅ Replied to comment:', commentId);
+        return true;
+    } catch (error) {
+        console.error('❌ Error replying to comment:', error);
+        return false;
+    }
+}
+
+// Get user info from Facebook (for inbox message personalization)
+async function getFacebookUserInfo(userId: string): Promise<{ name: string } | null> {
+    if (!PAGE_ACCESS_TOKEN) return null;
+
+    try {
+        const response = await fetch(
+            `https://graph.facebook.com/v18.0/${userId}?fields=name&access_token=${PAGE_ACCESS_TOKEN}`
+        );
+        const data = await response.json();
+        return data.error ? null : { name: data.name || 'bạn' };
+    } catch {
+        return null;
+    }
+}
+
+// Handle comment webhook from Facebook feed
+async function handleCommentWebhook(entry: any): Promise<void> {
+    // entry.changes contains the comment data
+    for (const change of entry.changes || []) {
+        if (change.field !== 'feed') continue;
+
+        const value = change.value;
+
+        // Only process new comments (not edits or deletes)
+        if (value.item !== 'comment' || value.verb !== 'add') continue;
+
+        const postId = value.post_id;
+        const commentId = value.comment_id;
+        const commentText = value.message;
+        const senderId = value.from?.id;
+
+        console.log(`💬 New comment on post ${postId}: "${commentText}"`);
+
+        // Get social config for this post
+        const config = await getSocialConfig(postId);
+        if (!config) {
+            console.log('⏭️ No active config for this post');
+            continue;
+        }
+
+        console.log('🤖 Auto-reply config found, processing...');
+
+        // 1. Reply to comment (pick random template)
+        if (config.comment_replies && config.comment_replies.length > 0) {
+            const randomReply = config.comment_replies[
+                Math.floor(Math.random() * config.comment_replies.length)
+            ];
+            await replyToComment(commentId, randomReply.text);
+        }
+
+        // 2. Send inbox message to commenter
+        if (config.inbox_message && senderId) {
+            // Get user info for personalization
+            const userInfo = await getFacebookUserInfo(senderId);
+            let inboxText = config.inbox_message
+                .replace(/{{customer_name}}/gi, userInfo?.name || 'bạn');
+
+            // Add product info if attached
+            if (config.attached_product_variant_id) {
+                const { data: variant } = await supabase
+                    .from('product_variants')
+                    .select('*, product:products(name, price)')
+                    .eq('id', config.attached_product_variant_id)
+                    .single();
+
+                if (variant && variant.product) {
+                    const formatCurrency = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
+                    inboxText += `\n\n📦 Sản phẩm: ${variant.product.name}\n📏 Size: ${variant.size}\n🎨 Màu: ${variant.color}\n💰 Giá: ${formatCurrency(variant.product.price)}`;
+                }
+            }
+
+            await sendMessage(senderId, inboxText);
+            console.log('📨 Inbox sent to commenter:', senderId);
+        }
     }
 }
 
@@ -1067,18 +1211,27 @@ async function handleWebhookEvent(req: VercelRequest, res: VercelResponse) {
     // Process each entry
     try {
         for (const entry of body.entry) {
-            for (const event of entry.messaging) {
-                // Bỏ qua echo messages (tin nhắn do page gửi đi)
-                const isEcho = (event.message as any)?.is_echo;
-                if (isEcho) {
-                    console.log('⏭️ Skipping echo message from page');
-                    continue;
-                }
+            // Handle feed events (comments on posts)
+            if (entry.changes) {
+                console.log('📰 Feed event detected (comments)');
+                await handleCommentWebhook(entry);
+            }
 
-                if (event.message) {
-                    await handleMessage(event);
-                } else if (event.postback) {
-                    await handlePostback(event);
+            // Handle messaging events (direct messages)
+            if (entry.messaging) {
+                for (const event of entry.messaging) {
+                    // Bỏ qua echo messages (tin nhắn do page gửi đi)
+                    const isEcho = (event.message as any)?.is_echo;
+                    if (isEcho) {
+                        console.log('⏭️ Skipping echo message from page');
+                        continue;
+                    }
+
+                    if (event.message) {
+                        await handleMessage(event);
+                    } else if (event.postback) {
+                        await handlePostback(event);
+                    }
                 }
             }
         }
