@@ -76,7 +76,7 @@ const SocialPage: React.FC<SocialPageProps> = ({ products, configs, setConfigs }
       setIsLoadingInstagram(true);
       setInstagramError(null);
       try {
-        const response = await fetch('/api/instagram/posts?limit=20');
+        const response = await fetch('/api/facebook/posts?platform=instagram&limit=20');
         const data = await response.json();
 
         if (data.error) {
