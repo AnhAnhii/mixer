@@ -51,6 +51,7 @@ interface FacebookInboxProps {
     orders?: Order[];
     products?: Product[];
     bankInfo?: { bin: string; accountNumber: string; accountName: string } | null;
+    platform?: 'facebook' | 'instagram';
     onCreateOrderWithAI?: (orderData: Partial<Order>, customerData: Partial<Customer>) => void;
     onViewOrder?: (order: Order) => void;
     onEditOrder?: (order: Order) => void;
@@ -88,6 +89,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     orders = [],
     products = [],
     bankInfo = null,
+    platform = 'facebook',
     onCreateOrderWithAI,
     onViewOrder,
     onEditOrder,
@@ -171,7 +173,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
         }
 
         try {
-            let url = `${API_BASE}/api/facebook/conversations?limit=50`;
+            let url = `${API_BASE}/api/facebook/conversations?limit=50&platform=${platform}`;
             if (cursor) {
                 url += `&after=${cursor}`;
             }
@@ -724,9 +726,13 @@ Trả về JSON với cấu trúc:
         }).slice(0, 10);
     }, [selectedConversation, orders]);
 
+    // Load conversations when platform changes
     useEffect(() => {
+        setConversations([]);
+        setSelectedConversation(null);
+        setMessages([]);
         loadConversations();
-    }, []);
+    }, [platform]);
 
     // Auto-refresh conversations every 5 seconds
     useEffect(() => {
