@@ -463,6 +463,61 @@ ${shippingDetails}
         toast.success('Đã xác nhận thanh toán!');
     };
 
+    // Cập nhật thông tin vận chuyển và TỰ ĐỘNG gửi thông báo cho khách
+    const handleUpdateShipping = async (orderId: string, provider: string, trackingCode: string) => {
+        // Update order state
+        setOrders(prev => prev.map(o =>
+            o.id === orderId
+                ? { ...o, shippingProvider: provider, trackingCode: trackingCode, status: OrderStatus.Shipped }
+                : o
+        ));
+
+        // Update in database
+        await updateOrder(orderId, {
+            shippingProvider: provider,
+            trackingCode: trackingCode,
+            status: OrderStatus.Shipped
+        });
+
+        // Log activity
+        logActivity(
+            `<strong>${currentUser?.name}</strong> đã cập nhật vận chuyển cho đơn <strong>#${orderId.substring(0, 8)}</strong>: ${provider} - ${trackingCode}`,
+            orderId,
+            'order'
+        );
+
+        // Sync to Google Sheets
+        const orderToSync = orders.find(o => o.id === orderId);
+        if (orderToSync) {
+            syncOrderDirect({
+                ...orderToSync,
+                shippingProvider: provider,
+                trackingCode: trackingCode,
+                status: OrderStatus.Shipped,
+                staffName: currentUser?.name
+            }, 'update').catch(console.error);
+
+            // 🔔 TỰ ĐỘNG GỬI THÔNG BÁO CHO KHÁCH
+            if (orderToSync.facebookUserId) {
+                const updatedOrder = { ...orderToSync, shippingProvider: provider, trackingCode: trackingCode };
+                sendOrderStatusToCustomer(updatedOrder, 'Đã gửi hàng');
+                toast.success('📲 Đã gửi thông báo đến khách hàng!');
+            }
+        }
+
+        // Update viewingOrder if currently viewing this order
+        if (viewingOrder && viewingOrder.id === orderId) {
+            setViewingOrder({
+                ...viewingOrder,
+                shippingProvider: provider,
+                trackingCode: trackingCode,
+                status: OrderStatus.Shipped
+            });
+        }
+
+        toast.success('Đã cập nhật thông tin vận chuyển!');
+    };
+
     const handleSaveOrder = async (order: Order, customerToSave: Customer) => {
         const orderIdShort = order.id.substring(0, 8);
         const isEditing = orders.some(o => o.id === order.id);
@@ -829,7 +884,7 @@ ${shippingDetails}
                 onClose={() => setViewingOrder(null)}
                 onEdit={(order) => { setViewingOrder(null); setEditingOrder(order); setIsOrderFormOpen(true); }}
                 onUpdateStatus={handleUpdateStatus}
-                onUpdateShipping={(id, provider, code) => setOrders(prev => prev.map(o => o.id === id ? { ...o, shippingProvider: provider, trackingCode: code, status: OrderStatus.Shipped } : o))}
+                onUpdateShipping={handleUpdateShipping}
                 onOpenMessageTemplates={(order) => setMessageTemplateOrder(order)}
                 onAddDiscussion={(id, text) => {
                     const entry: DiscussionEntry = { id: crypto.randomUUID(), authorId: currentUser.id, authorName: currentUser.name, authorAvatar: currentUser.avatar, timestamp: new Date().toISOString(), text };
