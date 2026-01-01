@@ -101,15 +101,44 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
     return { text: 'Chờ thanh toán', color: 'bg-yellow-100 text-yellow-800' };
   };
 
-  const handleCreateShippingOrder = () => {
+  const handleCreateShippingOrder = async () => {
+    if (!order) return;
+
     setIsCreatingShipping(true);
-    setTimeout(() => {
-      const newTrackingCode = `GHTK${Math.floor(100000000 + Math.random() * 900000000)}`;
-      setTrackingCode(newTrackingCode);
-      onUpdateShipping(order.id, shippingProvider, newTrackingCode);
+    try {
+      // Gọi Viettel Post API để tạo vận đơn
+      const response = await fetch('/api/viettelpost?action=create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id.substring(0, 8),
+          receiverName: order.customerName,
+          receiverPhone: order.customerPhone,
+          receiverAddress: order.shippingAddress,
+          productName: order.items.map(i => i.productName).join(', '),
+          productWeight: 500, // gram - mặc định
+          productValue: order.totalAmount,
+          moneyCollection: order.paymentMethod === 'cod' ? order.totalAmount : 0, // COD
+          note: order.notes || ''
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.trackingCode) {
+        setTrackingCode(data.trackingCode);
+        onUpdateShipping(order.id, 'Viettel Post', data.trackingCode);
+        toast.success(`✅ Tạo vận đơn thành công! Mã: ${data.trackingCode}`);
+      } else {
+        toast.error(data.error || 'Không thể tạo vận đơn. Vui lòng thử lại.');
+        console.error('VTP Error:', data);
+      }
+    } catch (error) {
+      console.error('Error creating VTP order:', error);
+      toast.error('Lỗi kết nối Viettel Post. Vui lòng thử lại.');
+    } finally {
       setIsCreatingShipping(false);
-      toast.success(`Đã tạo đơn hàng thành công trên ${shippingProvider} với mã: ${newTrackingCode}`);
-    }, 1500);
+    }
   };
 
   const handleFetchShippingStatus = () => {
@@ -293,11 +322,31 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
 
         {/* Shipping */}
         <div>
-          <h3 className="text-lg font-semibold text-card-foreground mb-4 border-t pt-6">Tự động hoá Vận chuyển (Mô phỏng)</h3>
+          <h3 className="text-lg font-semibold text-card-foreground mb-4 border-t pt-6">Vận chuyển - Viettel Post</h3>
 
           {!order.trackingCode ? (
             <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">Nhập mã vận đơn từ Viettel Post:</p>
+              {/* Nút tạo vận đơn tự động */}
+              <div className="mb-4 pb-4 border-b border-blue-200 dark:border-blue-700">
+                <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">🚀 Tạo vận đơn tự động từ thông tin đơn hàng:</p>
+                <button
+                  onClick={handleCreateShippingOrder}
+                  disabled={isCreatingShipping}
+                  className="btn-primary w-full px-4 py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isCreatingShipping ? (
+                    <>⏳ Đang tạo vận đơn...</>
+                  ) : (
+                    <>📦 Tạo Vận Đơn Viettel Post</>
+                  )}
+                </button>
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Người nhận: {order.customerName} - {order.customerPhone}
+                </p>
+              </div>
+
+              {/* Hoặc nhập thủ công */}
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Hoặc nhập mã vận đơn thủ công:</p>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-4">
                   <span className="text-sm font-medium text-gray-600 dark:text-gray-300 w-24">Đơn vị VC:</span>
@@ -328,9 +377,9 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
                     }
                   }}
                   disabled={!trackingCode.trim()}
-                  className="btn-primary px-4 py-2 flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="btn-secondary px-4 py-2 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  💾 Lưu & Gửi Thông Báo Cho Khách
+                  💾 Lưu Thủ Công
                 </button>
               </div>
             </div>
