@@ -425,6 +425,16 @@ ${shippingDetails}
         const orderToSync = orders.find(o => o.id === orderId);
         if (orderToSync) {
             syncOrderDirect({ ...orderToSync, status, staffName: currentUser?.name }, 'update').catch(console.error);
+
+            // 🔔 TỰ ĐỘNG GỬI THÔNG BÁO CHO KHÁCH
+            if (orderToSync.facebookUserId) {
+                const updatedOrder = { ...orderToSync, status };
+                // Chỉ gửi cho các trạng thái quan trọng
+                if (status === 'Đang xử lý' || status === 'Đã gửi hàng' || status === 'Đã giao hàng') {
+                    sendOrderStatusToCustomer(updatedOrder, status as 'Đang xử lý' | 'Đã gửi hàng' | 'Đã giao hàng');
+                    toast.success('📲 Đã gửi thông báo đến khách hàng!');
+                }
+            }
         }
 
         toast.success('Đã cập nhật trạng thái.');
