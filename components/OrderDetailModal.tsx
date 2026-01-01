@@ -36,7 +36,7 @@ type ShippingStatusHistory = {
 };
 
 const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, activityLog, users, currentUser, isOpen, onClose, onEdit, onUpdateStatus, onUpdateShipping, onOpenMessageTemplates, onAddDiscussion, onConfirmPayment, onOpenReturnRequest, onPrintInvoice, onGeneratePaymentLink }) => {
-  const [shippingProvider, setShippingProvider] = useState(order?.shippingProvider || 'GHTK');
+  const [shippingProvider, setShippingProvider] = useState(order?.shippingProvider || 'Viettel Post');
   const [trackingCode, setTrackingCode] = useState(order?.trackingCode || '');
   const toast = useToast();
 
@@ -52,7 +52,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
 
   React.useEffect(() => {
     if (order) {
-      setShippingProvider(order.shippingProvider || 'GHTK');
+      setShippingProvider(order.shippingProvider || 'Viettel Post');
       setTrackingCode(order.trackingCode || '');
       // Reset simulation state when a new order is viewed
       setShippingHistory(null);
@@ -297,15 +297,40 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
 
           {!order.trackingCode ? (
             <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">Đơn hàng này chưa được tạo trên hệ thống của đơn vị vận chuyển.</p>
-              <div className="flex items-center gap-4">
-                <select value={shippingProvider} onChange={e => setShippingProvider(e.target.value)} className="input-base px-3 py-2 border">
-                  <option value="GHTK">Giao Hàng Tiết Kiệm</option>
-                  <option value="GHN">Giao Hàng Nhanh</option>
-                  <option value="ViettelPost">Viettel Post</option>
-                </select>
-                <button onClick={handleCreateShippingOrder} disabled={isCreatingShipping} className="btn-secondary px-4 py-2 flex items-center gap-2 disabled:bg-gray-400">
-                  {isCreatingShipping ? 'Đang tạo...' : 'Tạo đơn hàng'}
+              <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">Nhập mã vận đơn từ Viettel Post:</p>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300 w-24">Đơn vị VC:</span>
+                  <select value={shippingProvider} onChange={e => setShippingProvider(e.target.value)} className="input-base px-3 py-2 border flex-1">
+                    <option value="Viettel Post">Viettel Post</option>
+                    <option value="GHTK">Giao Hàng Tiết Kiệm</option>
+                    <option value="GHN">Giao Hàng Nhanh</option>
+                    <option value="J&T Express">J&T Express</option>
+                    <option value="Shopee Express">Shopee Express</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300 w-24">Mã vận đơn:</span>
+                  <input
+                    type="text"
+                    value={trackingCode}
+                    onChange={e => setTrackingCode(e.target.value)}
+                    placeholder="VD: 123456789"
+                    className="input-base px-3 py-2 border flex-1 font-mono"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    if (trackingCode.trim()) {
+                      onUpdateShipping(order.id, shippingProvider, trackingCode.trim());
+                    } else {
+                      toast.error('Vui lòng nhập mã vận đơn');
+                    }
+                  }}
+                  disabled={!trackingCode.trim()}
+                  className="btn-primary px-4 py-2 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  💾 Lưu & Gửi Thông Báo Cho Khách
                 </button>
               </div>
             </div>
