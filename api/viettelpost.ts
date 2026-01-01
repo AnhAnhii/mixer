@@ -1,0 +1,274 @@
+// api/viettelpost.ts
+// API tích hợp Viettel Post - Tạo vận đơn, tra cứu, webhook
+// Sử dụng ?action= để gọi các chức năng khác nhau
+
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+const VTP_BASE_URL = 'https://partner.viettelpost.vn/v2';
+const VTP_USERNAME = process.env.VIETTELPOST_USERNAME;
+const VTP_PASSWORD = process.env.VIETTELPOST_PASSWORD;
+
+// Token cache (trong memory - sẽ reset khi cold start)
+let cachedToken: string | null = null;
+let tokenExpiry: number = 0;
+
+// Helper: Đăng nhập lấy token
+async function getToken(): Promise<string> {
+    // Return cached token nếu còn hạn
+    if (cachedToken && Date.now() < tokenExpiry) {
+        return cachedToken;
+    }
+
+    if (!VTP_USERNAME || !VTP_PASSWORD) {
+        throw new Error('Viettel Post credentials not configured');
+    }
+
+    // Step 1: Login lấy token tạm
+    const loginRes = await fetch(`${VTP_BASE_URL}/user/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            USERNAME: VTP_USERNAME,
+            PASSWORD: VTP_PASSWORD
+        })
+    });
+    const loginData = await loginRes.json();
+
+    if (!loginData.data?.token) {
+        console.error('VTP Login failed:', loginData);
+        throw new Error(loginData.message || 'Login failed');
+    }
+
+    // Step 2: ownerconnect lấy token dài hạn
+    const connectRes = await fetch(`${VTP_BASE_URL}/user/ownerconnect`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Token': loginData.data.token
+        },
+        body: JSON.stringify({
+            USERNAME: VTP_USERNAME,
+            PASSWORD: VTP_PASSWORD
+        })
+    });
+    const connectData = await connectRes.json();
+
+    if (!connectData.data?.token) {
+        // Nếu không có ownerconnect, dùng token từ login
+        cachedToken = loginData.data.token;
+    } else {
+        cachedToken = connectData.data.token;
+    }
+
+    // Cache token 23 giờ
+    tokenExpiry = Date.now() + 23 * 60 * 60 * 1000;
+    console.log('✅ Viettel Post token obtained');
+
+    return cachedToken!;
+}
+
+// Lấy danh sách kho
+async function getInventories(token: string) {
+    const res = await fetch(`${VTP_BASE_URL}/user/listInventory`, {
+        headers: { 'Token': token }
+    });
+    return await res.json();
+}
+
+// Tính phí vận chuyển
+async function calculateShipping(token: string, data: any) {
+    const res = await fetch(`${VTP_BASE_URL}/order/getPriceAll`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Token': token
+        },
+        body: JSON.stringify(data)
+    });
+    return await res.json();
+}
+
+// Tạo vận đơn
+async function createOrder(token: string, orderData: any) {
+    const res = await fetch(`${VTP_BASE_URL}/order/createOrder`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Token': token
+        },
+        body: JSON.stringify(orderData)
+    });
+    return await res.json();
+}
+
+// Tra cứu vận đơn
+async function trackOrder(token: string, orderNumber: string) {
+    const res = await fetch(`${VTP_BASE_URL}/order/getOrderByOrderNumber`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Token': token
+        },
+        body: JSON.stringify({ ORDER_NUMBER: orderNumber })
+    });
+    return await res.json();
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    // CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    const action = req.query.action as string || req.body?.action;
+
+    try {
+        // Test connection
+        if (action === 'test') {
+            const token = await getToken();
+            return res.status(200).json({
+                success: true,
+                message: 'Viettel Post connected successfully',
+                tokenPreview: token.substring(0, 20) + '...'
+            });
+        }
+
+        // Lấy danh sách kho
+        if (action === 'inventories') {
+            const token = await getToken();
+            const data = await getInventories(token);
+            return res.status(200).json({ success: true, data });
+        }
+
+        // Tính phí ship
+        if (action === 'calculate') {
+            const token = await getToken();
+            const { senderProvince, senderDistrict, receiverProvince, receiverDistrict, weight, orderValue } = req.body;
+
+            const data = await calculateShipping(token, {
+                SENDER_PROVINCE: senderProvince || 79, // HCM default
+                SENDER_DISTRICT: senderDistrict || 760, // Q1 default
+                RECEIVER_PROVINCE: receiverProvince,
+                RECEIVER_DISTRICT: receiverDistrict,
+                PRODUCT_WEIGHT: weight || 500, // gram
+                PRODUCT_PRICE: orderValue || 0,
+                MONEY_COLLECTION: orderValue || 0, // COD
+                PRODUCT_TYPE: 'HH', // Hàng hóa
+            });
+            return res.status(200).json({ success: true, data });
+        }
+
+        // Tạo vận đơn
+        if (action === 'create') {
+            const token = await getToken();
+            const {
+                orderId,
+                receiverName,
+                receiverPhone,
+                receiverAddress,
+                receiverProvince,
+                receiverDistrict,
+                receiverWard,
+                productName,
+                productWeight,
+                productValue,
+                moneyCollection, // COD amount (0 if prepaid)
+                note
+            } = req.body;
+
+            // Lấy thông tin kho gửi
+            const inventoryData = await getInventories(token);
+            const groupAddress = inventoryData.data?.[0]?.groupaddressId || '';
+
+            const orderData = {
+                ORDER_NUMBER: orderId || `MIX${Date.now()}`,
+                GROUPADDRESS_ID: groupAddress,
+                CUS_ID: inventoryData.data?.[0]?.cusId || '',
+                DELIVERY_DATE: new Date().toISOString().split('T')[0] + ' 08:00:00',
+                SENDER_FULLNAME: 'MIXER SHOP',
+                SENDER_ADDRESS: '', // Sẽ lấy từ kho
+                SENDER_PHONE: VTP_USERNAME,
+                SENDER_EMAIL: '',
+                RECEIVER_FULLNAME: receiverName,
+                RECEIVER_ADDRESS: receiverAddress,
+                RECEIVER_PHONE: receiverPhone,
+                RECEIVER_EMAIL: '',
+                RECEIVER_PROVINCE: receiverProvince,
+                RECEIVER_DISTRICT: receiverDistrict,
+                RECEIVER_WARDS: receiverWard || '',
+                PRODUCT_NAME: productName || 'Quần áo thời trang',
+                PRODUCT_DESCRIPTION: note || '',
+                PRODUCT_QUANTITY: 1,
+                PRODUCT_PRICE: productValue || 0,
+                PRODUCT_WEIGHT: productWeight || 500,
+                PRODUCT_TYPE: 'HH',
+                ORDER_PAYMENT: moneyCollection > 0 ? 2 : 1, // 2 = COD, 1 = Prepaid
+                ORDER_SERVICE: 'VCN', // Chuyển phát nhanh
+                ORDER_SERVICE_ADD: '',
+                MONEY_COLLECTION: moneyCollection || 0,
+                MONEY_TOTALFEE: 0,
+                MONEY_FEECOD: 0,
+                NOTE: note || ''
+            };
+
+            const result = await createOrder(token, orderData);
+
+            if (result.status === 200 && result.data) {
+                return res.status(200).json({
+                    success: true,
+                    orderNumber: result.data.ORDER_NUMBER,
+                    trackingCode: result.data.ORDER_NUMBER,
+                    fee: result.data.MONEY_TOTAL_FEE,
+                    message: 'Tạo vận đơn thành công!'
+                });
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    error: result.message || 'Không thể tạo vận đơn',
+                    details: result
+                });
+            }
+        }
+
+        // Tra cứu vận đơn
+        if (action === 'track') {
+            const token = await getToken();
+            const { orderNumber } = req.body;
+
+            if (!orderNumber) {
+                return res.status(400).json({ error: 'orderNumber is required' });
+            }
+
+            const data = await trackOrder(token, orderNumber);
+            return res.status(200).json({ success: true, data });
+        }
+
+        // Webhook nhận cập nhật từ Viettel Post
+        if (action === 'webhook') {
+            // Parse webhook data từ VTP
+            const webhookData = req.body;
+            console.log('📦 VTP Webhook received:', JSON.stringify(webhookData));
+
+            // TODO: Cập nhật trạng thái đơn hàng trong hệ thống
+            // TODO: Gửi thông báo cho khách hàng
+
+            return res.status(200).json({ success: true, message: 'Webhook received' });
+        }
+
+        return res.status(400).json({
+            error: 'Missing action parameter',
+            availableActions: ['test', 'inventories', 'calculate', 'create', 'track', 'webhook']
+        });
+
+    } catch (error) {
+        console.error('Viettel Post API Error:', error);
+        return res.status(500).json({
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+}
