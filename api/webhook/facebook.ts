@@ -589,6 +589,15 @@ ${itemList || '   (Không có thông tin)'}
             return `${idx + 1}. ${item.product_name}${sizeColor ? ` (${sizeColor})` : ''} x${item.quantity}`;
         }).join('\n');
 
+        // Quy định thanh toán dựa trên tổng tiền
+        const PAYMENT_THRESHOLD = 500000; // 500k
+        const isHighValue = total >= PAYMENT_THRESHOLD;
+
+        const paymentOptions = isHighValue
+            ? `💳 Thanh toán: Chuyển khoản
+⚠️ (Đơn hàng từ 500.000đ chỉ nhận thanh toán trước ạ)`
+            : `💳 Thanh toán: (COD / Chuyển khoản)`;
+
         return {
             message: `📦 XÁC NHẬN ĐẶT HÀNG
 
@@ -600,7 +609,7 @@ ${itemsList}
 👤 Họ tên:
 📱 SĐT:
 📍 Địa chỉ nhận hàng:
-💳 Thanh toán: (COD / Chuyển khoản)
+${paymentOptions}
 
 Mình sẽ tạo đơn ngay sau khi nhận được thông tin ạ! 💕`
         };
