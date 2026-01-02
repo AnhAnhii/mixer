@@ -67,12 +67,30 @@ async function getToken(): Promise<string> {
     return cachedToken!;
 }
 
+// Safe JSON parse helper
+async function safeJsonParse(response: Response, context: string) {
+    const text = await response.text();
+    console.log(`📤 VTP ${context} response:`, text.substring(0, 500));
+
+    if (!text || text.trim() === '') {
+        console.error(`❌ VTP ${context}: Empty response`);
+        return { error: true, message: 'Viettel Post returned empty response' };
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        console.error(`❌ VTP ${context}: Invalid JSON:`, text.substring(0, 200));
+        return { error: true, message: 'Invalid JSON response from Viettel Post', raw: text.substring(0, 200) };
+    }
+}
+
 // Lấy danh sách kho
 async function getInventories(token: string) {
     const res = await fetch(`${VTP_BASE_URL}/user/listInventory`, {
         headers: { 'Token': token }
     });
-    return await res.json();
+    return await safeJsonParse(res, 'listInventory');
 }
 
 // Tính phí vận chuyển
@@ -85,11 +103,12 @@ async function calculateShipping(token: string, data: any) {
         },
         body: JSON.stringify(data)
     });
-    return await res.json();
+    return await safeJsonParse(res, 'getPriceAll');
 }
 
 // Tạo vận đơn
 async function createOrder(token: string, orderData: any) {
+    console.log('📤 VTP createOrder request:', JSON.stringify(orderData, null, 2));
     const res = await fetch(`${VTP_BASE_URL}/order/createOrder`, {
         method: 'POST',
         headers: {
@@ -98,7 +117,7 @@ async function createOrder(token: string, orderData: any) {
         },
         body: JSON.stringify(orderData)
     });
-    return await res.json();
+    return await safeJsonParse(res, 'createOrder');
 }
 
 // Tra cứu vận đơn
@@ -111,7 +130,7 @@ async function trackOrder(token: string, orderNumber: string) {
         },
         body: JSON.stringify({ ORDER_NUMBER: orderNumber })
     });
-    return await res.json();
+    return await safeJsonParse(res, 'trackOrder');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
