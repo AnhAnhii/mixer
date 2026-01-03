@@ -106,20 +106,54 @@ async function calculateShipping(token: string, data: any) {
     return await safeJsonParse(res, 'getPriceAll');
 }
 
-// Tạo vận đơn - dùng NLP API để tự động parse địa chỉ
+// Tạo vận đơn - thử nhiều endpoints
 async function createOrder(token: string, orderData: any) {
-    console.log('📤 VTP createOrderNlp request:', JSON.stringify(orderData, null, 2));
+    console.log('📤 VTP createOrder request:', JSON.stringify(orderData, null, 2));
 
-    // Dùng createOrderNlp thay vì createOrder để VTP tự parse địa chỉ
-    const res = await fetch(`${VTP_BASE_URL}/order/createOrderNlp`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Token': token
-        },
-        body: JSON.stringify(orderData)
-    });
-    return await safeJsonParse(res, 'createOrderNlp');
+    // Thử endpoint createOrder trước (không phải NLP)
+    const endpoints = [
+        '/order/createOrder',
+        '/order/createOrderNlp'
+    ];
+
+    for (const endpoint of endpoints) {
+        try {
+            console.log(`🔄 Trying VTP endpoint: ${endpoint}`);
+            const res = await fetch(`${VTP_BASE_URL}${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Token': token
+                },
+                body: JSON.stringify(orderData)
+            });
+
+            console.log(`📊 VTP ${endpoint} HTTP status: ${res.status}`);
+
+            const result = await safeJsonParse(res, endpoint);
+
+            // Nếu có response thành công, return ngay
+            if (result && !result.error && result.status === 200) {
+                return result;
+            }
+
+            // Nếu có lỗi cụ thể từ VTP, cũng return
+            if (result && result.message && result.message !== 'Viettel Post returned empty response') {
+                return result;
+            }
+
+            console.log(`⚠️ VTP ${endpoint} returned:`, JSON.stringify(result));
+        } catch (e) {
+            console.error(`❌ VTP ${endpoint} error:`, e);
+        }
+    }
+
+    // Nếu tất cả đều fail
+    return {
+        error: true,
+        message: 'Không thể kết nối API Viettel Post. Vui lòng liên hệ VTP để kiểm tra tài khoản API.',
+        suggestion: 'Gọi 1900 8095 và thông báo: Token hoạt động, listInventory OK, nhưng createOrder trả về empty.'
+    };
 }
 
 // Tra cứu vận đơn
