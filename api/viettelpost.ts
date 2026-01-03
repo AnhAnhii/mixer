@@ -106,6 +106,44 @@ async function calculateShipping(token: string, data: any) {
     return await safeJsonParse(res, 'getPriceAll');
 }
 
+// Parse địa chỉ text để lấy mã tỉnh/quận/xã
+async function parseAddress(token: string, address: string, senderProvince: number, senderDistrict: number) {
+    console.log(`📍 Parsing address: "${address}"`);
+
+    const res = await fetch(`${VTP_BASE_URL}/order/getPriceAllNlp`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Token': token
+        },
+        body: JSON.stringify({
+            SENDER_PROVINCE: senderProvince,
+            SENDER_DISTRICT: senderDistrict,
+            RECEIVER_ADDRESS: address,
+            PRODUCT_WEIGHT: 500,
+            PRODUCT_PRICE: 100000,
+            MONEY_COLLECTION: 0,
+            PRODUCT_TYPE: 'HH'
+        })
+    });
+
+    const result = await safeJsonParse(res, 'getPriceAllNlp');
+    console.log('📍 Address parse result:', JSON.stringify(result));
+
+    if (result.status === 200 && result.data && result.data.length > 0) {
+        // Lấy thông tin địa chỉ đã parse
+        const parsed = result.data[0];
+        return {
+            success: true,
+            province: parsed.RECEIVE_PROVINCE_ID || parsed.RECEIVER_PROVINCE,
+            district: parsed.RECEIVE_DISTRICT_ID || parsed.RECEIVER_DISTRICT,
+            ward: parsed.RECEIVE_WARD_ID || parsed.RECEIVER_WARD || 0
+        };
+    }
+
+    return { success: false, province: 0, district: 0, ward: 0 };
+}
+
 // Tạo vận đơn - thử nhiều endpoints
 async function createOrder(token: string, orderData: any) {
     console.log('📤 VTP createOrder request:', JSON.stringify(orderData, null, 2));
@@ -246,6 +284,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
 
+            // Parse địa chỉ nếu chưa có mã tỉnh/quận
+            let finalProvince = receiverProvince || 0;
+            let finalDistrict = receiverDistrict || 0;
+            let finalWard = receiverWard || 0;
+
+            if (!finalProvince || !finalDistrict) {
+                console.log('🔍 Không có mã tỉnh/quận, đang parse địa chỉ...');
+                const parsed = await parseAddress(
+                    token,
+                    receiverAddress,
+                    inventory.provinceId,
+                    inventory.districtId
+                );
+
+                if (parsed.success) {
+                    finalProvince = parsed.province;
+                    finalDistrict = parsed.district;
+                    finalWard = parsed.ward;
+                    console.log(`✅ Đã parse: Province=${finalProvince}, District=${finalDistrict}, Ward=${finalWard}`);
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Không thể parse địa chỉ. Vui lòng nhập địa chỉ đầy đủ (số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố).'
+                    });
+                }
+            }
+
             // Format theo chuẩn VTP API v2
             const orderData = {
                 ORDER_NUMBER: orderId || `MIX${Date.now()}`,
@@ -263,10 +328,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 RECEIVER_ADDRESS: receiverAddress,
                 RECEIVER_PHONE: receiverPhone,
                 RECEIVER_EMAIL: '',
-                RECEIVER_PROVINCE: receiverProvince || 0,
-                RECEIVER_DISTRICT: receiverDistrict || 0,
-                RECEIVER_WARDS: receiverWard || '',
-                RECEIVER_WARD: 0,
+                RECEIVER_PROVINCE: finalProvince,
+                RECEIVER_DISTRICT: finalDistrict,
+                RECEIVER_WARDS: '',
+                RECEIVER_WARD: finalWard,
                 PRODUCT_NAME: productName || 'Quần áo thời trang',
                 PRODUCT_DESCRIPTION: note || '',
                 PRODUCT_QUANTITY: 1,
