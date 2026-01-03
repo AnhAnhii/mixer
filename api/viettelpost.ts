@@ -203,37 +203,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Lấy thông tin kho gửi
             const inventoryData = await getInventories(token);
-            const groupAddress = inventoryData.data?.[0]?.groupaddressId || '';
+            const inventory = inventoryData.data?.[0];
 
+            if (!inventory) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Không tìm thấy kho gửi hàng. Vui lòng cấu hình kho trên Viettel Post.'
+                });
+            }
+
+            // Format theo chuẩn VTP API v2
             const orderData = {
                 ORDER_NUMBER: orderId || `MIX${Date.now()}`,
-                GROUPADDRESS_ID: groupAddress,
-                CUS_ID: inventoryData.data?.[0]?.cusId || '',
+                GROUPADDRESS_ID: inventory.groupaddressId,
+                CUS_ID: inventory.cusId,
                 DELIVERY_DATE: new Date().toISOString().split('T')[0] + ' 08:00:00',
-                SENDER_FULLNAME: 'MIXER SHOP',
-                SENDER_ADDRESS: '', // Sẽ lấy từ kho
-                SENDER_PHONE: VTP_USERNAME,
+                SENDER_FULLNAME: inventory.name || 'MIXER SHOP',
+                SENDER_ADDRESS: inventory.address || '',
+                SENDER_PHONE: inventory.phone || VTP_USERNAME,
                 SENDER_EMAIL: '',
+                SENDER_WARD: inventory.wardsId || 0,
+                SENDER_DISTRICT: inventory.districtId || 0,
+                SENDER_PROVINCE: inventory.provinceId || 0,
                 RECEIVER_FULLNAME: receiverName,
                 RECEIVER_ADDRESS: receiverAddress,
                 RECEIVER_PHONE: receiverPhone,
                 RECEIVER_EMAIL: '',
-                RECEIVER_PROVINCE: receiverProvince,
-                RECEIVER_DISTRICT: receiverDistrict,
+                RECEIVER_PROVINCE: receiverProvince || 0,
+                RECEIVER_DISTRICT: receiverDistrict || 0,
                 RECEIVER_WARDS: receiverWard || '',
+                RECEIVER_WARD: 0,
                 PRODUCT_NAME: productName || 'Quần áo thời trang',
                 PRODUCT_DESCRIPTION: note || '',
                 PRODUCT_QUANTITY: 1,
                 PRODUCT_PRICE: productValue || 0,
                 PRODUCT_WEIGHT: productWeight || 500,
+                PRODUCT_LENGTH: 20,
+                PRODUCT_WIDTH: 15,
+                PRODUCT_HEIGHT: 5,
                 PRODUCT_TYPE: 'HH',
                 ORDER_PAYMENT: moneyCollection > 0 ? 2 : 1, // 2 = COD, 1 = Prepaid
                 ORDER_SERVICE: 'VCN', // Chuyển phát nhanh
                 ORDER_SERVICE_ADD: '',
+                ORDER_VOUCHER: '',
+                ORDER_NOTE: note || '',
                 MONEY_COLLECTION: moneyCollection || 0,
                 MONEY_TOTALFEE: 0,
                 MONEY_FEECOD: 0,
-                NOTE: note || ''
+                MONEY_FEEVAS: 0,
+                MONEY_FEEINSURANCE: 0,
+                MONEY_FEE: 0,
+                MONEY_FEEOTHER: 0,
+                MONEY_TOTALVAT: 0,
+                MONEY_TOTAL: 0,
+                NOTE: note || '',
+                LIST_ITEM: [{
+                    PRODUCT_NAME: productName || 'Quần áo thời trang',
+                    PRODUCT_PRICE: productValue || 0,
+                    PRODUCT_WEIGHT: productWeight || 500,
+                    PRODUCT_QUANTITY: 1
+                }]
             };
 
             const result = await createOrder(token, orderData);
