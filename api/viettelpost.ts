@@ -106,10 +106,12 @@ async function calculateShipping(token: string, data: any) {
     return await safeJsonParse(res, 'getPriceAll');
 }
 
-// Tạo vận đơn
+// Tạo vận đơn - dùng NLP API để tự động parse địa chỉ
 async function createOrder(token: string, orderData: any) {
-    console.log('📤 VTP createOrder request:', JSON.stringify(orderData, null, 2));
-    const res = await fetch(`${VTP_BASE_URL}/order/createOrder`, {
+    console.log('📤 VTP createOrderNlp request:', JSON.stringify(orderData, null, 2));
+
+    // Dùng createOrderNlp thay vì createOrder để VTP tự parse địa chỉ
+    const res = await fetch(`${VTP_BASE_URL}/order/createOrderNlp`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -117,7 +119,7 @@ async function createOrder(token: string, orderData: any) {
         },
         body: JSON.stringify(orderData)
     });
-    return await safeJsonParse(res, 'createOrder');
+    return await safeJsonParse(res, 'createOrderNlp');
 }
 
 // Tra cứu vận đơn
