@@ -4,6 +4,7 @@ import type { Product, ProductVariant } from '../types';
 import { PencilIcon, ChevronDownIcon, PlusIcon, CubeIcon, SparklesIcon, TrashIcon, ExclamationTriangleIcon, EyeIcon, EyeSlashIcon } from './icons';
 import InventoryForecastModal from './InventoryForecastModal';
 import Modal from './Modal';
+import { formatCurrency } from '../utils/formatters';
 
 interface InventoryListProps {
   products: Product[];
@@ -28,13 +29,11 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
     setExpandedProducts(newSet);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-  };
+
 
   const getStockStatusColor = (variant: ProductVariant) => {
-    if (variant.stock <= 0) return 'text-red-600 font-semibold dark:text-red-400';
-    if (variant.stock <= variant.lowStockThreshold) return 'text-yellow-600 font-semibold dark:text-yellow-400';
+    if (variant.stock <= 0) return 'text-accent-pink font-bold';
+    if (variant.stock <= variant.lowStockThreshold) return 'text-accent-orange font-bold';
     return 'text-card-foreground';
   }
 
@@ -47,10 +46,10 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-border pb-4">
-        <h2 className="text-2xl font-semibold text-card-foreground">Quản lý Kho hàng</h2>
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b-2 border-border pb-4">
+        <h2 className="text-2xl font-black font-heading text-card-foreground">Quản lý Kho hàng 📦</h2>
         <div className="flex items-center gap-2">
-          <button onClick={() => setIsForecastModalOpen(true)} className="btn-secondary flex items-center gap-2 px-4 py-2 shadow-sm bg-teal-600 hover:bg-teal-700 text-white">
+          <button onClick={() => setIsForecastModalOpen(true)} className="btn-secondary flex items-center gap-2 px-4 py-2">
             <SparklesIcon className="w-5 h-5" />Dự báo Nhập hàng (AI)
           </button>
           <button onClick={onAddProduct} className="btn-primary flex items-center gap-2 px-4 py-2 shadow-sm">
@@ -68,10 +67,10 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
           </button>
         </div>
       ) : (
-        <div className="bg-card rounded-lg shadow-sm overflow-hidden border border-border">
+        <div className="bg-card rounded-lg overflow-hidden border-2 border-border shadow-[4px_4px_0px_var(--color-border)]">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-border">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/50 border-b-2 border-border">
                 <tr>
                   <th scope="col" className="w-1/3 px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider compact-px compact-py">Sản phẩm</th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider compact-px compact-py">Messenger</th>
@@ -98,9 +97,9 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
                             const newValue = product.is_active === false ? true : false;
                             onToggleVisibility?.(product.id, newValue);
                           }}
-                          className={`p-2 rounded-full transition-colors ${product.is_active !== false
-                            ? 'text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-900/50'
-                            : 'text-gray-400 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700'
+                          className={`p-2 rounded-lg border-2 transition-all duration-150 ${product.is_active !== false
+                            ? 'text-accent-mint border-black bg-accent-mint/20 hover:bg-accent-mint/40 shadow-[2px_2px_0px_#000]'
+                            : 'text-muted-foreground border-border bg-muted hover:bg-muted/80'
                             }`}
                           title={product.is_active !== false ? 'Bấm để ẩn khỏi Messenger' : 'Bấm để hiện trên Messenger'}
                         >
@@ -121,7 +120,7 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
                               e.stopPropagation();
                               onEdit(product);
                             }}
-                            className="text-primary hover:opacity-80 hover:bg-primary/10 p-2 rounded-full transition-colors"
+                            className="text-primary hover:bg-primary/10 p-2 rounded-lg border-2 border-transparent hover:border-border transition-all"
                             title="Sửa"
                           >
                             <PencilIcon className="w-5 h-5" />
@@ -132,7 +131,7 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
                               e.stopPropagation();
                               setProductToDelete(product);
                             }}
-                            className="text-red-600 hover:opacity-80 hover:bg-red-100 p-2 rounded-full transition-colors"
+                            className="text-accent-pink hover:bg-accent-pink/10 p-2 rounded-lg border-2 border-transparent hover:border-accent-pink transition-all"
                             title="Xóa sản phẩm"
                           >
                             <TrashIcon className="w-5 h-5" />
@@ -145,7 +144,7 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
                         <td colSpan={5} className="p-0">
                           <div className="p-4 bg-muted/30">
                             <h4 className="text-sm font-semibold text-card-foreground mb-2 pl-2 compact-text-sm">Chi tiết tồn kho:</h4>
-                            <div className="overflow-hidden border border-border rounded-md">
+                            <div className="overflow-hidden border-2 border-border rounded-lg">
                               <table className="min-w-full divide-y divide-border bg-card">
                                 <thead className="bg-muted/50">
                                   <tr>
@@ -197,13 +196,13 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => setProductToDelete(null)}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-medium"
+              className="btn-muted px-4 py-2 font-semibold"
             >
               Hủy bỏ
             </button>
             <button
               onClick={confirmDelete}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium shadow-sm flex items-center gap-2"
+              className="px-4 py-2 bg-accent-pink text-white border-2 border-black rounded-lg shadow-[2px_2px_0px_#000] hover:shadow-[4px_4px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 font-bold flex items-center gap-2 transition-all duration-150"
             >
               <TrashIcon className="w-4 h-4" />
               Xóa sản phẩm

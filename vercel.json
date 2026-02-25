@@ -25,6 +25,10 @@
             "destination": "/api/facebook/mark-seen.ts"
         },
         {
+            "source": "/api/ai/generate",
+            "destination": "/api/ai/generate.ts"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.html"
         }

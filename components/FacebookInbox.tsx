@@ -918,17 +918,17 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
     const customerOrders = getCustomerOrders();
 
     return (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="bg-card rounded-lg border-2 border-border shadow-[4px_4px_0px_var(--color-border)] overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+            <div className="flex items-center justify-between px-4 py-3 border-b-2 border-border bg-muted/30">
                 <div className="flex items-center gap-2">
                     <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-primary" />
-                    <h3 className="font-semibold">Facebook Messenger</h3>
+                    <h3 className="font-bold font-heading">Facebook Messenger</h3>
                     <span className="text-xs text-muted-foreground">
                         ({conversations.length} cuộc hội thoại{hasMore ? '+' : ''})
                     </span>
                     {isAutoRefresh && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">
+                        <span className="flex items-center gap-1 px-2 py-0.5 bg-accent-mint text-black text-xs font-bold rounded-lg border border-black">
                             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                             Live
                         </span>
@@ -939,9 +939,9 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                     <div className="relative">
                         <button
                             onClick={() => setShowAIPanel(!showAIPanel)}
-                            className={`px-2 py-1 text-xs rounded-lg transition-colors flex items-center gap-1 ${isAIEnabled
-                                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
-                                : 'bg-muted text-muted-foreground'
+                            className={`px-2 py-1 text-xs rounded-lg transition-all duration-150 flex items-center gap-1 border-2 font-semibold ${isAIEnabled
+                                ? 'bg-accent-orange text-black border-black shadow-[2px_2px_0px_#000]'
+                                : 'bg-muted text-muted-foreground border-border'
                                 }`}
                             title="Cài đặt AI"
                         >
@@ -951,7 +951,7 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
 
                         {/* AI Panel Dropdown */}
                         {showAIPanel && (
-                            <div className="absolute right-0 top-full mt-1 w-64 bg-card border border-border rounded-lg shadow-lg z-50 p-3">
+                            <div className="absolute right-0 top-full mt-1 w-64 bg-card border-2 border-border rounded-lg shadow-[4px_4px_0px_var(--color-border)] z-50 p-3">
                                 <h4 className="font-medium text-sm mb-2 flex items-center gap-1">
                                     🤖 AI Auto-Reply Settings
                                 </h4>
@@ -961,9 +961,9 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                     <span className="text-xs">Tự động trả lời</span>
                                     <button
                                         onClick={toggleAIEnabled}
-                                        className={`px-2 py-1 text-xs rounded ${isAIEnabled
-                                            ? 'bg-purple-500 text-white'
-                                            : 'bg-muted-foreground/20 text-muted-foreground'
+                                        className={`px-2 py-1 text-xs rounded-lg border-2 font-bold transition-all ${isAIEnabled
+                                            ? 'bg-accent-orange text-black border-black shadow-[2px_2px_0px_#000]'
+                                            : 'bg-muted text-muted-foreground border-border'
                                             }`}
                                     >
                                         {isAIEnabled ? 'ON' : 'OFF'}
@@ -981,7 +981,7 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                     <button
                                         onClick={crawlTrainingData}
                                         disabled={isCrawling}
-                                        className="w-full px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
+                                        className="btn-primary w-full px-3 py-2 text-xs flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
                                         {isCrawling ? (
                                             <>
@@ -1015,7 +1015,7 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                     </div>
                     <button
                         onClick={() => setIsAutoRefresh(!isAutoRefresh)}
-                        className={`px-2 py-1 text-xs rounded-lg transition-colors ${isAutoRefresh ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                        className={`px-2 py-1 text-xs rounded-lg border-2 font-semibold transition-all duration-150 ${isAutoRefresh ? 'bg-accent-mint/20 text-black border-black' : 'bg-muted text-muted-foreground border-border'
                             }`}
                     >
                         {isAutoRefresh ? '🔄 Auto' : '⏸️ Paused'}
@@ -1023,7 +1023,7 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                     <button
                         onClick={() => loadConversations()}
                         disabled={isLoading}
-                        className="p-2 hover:bg-muted rounded-lg transition-colors"
+                        className="p-2 hover:bg-muted rounded-lg border-2 border-transparent hover:border-border transition-all"
                     >
                         <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                     </button>
@@ -1104,13 +1104,13 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                     {selectedConversation ? (
                         <>
                             {/* Chat Header */}
-                            <div className="px-4 py-2 border-b border-border bg-muted/30 flex items-center justify-between">
+                            <div className="px-4 py-2 border-b-2 border-border bg-muted/30 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                                    <div className="w-9 h-9 rounded-lg bg-accent-blue flex items-center justify-center text-white font-black text-sm border-2 border-black">
                                         {selectedConversation.customerName.charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-sm">{selectedConversation.customerName}</p>
+                                        <p className="font-bold text-sm">{selectedConversation.customerName}</p>
                                         <p className="text-xs text-muted-foreground">Facebook Messenger</p>
                                     </div>
                                 </div>
@@ -1119,7 +1119,7 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                         <button
                                             onClick={handleCreateOrder}
                                             disabled={isParsingOrder}
-                                            className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all"
+                                            className="btn-primary flex items-center gap-1 px-3 py-1.5 text-xs disabled:opacity-50"
                                         >
                                             {isParsingOrder ? (
                                                 <>
@@ -1140,14 +1140,14 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                             <button
                                                 onClick={() => sendOrderConfirmation(undefined, 'cod')}
                                                 disabled={isSending}
-                                                className="flex items-center gap-1 px-2 py-1.5 bg-orange-500 text-white text-xs rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-all"
+                                                className="flex items-center gap-1 px-2 py-1.5 bg-accent-orange text-black text-xs font-bold rounded-lg border-2 border-black hover:shadow-[2px_2px_0px_#000] disabled:opacity-50 transition-all"
                                             >
                                                 💵 COD
                                             </button>
                                             <button
                                                 onClick={() => sendOrderConfirmation(undefined, 'bank_transfer')}
                                                 disabled={isSending}
-                                                className="flex items-center gap-1 px-2 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all"
+                                                className="flex items-center gap-1 px-2 py-1.5 bg-accent-blue text-white text-xs font-bold rounded-lg border-2 border-black hover:shadow-[2px_2px_0px_#000] disabled:opacity-50 transition-all"
                                             >
                                                 🏦 CK
                                             </button>
@@ -1155,7 +1155,7 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                     )}
                                     <button
                                         onClick={() => setShowCustomerPanel(!showCustomerPanel)}
-                                        className={`p-1.5 rounded-lg transition-colors ${showCustomerPanel ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
+                                        className={`p-1.5 rounded-lg border-2 transition-all ${showCustomerPanel ? 'bg-accent-yellow text-black border-black shadow-[2px_2px_0px_#000]' : 'hover:bg-muted border-transparent'}`}
                                     >
                                         <UserIcon className="w-4 h-4" />
                                     </button>

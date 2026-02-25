@@ -102,11 +102,6 @@ const getGoogleSheetsSettings = (): GoogleSheetsSettings | null => {
     return getLocalSettings();
 };
 
-// Legacy function - keep for backward compatibility
-export const saveGoogleScriptUrl = async (url: string): Promise<void> => {
-    const settings = getGoogleSheetsSettings();
-    await saveGoogleSheetsSettings(url, settings?.sheetName || '');
-};
 
 // Sync order to Google Sheets via API endpoint (to avoid CORS)
 export const syncOrderDirect = async (
@@ -153,52 +148,7 @@ export const syncOrderDirect = async (
     }
 };
 
-// Sync order to Google Sheets via API endpoint
-export const syncOrderToSheet = async (
-    order: OrderSyncData,
-    action: 'create' | 'update' | 'delete' = 'create'
-): Promise<{ success: boolean; error?: string }> => {
-    const settings = getGoogleSheetsSettings();
-
-    if (!settings?.scriptUrl) {
-        console.log('Google Sheets sync skipped: No script URL configured');
-        return { success: false, error: 'Google Script URL not configured' };
-    }
-
-    try {
-        const response = await fetch('/api/sheets/sync', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action,
-                order,
-                googleScriptUrl: settings.scriptUrl,
-                sheetName: settings.sheetName,
-            }),
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            console.log('Order synced to Google Sheets:', order.id);
-            return { success: true };
-        } else {
-            console.error('Failed to sync order:', result.error);
-            return { success: false, error: result.error };
-        }
-    } catch (error) {
-        console.error('Error syncing to Google Sheets:', error);
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        };
-    }
-};
-
 export default {
-    syncOrderToSheet,
     syncOrderDirect,
     saveGoogleSheetsSettings,
     loadGoogleSheetsSettings,

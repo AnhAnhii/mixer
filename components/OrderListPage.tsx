@@ -30,9 +30,9 @@ const OrderListPage: React.FC<OrderListPageProps> = React.memo(({ orders, onView
           order.customerName.toLowerCase().includes(lowerSearchTerm) ||
           order.customerPhone.includes(searchTerm) ||
           order.id.toLowerCase().includes(lowerSearchTerm);
-        
+
         const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-        
+
         return matchesSearch && matchesStatus;
       })
       .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
@@ -68,48 +68,48 @@ const OrderListPage: React.FC<OrderListPageProps> = React.memo(({ orders, onView
         }
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
 
   }, [activeIndex, filteredOrders, onViewDetails, isAnyModalOpen]);
-  
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6 border-b border-border pb-4">
-        <h2 className="text-2xl font-semibold text-card-foreground">Quản lý Đơn hàng</h2>
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6 border-b-2 border-border pb-4">
+        <h2 className="text-2xl font-black font-heading text-card-foreground">Quản lý Đơn hàng 📦</h2>
         <div className="flex items-center gap-2">
-            <button onClick={onAddQuickOrder} className="btn-secondary flex items-center gap-2 px-4 py-2 shadow-sm">
-              <SparklesIcon className="w-5 h-5" /> Tạo nhanh (AI)
-            </button>
-            <button onClick={onAddOrder} className="btn-primary flex items-center gap-2 px-4 py-2 shadow-sm">
-              <PlusIcon className="w-5 h-5" /> Tạo đơn hàng
-            </button>
+          <button onClick={onAddQuickOrder} className="btn-secondary flex items-center gap-2 px-4 py-2 shadow-sm">
+            <SparklesIcon className="w-5 h-5" /> Tạo nhanh (AI)
+          </button>
+          <button onClick={onAddOrder} className="btn-primary flex items-center gap-2 px-4 py-2 shadow-sm">
+            <PlusIcon className="w-5 h-5" /> Tạo đơn hàng
+          </button>
         </div>
       </div>
 
-      <div className="bg-card p-4 rounded-xl shadow-sm flex flex-col md:flex-row gap-4 border border-border">
+      <div className="bg-card p-4 rounded-lg flex flex-col md:flex-row gap-4 border-2 border-border shadow-[4px_4px_0px_var(--color-border)]">
         <div className="flex-grow">
-            <input
-              type="text"
-              placeholder="Tìm kiếm theo tên, SĐT khách hàng hoặc mã đơn hàng..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-4 pr-4 py-2 border border-input rounded-md shadow-sm focus:ring-primary focus:border-primary bg-card"
-            />
+          <input
+            type="text"
+            placeholder="Tìm kiếm theo tên, SĐT khách hàng hoặc mã đơn hàng..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-4 pr-4 py-2 border-2 border-border rounded-lg focus:shadow-[2px_2px_0px_var(--color-border)] focus:outline-none bg-card font-body"
+          />
         </div>
         <div>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as OrderStatus | 'all')} className="w-full md:w-auto p-2 border border-input rounded-md text-sm bg-card h-full">
-                <option value="all">Tất cả trạng thái</option>
-                {Object.values(OrderStatus).map(status => (
-                    <option key={status} value={status}>{status}</option>
-                ))}
-            </select>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as OrderStatus | 'all')} className="w-full md:w-auto p-2 border-2 border-border rounded-lg text-sm bg-card h-full font-semibold focus:shadow-[2px_2px_0px_var(--color-border)] focus:outline-none">
+            <option value="all">Tất cả trạng thái</option>
+            {Object.values(OrderStatus).map(status => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
         </div>
       </div>
 
-      <OrderList 
-        orders={filteredOrders} 
+      <OrderList
+        orders={filteredOrders}
         onViewDetails={onViewDetails}
         onEdit={onEdit}
         onDelete={onDelete}

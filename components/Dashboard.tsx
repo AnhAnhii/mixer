@@ -6,6 +6,7 @@ import { CurrencyDollarIcon, ShoppingBagIcon, UserGroupIcon, CubeIcon, SparklesI
 import DashboardSkeleton from './skeletons/DashboardSkeleton';
 import ActivityFeed from './ActivityFeed';
 import AiBusinessCoPilot from './AiBusinessCoPilot';
+import { formatCurrency } from '../utils/formatters';
 
 interface DashboardProps {
     orders: Order[];
@@ -21,39 +22,53 @@ interface DashboardProps {
     isLoading?: boolean;
 }
 
-const StatCard: React.FC<{ title: string, value: string | number, icon: React.ReactNode }> = ({ title, value, icon }) => (
-    <div className="bg-card p-5 rounded-xl shadow-sm border border-border flex items-center gap-5">
-        <div className="p-3 rounded-full bg-primary/10 text-primary">
-            {icon}
+const STAT_COLORS = [
+    { bg: 'bg-accent-yellow', text: 'text-black' },
+    { bg: 'bg-accent-orange', text: 'text-black' },
+    { bg: 'bg-accent-mint', text: 'text-black' },
+    { bg: 'bg-accent-blue', text: 'text-white' },
+] as const;
+
+const StatCard: React.FC<{
+    title: string;
+    value: string | number;
+    icon: React.ReactNode;
+    colorIdx: number;
+}> = ({ title, value, icon, colorIdx }) => {
+    const color = STAT_COLORS[colorIdx % STAT_COLORS.length];
+    return (
+        <div className={`${color.bg} ${color.text} p-5 border-2 border-black rounded-lg shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-150 cursor-default`}>
+            <div className="flex items-center justify-between mb-3">
+                <div className="p-2 bg-black/10 rounded-lg">
+                    {icon}
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider opacity-70">{title}</span>
+            </div>
+            <p className="text-3xl font-black font-heading">{value}</p>
         </div>
-        <div>
-            <p className="text-sm text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold text-card-foreground">{value}</p>
-        </div>
-    </div>
-);
+    );
+};
+
+const STATUS_BADGE: Record<string, string> = {
+    'Chờ xử lý': 'bg-accent-yellow text-black border-black',
+    'Đang xử lý': 'bg-accent-blue text-white border-black',
+    'Đã gửi hàng': 'bg-accent-orange text-black border-black',
+    'Đã giao hàng': 'bg-accent-mint text-black border-black',
+    'Đã hủy': 'bg-accent-pink text-white border-black',
+};
 
 const Dashboard: React.FC<DashboardProps> = React.memo(({ orders, products, customers, activityLog, onViewOrder, onViewCustomer, onNavigate, onOpenVoucherForm, onOpenStrategy, onOpenQuickPayment, isLoading }) => {
 
     const { totalRevenue, pendingOrders, totalCustomers, totalProducts } = useMemo(() => {
         const revenue = orders
-            .filter(o => o.status === OrderStatus.Delivered || o.status === OrderStatus.Shipped) // Also count shipped for revenue
+            .filter(o => o.status === OrderStatus.Delivered || o.status === OrderStatus.Shipped)
             .reduce((sum, o) => sum + o.totalAmount, 0);
-
         const pending = orders.filter(o => o.status === OrderStatus.Pending || o.status === OrderStatus.Processing).length;
-
-        return {
-            totalRevenue: revenue,
-            pendingOrders: pending,
-            totalCustomers: customers.length,
-            totalProducts: products.length
-        };
+        return { totalRevenue: revenue, pendingOrders: pending, totalCustomers: customers.length, totalProducts: products.length };
     }, [orders, products, customers]);
 
     const recentOrders = useMemo(() => {
-        return [...orders]
-            .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
-            .slice(0, 5);
+        return [...orders].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()).slice(0, 5);
     }, [orders]);
 
     const lowStockProducts = useMemo(() => {
@@ -63,38 +78,31 @@ const Dashboard: React.FC<DashboardProps> = React.memo(({ orders, products, cust
         ).sort((a, b) => a.stock - b.stock).slice(0, 5);
     }, [products]);
 
-    const formatCurrency = (amount: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-
-    if (isLoading) {
-        return <DashboardSkeleton />;
-    }
+    if (isLoading) return <DashboardSkeleton />;
 
     return (
         <div className="space-y-8">
-            {/* Header with Strategy Button */}
+            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h2 className="text-2xl font-semibold text-card-foreground">Tổng quan</h2>
+                <h2 className="text-3xl font-black font-heading tracking-tight">
+                    Tổng quan 📊
+                </h2>
                 <div className="flex gap-3">
                     {onOpenQuickPayment && (
-                        <button
-                            onClick={onOpenQuickPayment}
-                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-green-700 transition-all duration-200 bg-green-100 rounded-full hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                        >
+                        <button onClick={onOpenQuickPayment} className="inline-flex items-center px-4 py-2 text-sm font-bold bg-accent-mint text-black border-2 border-black rounded-lg shadow-[3px_3px_0px_#000] hover:shadow-[5px_5px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-150">
                             <CheckCircleIcon className="w-4 h-4 mr-2" />
-                            Xác nhận TT nhanh
+                            Xác nhận TT
                         </button>
                     )}
-                    <button
-                        onClick={onOpenStrategy}
-                        className="group relative inline-flex items-center justify-center px-6 py-2 text-sm font-medium text-white transition-all duration-200 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-md hover:shadow-lg"
-                    >
-                        <SparklesIcon className="w-4 h-4 mr-2 animate-pulse" />
-                        Lập Chiến lược (AI)
-                        <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-ping"></div>
+                    <button onClick={onOpenStrategy} className="relative inline-flex items-center px-5 py-2 text-sm font-bold bg-black text-white border-2 border-black rounded-lg shadow-[3px_3px_0px_var(--color-accent-yellow)] hover:shadow-[5px_5px_0px_var(--color-accent-yellow)] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-150">
+                        <SparklesIcon className="w-4 h-4 mr-2" />
+                        Chiến lược AI
+                        <span className="absolute -top-1 -right-1 h-3 w-3 bg-accent-pink rounded-full animate-ping" />
                     </button>
                 </div>
             </div>
 
+            {/* AI Co-Pilot */}
             <AiBusinessCoPilot
                 orders={orders}
                 products={products}
@@ -105,52 +113,74 @@ const Dashboard: React.FC<DashboardProps> = React.memo(({ orders, products, cust
                 onOpenVoucherForm={onOpenVoucherForm}
             />
 
-            <h2 className="text-2xl font-semibold text-card-foreground">Thống kê Toàn thời gian</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Doanh thu" value={formatCurrency(totalRevenue)} icon={<CurrencyDollarIcon className="w-6 h-6" />} />
-                <StatCard title="Đơn hàng chờ xử lý" value={pendingOrders} icon={<ShoppingBagIcon className="w-6 h-6" />} />
-                <StatCard title="Tổng khách hàng" value={totalCustomers} icon={<UserGroupIcon className="w-6 h-6" />} />
-                <StatCard title="Tổng sản phẩm" value={totalProducts} icon={<CubeIcon className="w-6 h-6" />} />
+            {/* Stat Cards */}
+            <div>
+                <h3 className="text-lg font-bold font-heading mb-4 uppercase tracking-wide">Thống kê toàn thời gian</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard title="Doanh thu" value={formatCurrency(totalRevenue)} icon={<CurrencyDollarIcon className="w-5 h-5" />} colorIdx={0} />
+                    <StatCard title="Chờ xử lý" value={pendingOrders} icon={<ShoppingBagIcon className="w-5 h-5" />} colorIdx={1} />
+                    <StatCard title="Khách hàng" value={totalCustomers} icon={<UserGroupIcon className="w-5 h-5" />} colorIdx={2} />
+                    <StatCard title="Sản phẩm" value={totalProducts} icon={<CubeIcon className="w-5 h-5" />} colorIdx={3} />
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-8">
-                    <div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-                        <h3 className="text-lg font-semibold text-card-foreground mb-4">Đơn hàng gần đây</h3>
-                        <div className="space-y-3">
+            {/* Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Recent Orders */}
+                    <div className="bg-card border-2 border-border rounded-lg shadow-[4px_4px_0px_var(--color-border)] p-6">
+                        <h3 className="text-lg font-bold font-heading mb-4 flex items-center gap-2">
+                            <ShoppingBagIcon className="w-5 h-5" />
+                            Đơn hàng gần đây
+                        </h3>
+                        <div className="space-y-2">
                             {recentOrders.length > 0 ? recentOrders.map(order => (
-                                <div key={order.id} onClick={() => onViewOrder(order)} className="flex justify-between items-center p-3 rounded-lg hover:bg-muted cursor-pointer border-b border-border last:border-b-0 compact-p">
+                                <div
+                                    key={order.id}
+                                    onClick={() => onViewOrder(order)}
+                                    className="flex justify-between items-center p-3 rounded-lg border border-border hover:bg-muted cursor-pointer hover:shadow-[2px_2px_0px_var(--color-border)] hover:-translate-x-px hover:-translate-y-px transition-all duration-150"
+                                >
                                     <div>
-                                        <p className="font-medium text-card-foreground compact-text-base">{order.customerName}</p>
-                                        <p className="text-xs text-muted-foreground compact-text-sm">#{order.id.substring(0, 8)}</p>
+                                        <p className="font-semibold text-sm">{order.customerName}</p>
+                                        <p className="text-xs text-muted-foreground font-mono">#{order.id.substring(0, 8)}</p>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-semibold text-primary compact-text-base">{formatCurrency(order.totalAmount)}</p>
-                                        <p className="text-xs text-muted-foreground compact-text-sm">{order.status}</p>
+                                    <div className="text-right flex items-center gap-3">
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${STATUS_BADGE[order.status] || 'bg-muted text-muted-foreground border-border'}`}>
+                                            {order.status}
+                                        </span>
+                                        <p className="font-bold text-sm min-w-[90px] text-right">{formatCurrency(order.totalAmount)}</p>
                                     </div>
                                 </div>
                             )) : <p className="text-center text-muted-foreground py-8">Chưa có đơn hàng nào.</p>}
                         </div>
                     </div>
-                    <div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-                        <h3 className="text-lg font-semibold text-card-foreground mb-4">Sản phẩm sắp hết hàng</h3>
-                        <div className="space-y-3">
+
+                    {/* Low Stock */}
+                    <div className="bg-card border-2 border-border rounded-lg shadow-[4px_4px_0px_var(--color-border)] p-6">
+                        <h3 className="text-lg font-bold font-heading mb-4 flex items-center gap-2">
+                            <CubeIcon className="w-5 h-5" />
+                            Sản phẩm sắp hết hàng
+                        </h3>
+                        <div className="space-y-2">
                             {lowStockProducts.length > 0 ? lowStockProducts.map(variant => (
-                                <div key={variant.id} className="flex justify-between items-center p-3 rounded-lg border-b border-border last:border-b-0 compact-p">
+                                <div key={variant.id} className="flex justify-between items-center p-3 rounded-lg border border-border">
                                     <div>
-                                        <p className="font-medium text-card-foreground compact-text-base">{variant.productName}</p>
-                                        <p className="text-xs text-muted-foreground compact-text-sm">{variant.size} - {variant.color}</p>
+                                        <p className="font-semibold text-sm">{variant.productName}</p>
+                                        <p className="text-xs text-muted-foreground">{variant.size} — {variant.color}</p>
                                     </div>
-                                    <p className="font-semibold text-yellow-600 dark:text-yellow-400 compact-text-base">Còn lại: {variant.stock}</p>
+                                    <span className="bg-accent-yellow text-black text-xs font-bold px-2 py-1 rounded border border-black">
+                                        Còn {variant.stock}
+                                    </span>
                                 </div>
-                            )) : <p className="text-center text-muted-foreground py-8">Không có sản phẩm nào sắp hết hàng.</p>}
+                            )) : <p className="text-center text-muted-foreground py-8">Không có sản phẩm sắp hết hàng.</p>}
                         </div>
                     </div>
                 </div>
+
+                {/* Activity Feed */}
                 <div className="lg:col-span-1">
                     <ActivityFeed logs={activityLog} title="Hoạt động gần đây" limit={10} />
                 </div>
-
             </div>
         </div>
     );

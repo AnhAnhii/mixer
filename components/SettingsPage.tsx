@@ -108,21 +108,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
 
   return (
     <div className="space-y-8 pb-10">
-      <div className="flex justify-between items-center mb-6 border-b border-border pb-4">
-        <h2 className="text-2xl font-semibold text-card-foreground">Cài đặt Hệ thống</h2>
+      <div className="flex justify-between items-center mb-6 border-b-2 border-border pb-4">
+        <h2 className="text-2xl font-black font-heading text-card-foreground">⚙️ Cài đặt Hệ thống</h2>
       </div>
       <div className="max-w-4xl mx-auto space-y-10">
 
         {/* Theme Section */}
         <div>
-          <h3 className="text-xl font-semibold text-card-foreground mb-4">Giao diện & Chủ đề</h3>
-          <div className="bg-card p-6 rounded-xl border border-border">
+          <h3 className="text-lg font-bold font-heading text-card-foreground mb-4">Giao diện & Chủ đề</h3>
+          <div className="bg-card p-6 rounded-lg border-2 border-border shadow-[4px_4px_0px_var(--color-border)]">
             {/* Palette */}
             <div className="mb-6">
               <label className="text-sm font-medium text-muted-foreground mb-3 block">Bảng màu</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {['modern', 'elegant', 'classic', 'glass'].map(p => (
-                  <div key={p} onClick={() => setTheme({ ...theme, palette: p as any })} className={`p-4 rounded-lg border-2 cursor-pointer transition-all capitalize ${theme.palette === p ? 'border-primary bg-primary/5' : 'border-border hover:border-gray-400'}`}>
+                  <div key={p} onClick={() => setTheme({ ...theme, palette: p as any })} className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-150 capitalize font-semibold ${theme.palette === p ? 'border-black bg-accent-yellow shadow-[3px_3px_0px_#000] -translate-x-0.5 -translate-y-0.5' : 'border-border hover:border-black hover:shadow-[2px_2px_0px_#000]'}`}>
                     <p className="font-semibold">{p}</p>
                   </div>
                 ))}
@@ -134,7 +134,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
               <label className="text-sm font-medium text-muted-foreground mb-3 block">Mật độ hiển thị</label>
               <div className="grid grid-cols-2 gap-4">
                 {['comfortable', 'compact'].map(d => (
-                  <div key={d} onClick={() => setTheme({ ...theme, density: d as any })} className={`p-4 rounded-lg border-2 cursor-pointer transition-all capitalize ${theme.density === d ? 'border-primary bg-primary/5' : 'border-border hover:border-gray-400'}`}>
+                  <div key={d} onClick={() => setTheme({ ...theme, density: d as any })} className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-150 capitalize font-semibold ${theme.density === d ? 'border-black bg-accent-yellow shadow-[3px_3px_0px_#000] -translate-x-0.5 -translate-y-0.5' : 'border-border hover:border-black hover:shadow-[2px_2px_0px_#000]'}`}>
                     <p className="font-semibold">{d === 'comfortable' ? 'Thoải mái' : 'Gọn gàng'}</p>
                   </div>
                 ))}
@@ -146,7 +146,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
               <label className="text-sm font-medium text-muted-foreground mb-3 block">Kiểu góc</label>
               <div className="grid grid-cols-2 gap-4">
                 {['rounded', 'sharp'].map(s => (
-                  <div key={s} onClick={() => setTheme({ ...theme, style: s as any })} className={`p-4 rounded-lg border-2 cursor-pointer transition-all capitalize ${theme.style === s ? 'border-primary bg-primary/5' : 'border-border hover:border-gray-400'}`}>
+                  <div key={s} onClick={() => setTheme({ ...theme, style: s as any })} className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-150 capitalize font-semibold ${theme.style === s ? 'border-black bg-accent-yellow shadow-[3px_3px_0px_#000] -translate-x-0.5 -translate-y-0.5' : 'border-border hover:border-black hover:shadow-[2px_2px_0px_#000]'}`}>
                     <p className="font-semibold">{s === 'rounded' ? 'Bo tròn' : 'Vuông vắn'}</p>
                   </div>
                 ))}
@@ -157,8 +157,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
 
         {/* Bank Info Section */}
         <div>
-          <h3 className="text-xl font-semibold text-card-foreground mb-4">Thông tin Ngân hàng</h3>
-          <div className="bg-card p-6 rounded-xl border border-border">
+          <h3 className="text-lg font-bold font-heading text-card-foreground mb-4">Thông tin Ngân hàng</h3>
+          <div className="bg-card p-6 rounded-lg border-2 border-border shadow-[4px_4px_0px_var(--color-border)]">
             {bankInfo ? (
               <div className="space-y-3">
                 <p className="text-sm"><span className="font-medium text-muted-foreground">Ngân hàng:</span> <span className="text-card-foreground">{getBankName(bankInfo.bin)}</span></p>
@@ -173,17 +173,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
 
         {/* Backup Section */}
         <div>
-          <h3 className="text-xl font-semibold text-card-foreground mb-4">Sao lưu & Khôi phục (Local)</h3>
-          <div className="bg-card p-6 rounded-xl border border-border">
+          <h3 className="text-lg font-bold font-heading text-card-foreground mb-4">Sao lưu & Khôi phục</h3>
+          <div className="bg-card p-6 rounded-lg border-2 border-border shadow-[4px_4px_0px_var(--color-border)]">
             <p className="text-sm text-muted-foreground mb-4">
               Xuất file JSON để sao lưu hoặc khôi phục dữ liệu từ file đã xuất trước đó.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <button onClick={handleExport} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors shadow">
+              <button onClick={handleExport} className="btn-muted w-full flex items-center justify-center gap-2 px-4 py-3 font-semibold">
                 <ArrowDownTrayIcon className="w-5 h-5" />
-                Xuất file Backup JSON
+                Xuất Backup
               </button>
-              <button onClick={handleImportClick} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors shadow">
+              <button onClick={handleImportClick} className="btn-muted w-full flex items-center justify-center gap-2 px-4 py-3 font-semibold">
                 <ArrowUpTrayIcon className="w-5 h-5" />
                 Khôi phục từ file
               </button>
@@ -194,8 +194,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
 
         {/* Google Sheets Section */}
         <div>
-          <h3 className="text-xl font-semibold text-card-foreground mb-4">Google Sheets Sync</h3>
-          <div className="bg-card p-6 rounded-xl border border-border space-y-4">
+          <h3 className="text-lg font-bold font-heading text-card-foreground mb-4">Google Sheets Sync</h3>
+          <div className="bg-card p-6 rounded-lg border-2 border-border shadow-[4px_4px_0px_var(--color-border)] space-y-4">
             <p className="text-sm text-muted-foreground">
               Tự động đồng bộ đơn hàng sang Google Sheets để nhân viên kho dễ dàng theo dõi.
             </p>
@@ -209,7 +209,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
                 value={googleScriptUrl}
                 onChange={(e) => setGoogleScriptUrl(e.target.value)}
                 placeholder="https://script.google.com/macros/s/..."
-                className="w-full px-4 py-2 border border-border rounded-lg bg-background text-card-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                className="w-full px-4 py-2 border-2 border-border rounded-lg bg-background text-card-foreground focus:shadow-[2px_2px_0px_var(--color-border)] focus:outline-none"
               />
             </div>
 
@@ -232,7 +232,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
             <button
               onClick={handleSaveGoogleSheetsSettings}
               disabled={isSaving || !sheetName.trim()}
-              className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 font-medium"
+              className="btn-primary w-full px-4 py-3 disabled:opacity-50"
             >
               {isSaving ? 'Đang lưu...' : 'Lưu cấu hình'}
             </button>
@@ -252,8 +252,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
 
         {/* Storage Info */}
         <div>
-          <h3 className="text-xl font-semibold text-card-foreground mb-4">Lưu trữ</h3>
-          <div className="bg-card p-6 rounded-xl border border-border">
+          <h3 className="text-lg font-bold font-heading text-card-foreground mb-4">Lưu trữ</h3>
+          <div className="bg-card p-6 rounded-lg border-2 border-border shadow-[4px_4px_0px_var(--color-border)]">
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
               <div>

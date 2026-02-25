@@ -56,6 +56,7 @@ import {
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useThemeData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus, useSocialConfigsData, useUiModeData } from './hooks/useData';
 import { useAuth } from './hooks/useAuth';
+import { useAppNavigation } from './router/useAppNavigation';
 import { sampleProducts, sampleCustomers, sampleOrders, sampleFacebookPosts, sampleAutomationRules, sampleActivityLogs, sampleReturnRequests } from './data/sampleData';
 import { syncOrderDirect, loadGoogleSheetsSettings } from './services/googleSheetsService';
 import { GOOGLE_SCRIPT_URL, GEMINI_API_KEY } from './config';
@@ -98,10 +99,8 @@ const AppContent: React.FC = () => {
 
     // Theme - Using Supabase 
     const { theme, setTheme, isLoading: themeLoading } = useThemeData();
-    const [view, setView] = useState<Page>(() => {
-        const lastView = sessionStorage.getItem('lastView-v2');
-        return (lastView as Page) || 'dashboard';
-    });
+    const { currentPage: view, navigateTo } = useAppNavigation();
+    const setView = navigateTo; // backward-compatible alias
 
     // Invoice State (must be outside renderView)
     const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
@@ -192,9 +191,8 @@ const AppContent: React.FC = () => {
         }
     };
 
-    useEffect(() => {
-        sessionStorage.setItem('lastView-v2', view);
-    }, [view]);
+
+    // URL-based routing now handles view persistence
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -755,43 +753,43 @@ ${shippingDetails}
     };
 
     const renderSidebar = () => (
-        <aside className={`fixed inset-y-0 left-0 w-64 bg-card text-card-foreground flex-shrink-0 border-r border-border flex flex-col z-40 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-            <div className="h-16 flex items-center justify-between px-4 border-b border-border">
-                <div className="flex items-center"><AppLogoIcon className="w-8 h-8 text-primary" /><span className="ml-2 text-xl font-semibold">Mixer</span></div>
+        <aside className={`fixed inset-y-0 left-0 w-64 bg-card text-card-foreground flex-shrink-0 border-r-2 border-border flex flex-col z-40 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className="h-16 flex items-center justify-between px-4 border-b-2 border-border">
+                <div className="flex items-center"><AppLogoIcon className="w-8 h-8 text-primary" /><span className="ml-2 text-xl font-black font-heading tracking-tight">Mixer</span></div>
                 <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-1 text-muted-foreground hover:text-foreground"><XMarkIcon className="w-6 h-6" /></button>
             </div>
-            <div className="p-4 border-b border-border flex items-center gap-3 cursor-pointer hover:bg-muted transition-colors" onClick={() => setView('profile')}>
-                <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold">
+            <div className="p-4 border-b-2 border-border flex items-center gap-3 cursor-pointer hover:bg-accent-yellow/20 transition-colors" onClick={() => setView('profile')}>
+                <div className="w-10 h-10 rounded-lg bg-accent-yellow text-black flex items-center justify-center font-black border-2 border-black">
                     {currentUser.avatar}
                 </div>
                 <div className="overflow-hidden">
-                    <p className="text-sm font-semibold truncate">{currentUser.name}</p>
+                    <p className="text-sm font-bold truncate">{currentUser.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{roles.find(r => r.id === currentUser.roleId)?.name}</p>
                 </div>
             </div>
-            <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
+            <nav className="flex-grow p-3 space-y-1 overflow-y-auto">
                 {navItems.map(item => (
-                    <button key={item.id} onClick={() => { setView(item.id as Page); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${view === item.id ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                    <button key={item.id} onClick={() => { setView(item.id as Page); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 ${view === item.id ? 'bg-accent-yellow text-black border-2 border-black shadow-[2px_2px_0px_#000]' : 'text-muted-foreground hover:bg-muted hover:text-foreground border-2 border-transparent'}`}>
                         <item.icon className="w-5 h-5" />
                         {item.label}
                     </button>
                 ))}
             </nav>
-            <div className="p-4 border-t border-border space-y-2">
-                <button onClick={() => setIsCommandPaletteOpen(true)} className="w-full text-left text-sm text-muted-foreground p-2 rounded-md border border-border hover:bg-muted flex justify-between items-center"><span>Mở Bảng lệnh</span><kbd className="font-sans text-xs bg-muted-foreground/20 p-1 rounded">Ctrl K</kbd></button>
-                <button onClick={logout} className="w-full text-left text-sm text-red-600 hover:bg-red-50 p-2 rounded-md flex items-center gap-2"><XMarkIcon className="w-4 h-4" /> Đăng xuất</button>
+            <div className="p-3 border-t-2 border-border space-y-2">
+                <button onClick={() => setIsCommandPaletteOpen(true)} className="w-full text-left text-sm text-muted-foreground p-2 rounded-lg border-2 border-border hover:bg-muted hover:shadow-[2px_2px_0px_var(--color-border)] transition-all flex justify-between items-center"><span>Bảng lệnh</span><kbd className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded border border-border">⌘K</kbd></button>
+                <button onClick={logout} className="w-full text-left text-sm text-accent-pink font-semibold hover:bg-accent-pink/10 p-2 rounded-lg flex items-center gap-2 transition-colors"><XMarkIcon className="w-4 h-4" /> Đăng xuất</button>
             </div>
         </aside>
     );
 
     const renderTopNav = () => (
-        <header className="bg-card border-b border-border flex flex-col sticky top-0 z-40 shadow-sm">
+        <header className="bg-card border-b-2 border-border flex flex-col sticky top-0 z-40 shadow-[0_2px_0px_var(--color-border)]">
             <div className="h-16 flex items-center justify-between px-4 md:px-6">
                 <div className="flex items-center gap-4">
                     <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-muted-foreground hover:text-foreground"><Bars3Icon className="w-6 h-6" /></button>
                     <div className="flex items-center cursor-pointer" onClick={() => setView('dashboard')}>
                         <AppLogoIcon className="w-8 h-8 text-primary" />
-                        <span className="ml-2 text-xl font-semibold hidden sm:inline-block">Mixer</span>
+                        <span className="ml-2 text-xl font-black font-heading hidden sm:inline-block">Mixer</span>
                     </div>
                 </div>
                 <nav className="hidden md:flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 px-4 justify-center">
@@ -799,15 +797,15 @@ ${shippingDetails}
                         <button
                             key={item.id}
                             onClick={() => setView(item.id as Page)}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${view === item.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-150 whitespace-nowrap ${view === item.id ? 'bg-accent-yellow text-black border-2 border-black shadow-[2px_2px_0px_#000]' : 'text-muted-foreground hover:bg-muted hover:text-foreground border-2 border-transparent'}`}
                         >
-                            <item.icon className="w-5 h-5" />
+                            <item.icon className="w-4 h-4" />
                             <span className="hidden lg:inline">{item.label}</span>
                         </button>
                     ))}
                 </nav>
                 <div className="flex items-center gap-4">
-                    <button onClick={() => setView('profile')} className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold border border-transparent hover:border-primary transition-colors">
+                    <button onClick={() => setView('profile')} className="w-8 h-8 rounded-lg bg-accent-yellow text-black flex items-center justify-center text-xs font-black border-2 border-black hover:shadow-[2px_2px_0px_#000] transition-all">
                         {currentUser.avatar}
                     </button>
                 </div>
@@ -824,45 +822,45 @@ ${shippingDetails}
             {uiMode === 'default' && renderSidebar()}
 
             {/* Mobile Drawer */}
-            <aside className={`fixed inset-y-0 left-0 w-64 bg-card text-card-foreground flex-shrink-0 border-r border-border flex flex-col z-40 transform transition-transform duration-300 ease-in-out md:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                <div className="h-16 flex items-center justify-between px-4 border-b border-border">
-                    <div className="flex items-center"><AppLogoIcon className="w-8 h-8 text-primary" /><span className="ml-2 text-xl font-semibold">Mixer</span></div>
+            <aside className={`fixed inset-y-0 left-0 w-64 bg-card text-card-foreground flex-shrink-0 border-r-2 border-border flex flex-col z-40 transform transition-transform duration-300 ease-in-out md:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <div className="h-16 flex items-center justify-between px-4 border-b-2 border-border">
+                    <div className="flex items-center"><AppLogoIcon className="w-8 h-8 text-primary" /><span className="ml-2 text-xl font-black font-heading">Mixer</span></div>
                     <button onClick={() => setIsSidebarOpen(false)} className="p-1 text-muted-foreground hover:text-foreground"><XMarkIcon className="w-6 h-6" /></button>
                 </div>
-                <div className="p-4 border-b border-border flex items-center gap-3" onClick={() => { setView('profile'); setIsSidebarOpen(false) }}>
-                    <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold">
+                <div className="p-4 border-b-2 border-border flex items-center gap-3 cursor-pointer" onClick={() => { setView('profile'); setIsSidebarOpen(false) }}>
+                    <div className="w-10 h-10 rounded-lg bg-accent-yellow text-black flex items-center justify-center font-black border-2 border-black">
                         {currentUser.avatar}
                     </div>
                     <div>
-                        <p className="text-sm font-semibold">{currentUser.name}</p>
+                        <p className="text-sm font-bold">{currentUser.name}</p>
                         <p className="text-xs text-muted-foreground">{roles.find(r => r.id === currentUser.roleId)?.name}</p>
                     </div>
                 </div>
-                <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
+                <nav className="flex-grow p-3 space-y-1 overflow-y-auto">
                     {navItems.map(item => (
-                        <button key={item.id} onClick={() => { setView(item.id as Page); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${view === item.id ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                        <button key={item.id} onClick={() => { setView(item.id as Page); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 ${view === item.id ? 'bg-accent-yellow text-black border-2 border-black shadow-[2px_2px_0px_#000]' : 'text-muted-foreground hover:bg-muted hover:text-foreground border-2 border-transparent'}`}>
                             <item.icon className="w-5 h-5" />
                             {item.label}
                         </button>
                     ))}
                 </nav>
-                <div className="p-4 border-t border-border">
-                    <button onClick={logout} className="w-full text-left text-sm text-red-600 p-2 rounded-md flex items-center gap-2"><XMarkIcon className="w-4 h-4" /> Đăng xuất</button>
+                <div className="p-3 border-t-2 border-border">
+                    <button onClick={logout} className="w-full text-left text-sm text-accent-pink font-semibold hover:bg-accent-pink/10 p-2 rounded-lg flex items-center gap-2 transition-colors"><XMarkIcon className="w-4 h-4" /> Đăng xuất</button>
                 </div>
             </aside>
 
             <main className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
                 {(uiMode === 'default' || uiMode === 'zen') && (
-                    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 shrink-0">
+                    <header className="h-16 bg-card border-b-2 border-border flex items-center justify-between px-6 shrink-0 shadow-[0_2px_0px_var(--color-border)]">
                         <div className="flex items-center">
                             {uiMode === 'default' && <button onClick={() => setIsSidebarOpen(true)} className="md:hidden mr-4 text-muted-foreground hover:text-foreground"><Bars3Icon className="w-6 h-6" /></button>}
                             {uiMode === 'zen' && <button onClick={() => setIsZenMenuOpen(true)} className="mr-4 text-muted-foreground hover:text-foreground"><Squares2X2Icon className="w-6 h-6" /></button>}
-                            <h1 className="text-xl font-semibold text-card-foreground">{currentNavItem?.label}</h1>
+                            <h1 className="text-xl font-black font-heading text-card-foreground">{currentNavItem?.label}</h1>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setUiMode(uiMode === 'default' ? 'zen' : 'default')}
-                                className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+                                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted border-2 border-transparent hover:border-border transition-all"
                             >
                                 {uiMode === 'default' ? <ArrowsPointingInIcon className="w-5 h-5" /> : <ArrowsPointingOutIcon className="w-5 h-5" />}
                             </button>
