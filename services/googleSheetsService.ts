@@ -117,7 +117,7 @@ export const syncOrderDirect = async (
 
     try {
         // Route through our API endpoint to avoid CORS issues
-        const response = await fetch('/api/sheets/sync', {
+        const response = await fetch('/api/sheets', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
