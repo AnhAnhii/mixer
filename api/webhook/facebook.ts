@@ -8,6 +8,15 @@ const VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN || 'mixer_verify_token_2024';
 const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
 const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 
+// Gemini key pool for auto-reply (rotation on 429)
+const GEMINI_KEYS: string[] = [
+    GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+    process.env.GEMINI_API_KEY_4,
+    process.env.GEMINI_API_KEY_5,
+].filter(Boolean) as string[];
+
 // Auto-reply settings (có thể chuyển sang database sau)
 let AUTO_REPLY_ENABLED = process.env.AI_AUTO_REPLY === 'true'; // Fallback only
 
@@ -1496,9 +1505,7 @@ async function generateAIResponse(customerMessage: string): Promise<{
     confidence: number;
     shouldHandoff: boolean;
 }> {
-    // Dynamic import để tránh lỗi module
     const { GoogleGenAI } = await import('@google/genai');
-    const client = new GoogleGenAI({ apiKey: GEMINI_API_KEY! });
 
     // Load training data from Supabase
     let trainingExamples: Array<{ customerMessage: string; employeeResponse: string }> = [];
@@ -1568,12 +1575,32 @@ MIXER - Thời trang | Ship 2-4 ngày | COD hoặc CK
 
 Trả lời (1-2 câu, giọng Gen Z):`;
 
-    const response = await client.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt
-    });
+    // Try each key until one works (rotation on 429)
+    let responseText = '';
+    let lastError: any = null;
 
-    const responseText = (response.text || '').trim();
+    for (let i = 0; i < GEMINI_KEYS.length; i++) {
+        try {
+            const client = new GoogleGenAI({ apiKey: GEMINI_KEYS[i] });
+            const response = await client.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: prompt
+            });
+            responseText = (response.text || '').trim();
+            if (i > 0) console.log(`🔄 Used fallback key #${i + 1}`);
+            lastError = null;
+            break;
+        } catch (err: any) {
+            lastError = err;
+            if (err?.status === 429 && i < GEMINI_KEYS.length - 1) {
+                console.log(`⚠️ Key #${i + 1} quota exceeded, trying key #${i + 2}...`);
+                continue;
+            }
+            throw err;
+        }
+    }
+
+    if (lastError) throw lastError;
 
     // Phân tích response
     const shouldHandoff = responseText.startsWith('[HANDOFF]');
