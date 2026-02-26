@@ -933,112 +933,126 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
     const customerOrders = getCustomerOrders();
 
     return (
-        <div className="bg-card rounded-lg border-2 border-border shadow-[4px_4px_0px_var(--color-border)] overflow-hidden">
+        <div className="card-base overflow-hidden flex flex-col h-[700px]">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b-2 border-border bg-muted/30">
-                <div className="flex items-center gap-2">
-                    <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-primary" />
-                    <h3 className="font-bold font-heading">Facebook Messenger</h3>
-                    <span className="text-xs text-muted-foreground">
-                        ({conversations.length} cuộc hội thoại{hasMore ? '+' : ''})
-                    </span>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-white">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-xl">
+                        <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-bold text-foreground">Facebook Messenger</h3>
+                        <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
+                            {conversations.length} cuộc hội thoại {hasMore ? '+' : ''}
+                        </p>
+                    </div>
                     {isAutoRefresh && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 bg-accent-mint text-black text-xs font-bold rounded-lg border border-black">
-                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                            Live
-                        </span>
+                        <div className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100 shadow-sm">
+                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
+                            Đang kết nối
+                        </div>
                     )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     {/* AI Auto-reply Toggle với Settings */}
                     <div className="relative">
                         <button
                             onClick={() => setShowAIPanel(!showAIPanel)}
-                            className={`px-2 py-1 text-xs rounded-lg transition-all duration-150 flex items-center gap-1 border-2 font-semibold ${isAIEnabled
-                                ? 'bg-accent-orange text-black border-black shadow-[2px_2px_0px_#000]'
+                            className={`px-3 py-2 text-[12px] rounded-lg transition-all duration-150 flex items-center gap-2 border font-bold ${isAIEnabled
+                                ? 'bg-primary/10 text-primary border-primary/20 shadow-sm'
                                 : 'bg-muted text-muted-foreground border-border'
                                 }`}
                             title="Cài đặt AI"
                         >
-                            {isAIEnabled ? '🤖 AI On' : '🤖 AI Off'}
-                            <span className="text-xs">{showAIPanel ? '▲' : '▼'}</span>
+                            <span>{isAIEnabled ? '🤖 AI Đang hoạt động' : '🤖 AI Đã tắt'}</span>
+                            <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${showAIPanel ? 'rotate-180' : ''}`} />
                         </button>
 
                         {/* AI Panel Dropdown */}
                         {showAIPanel && (
-                            <div className="absolute right-0 top-full mt-1 w-64 bg-card border-2 border-border rounded-lg shadow-[4px_4px_0px_var(--color-border)] z-50 p-3">
-                                <h4 className="font-medium text-sm mb-2 flex items-center gap-1">
-                                    🤖 AI Auto-Reply Settings
+                            <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-border rounded-2xl shadow-soft-lg z-50 p-4 animate-in fade-in slide-in-from-top-2">
+                                <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-foreground">
+                                    <SparklesIcon className="w-4 h-4 text-primary" />
+                                    AI Auto-Reply Settings
                                 </h4>
 
                                 {/* Toggle On/Off */}
-                                <div className="flex items-center justify-between mb-3 p-2 bg-muted/50 rounded-lg">
-                                    <span className="text-xs">Tự động trả lời</span>
+                                <div className="flex items-center justify-between mb-4 p-3 bg-muted/30 rounded-xl border border-border/50">
+                                    <span className="text-[12px] font-semibold text-foreground">Tự động trả lời</span>
                                     <button
                                         onClick={toggleAIEnabled}
-                                        className={`px-2 py-1 text-xs rounded-lg border-2 font-bold transition-all ${isAIEnabled
-                                            ? 'bg-accent-orange text-black border-black shadow-[2px_2px_0px_#000]'
-                                            : 'bg-muted text-muted-foreground border-border'
-                                            }`}
+                                        className={`w-10 h-5 rounded-full relative transition-colors duration-200 ${isAIEnabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}
                                     >
-                                        {isAIEnabled ? 'ON' : 'OFF'}
+                                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${isAIEnabled ? 'left-6' : 'left-1'}`} />
                                     </button>
                                 </div>
 
                                 {/* Crawl Training Data */}
-                                <div className="border-t border-border pt-2">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-xs text-muted-foreground">Training Data</span>
+                                <div className="border-t border-border/60 pt-4 mt-2">
+                                    <div className="flex items-center justify-between mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground px-1">
+                                        <span>Dữ liệu huấn luyện</span>
                                         {trainingStats && (
-                                            <span className="text-xs text-green-600">{trainingStats.totalPairs} pairs</span>
+                                            <span className="text-secondary">{trainingStats.totalPairs} pairs</span>
                                         )}
                                     </div>
                                     <button
                                         onClick={crawlTrainingData}
                                         disabled={isCrawling}
-                                        className="btn-primary w-full px-3 py-2 text-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                                        className="btn-primary w-full px-3 py-2.5 text-[12px] flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
                                     >
                                         {isCrawling ? (
                                             <>
-                                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                Đang crawl...
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Đang thu thập...
                                             </>
                                         ) : (
-                                            <>📚 Crawl từ Conversation</>
+                                            <>📚 Học từ lịch sử chat</>
                                         )}
                                     </button>
 
-                                    {/* Stats */}
+                                    {/* Stats Grid */}
                                     {trainingStats && (
-                                        <div className="mt-2 text-xs text-muted-foreground grid grid-cols-2 gap-1">
-                                            <span>👋 Greeting: {trainingStats.byCategory.greeting || 0}</span>
-                                            <span>🛍️ Product: {trainingStats.byCategory.product || 0}</span>
-                                            <span>📦 Order: {trainingStats.byCategory.order || 0}</span>
-                                            <span>🚚 Ship: {trainingStats.byCategory.shipping || 0}</span>
+                                        <div className="mt-4 grid grid-cols-2 gap-2">
+                                            {[
+                                                { label: 'Chào hỏi', count: trainingStats.byCategory.greeting || 0, icon: '👋' },
+                                                { label: 'Sản phẩm', count: trainingStats.byCategory.product || 0, icon: '🛍️' },
+                                                { label: 'Đơn hàng', count: trainingStats.byCategory.order || 0, icon: '📦' },
+                                                { label: 'Vận chuyển', count: trainingStats.byCategory.shipping || 0, icon: '🚚' }
+                                            ].map(cat => (
+                                                <div key={cat.label} className="bg-muted/30 p-2 rounded-lg border border-border/30 text-center">
+                                                    <p className="text-[10px] text-muted-foreground font-bold uppercase mb-0.5">{cat.icon} {cat.label}</p>
+                                                    <p className="text-[13px] font-bold text-foreground">{cat.count}</p>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Info */}
-                                <div className="mt-2 pt-2 border-t border-border">
-                                    <p className="text-xs text-muted-foreground">
-                                        💡 AI sẽ học từ cách nhân viên trả lời trong conversation cũ
-                                    </p>
+                                <div className="mt-4 pt-4 border-t border-border/60">
+                                    <div className="flex items-start gap-2 bg-primary/5 p-2 rounded-lg border border-primary/10">
+                                        <div className="text-primary mt-0.5">💡</div>
+                                        <p className="text-[11px] text-muted-foreground italic leading-relaxed">
+                                            AI sẽ tự động học hỏi phong cách trả lời của bạn qua các cuộc hội thoại cũ.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         )}
                     </div>
+                    <div className="h-4 w-px bg-border mx-1"></div>
                     <button
                         onClick={() => setIsAutoRefresh(!isAutoRefresh)}
-                        className={`px-2 py-1 text-xs rounded-lg border-2 font-semibold transition-all duration-150 ${isAutoRefresh ? 'bg-accent-mint/20 text-black border-black' : 'bg-muted text-muted-foreground border-border'
+                        className={`px-3 py-2 text-[12px] rounded-lg border font-bold transition-all duration-150 flex items-center gap-2 ${isAutoRefresh ? 'bg-secondary/10 text-secondary border-secondary/20 shadow-sm' : 'bg-muted text-muted-foreground border-border'
                             }`}
                     >
-                        {isAutoRefresh ? '🔄 Auto' : '⏸️ Paused'}
+                        <div className={`w-1.5 h-1.5 rounded-full ${isAutoRefresh ? 'bg-secondary animate-pulse' : 'bg-muted-foreground'}`}></div>
+                        {isAutoRefresh ? 'Tự động tải' : 'Tạm dừng'}
                     </button>
                     <button
                         onClick={() => loadConversations()}
                         disabled={isLoading}
-                        className="p-2 hover:bg-muted rounded-lg border-2 border-transparent hover:border-border transition-all"
+                        className="p-2.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl border border-transparent hover:border-border transition-all"
                     >
                         <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                     </button>
@@ -1046,87 +1060,107 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
             </div>
 
             {/* Main Content */}
-            <div className="flex" style={{ height: '600px' }}>
+            <div className="flex flex-1 min-h-0 bg-muted/20">
 
                 {/* LEFT: Conversation List */}
-                <div className="w-[280px] min-w-[280px] border-r border-border flex flex-col">
-                    <div className="flex-1 overflow-y-auto">
+                <div className="w-[300px] min-w-[300px] border-r border-border flex flex-col bg-white">
+                    <div className="p-4 border-b border-border">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Tìm khách hàng..."
+                                className="w-full px-4 py-2 bg-muted/30 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
                         {isLoading && conversations.length === 0 ? (
-                            <div className="flex items-center justify-center h-full">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                            <div className="flex flex-col items-center justify-center h-full gap-3 opacity-60">
+                                <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                                <p className="text-xs font-medium text-muted-foreground">Đang tải cuộc trò chuyện...</p>
                             </div>
                         ) : conversations.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                <ChatBubbleLeftEllipsisIcon className="w-12 h-12 mb-2 opacity-50" />
-                                <p>Chưa có cuộc hội thoại</p>
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
+                                <div className="p-4 bg-muted/50 rounded-full mb-4">
+                                    <ChatBubbleLeftEllipsisIcon className="w-10 h-10 opacity-20" />
+                                </div>
+                                <p className="text-sm font-semibold text-foreground mb-1">Hộp thư trống</p>
+                                <p className="text-xs">Chưa có khách hàng nào gửi tin nhắn gần đây.</p>
                             </div>
                         ) : (
-                            <>
+                            <div className="divide-y divide-border/50">
                                 {conversations.map((conv) => (
                                     <div
                                         key={conv.id}
                                         onClick={() => selectConversation(conv)}
-                                        className={`p-3 cursor-pointer border-b border-border hover:bg-muted/50 transition-colors ${selectedConversation?.id === conv.id ? 'bg-primary/10 border-l-2 border-l-primary' : ''
+                                        className={`p-4 cursor-pointer transition-all relative group ${selectedConversation?.id === conv.id
+                                            ? 'bg-primary/5 border-r-2 border-r-primary'
+                                            : 'hover:bg-muted/30'
                                             }`}
                                     >
-                                        <div className="flex items-start gap-2">
-                                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                                                {conv.customerName.charAt(0).toUpperCase()}
+                                        <div className="flex items-start gap-3">
+                                            <div className="relative shrink-0">
+                                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/30 flex items-center justify-center text-primary font-bold text-lg shadow-sm border border-primary/10 group-hover:scale-105 transition-transform">
+                                                    {conv.customerName.charAt(0).toUpperCase()}
+                                                </div>
+                                                {conv.isUnread && (
+                                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-primary border-2 border-white rounded-full"></span>
+                                                )}
                                             </div>
-                                            <div className="flex-grow min-w-0">
-                                                <div className="flex items-center justify-between gap-1">
-                                                    <span className={`font-medium text-sm truncate ${conv.isUnread ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                            <div className="flex-grow min-w-0 py-0.5">
+                                                <div className="flex items-center justify-between mb-0.5">
+                                                    <span className={`text-[13px] truncate tracking-tight ${conv.isUnread ? 'font-bold text-foreground' : 'font-semibold text-muted-foreground/90'}`}>
                                                         {conv.customerName}
                                                     </span>
-                                                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                                                    <span className="text-[10px] font-bold text-muted-foreground/60 uppercase">
                                                         {formatTime(conv.lastMessageTime)}
                                                     </span>
                                                 </div>
-                                                <p className={`text-xs truncate ${conv.isUnread ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                                                <p className={`text-[12px] truncate leading-normal ${conv.isUnread ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
                                                     {conv.lastMessage}
                                                 </p>
                                             </div>
-                                            {conv.isUnread && (
-                                                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
-                                            )}
                                         </div>
                                     </div>
                                 ))}
 
                                 {hasMore && (
-                                    <div className="p-2">
+                                    <div className="p-4">
                                         <button
                                             onClick={loadMore}
                                             disabled={isLoadingMore}
-                                            className="w-full py-2 bg-muted hover:bg-muted/80 rounded-lg text-xs font-medium flex items-center justify-center gap-1"
+                                            className="w-full py-2.5 bg-white border border-border hover:border-primary/30 hover:shadow-soft-sm rounded-xl text-[11px] font-bold text-muted-foreground flex items-center justify-center gap-2 transition-all uppercase tracking-widest"
                                         >
                                             {isLoadingMore ? (
-                                                <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                                <div className="w-3.5 h-3.5 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
                                             ) : (
-                                                <ChevronDownIcon className="w-3 h-3" />
+                                                <ChevronDownIcon className="w-4 h-4" />
                                             )}
-                                            Tải thêm
+                                            Tải thêm khách hàng
                                         </button>
                                     </div>
                                 )}
-                            </>
+                            </div>
                         )}
                     </div>
                 </div>
 
                 {/* MIDDLE: Chat Window */}
-                <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex-1 flex flex-col min-w-0 bg-white border-r border-border">
                     {selectedConversation ? (
                         <>
                             {/* Chat Header */}
-                            <div className="px-4 py-2 border-b-2 border-border bg-muted/30 flex items-center justify-between">
+                            <div className="px-6 py-3 border-b border-border bg-white flex items-center justify-between h-16">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-lg bg-accent-blue flex items-center justify-center text-white font-black text-sm border-2 border-black">
+                                    <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-sm border border-primary/10">
                                         {selectedConversation.customerName.charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                        <p className="font-bold text-sm">{selectedConversation.customerName}</p>
-                                        <p className="text-xs text-muted-foreground">Facebook Messenger</p>
+                                        <p className="font-bold text-[14px] text-foreground leading-tight">{selectedConversation.customerName}</p>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                                            <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Facebook Messenger</p>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -1134,16 +1168,16 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                         <button
                                             onClick={handleCreateOrder}
                                             disabled={isParsingOrder}
-                                            className="btn-primary flex items-center gap-1 px-3 py-1.5 text-xs disabled:opacity-50"
+                                            className="btn-primary flex items-center gap-2 px-4 py-2 text-[12px] font-bold disabled:opacity-50 shadow-sm"
                                         >
                                             {isParsingOrder ? (
                                                 <>
-                                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                                     Đang phân tích...
                                                 </>
                                             ) : (
                                                 <>
-                                                    <SparklesIcon className="w-3 h-3" />
+                                                    <SparklesIcon className="w-4 h-4" />
                                                     AI Tạo đơn
                                                 </>
                                             )}
@@ -1151,41 +1185,47 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                     )}
                                     {/* Nút gửi xác nhận đơn hàng - COD và Chuyển khoản */}
                                     {parsedOrderData && (
-                                        <>
+                                        <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-xl border border-border">
                                             <button
                                                 onClick={() => sendOrderConfirmation(undefined, 'cod')}
                                                 disabled={isSending}
-                                                className="flex items-center gap-1 px-2 py-1.5 bg-accent-orange text-black text-xs font-bold rounded-lg border-2 border-black hover:shadow-[2px_2px_0px_#000] disabled:opacity-50 transition-all"
+                                                className="px-3 py-1.5 bg-white text-foreground text-[11px] font-bold rounded-lg border border-border hover:border-primary/30 hover:text-primary transition-all shadow-sm disabled:opacity-50"
                                             >
-                                                💵 COD
+                                                💵 Xác nhận COD
                                             </button>
                                             <button
                                                 onClick={() => sendOrderConfirmation(undefined, 'bank_transfer')}
                                                 disabled={isSending}
-                                                className="flex items-center gap-1 px-2 py-1.5 bg-accent-blue text-white text-xs font-bold rounded-lg border-2 border-black hover:shadow-[2px_2px_0px_#000] disabled:opacity-50 transition-all"
+                                                className="px-3 py-1.5 bg-primary text-white text-[11px] font-bold rounded-lg hover:bg-primary/90 transition-all shadow-sm disabled:opacity-50"
                                             >
-                                                🏦 CK
+                                                🏦 Gửi QR CK
                                             </button>
-                                        </>
+                                        </div>
                                     )}
+                                    <div className="w-px h-6 bg-border mx-1"></div>
                                     <button
                                         onClick={() => setShowCustomerPanel(!showCustomerPanel)}
-                                        className={`p-1.5 rounded-lg border-2 transition-all ${showCustomerPanel ? 'bg-accent-yellow text-black border-black shadow-[2px_2px_0px_#000]' : 'hover:bg-muted border-transparent'}`}
+                                        className={`p-2.5 rounded-xl border transition-all ${showCustomerPanel ? 'bg-primary/10 text-primary border-primary/20' : 'text-muted-foreground hover:bg-muted border-transparent'}`}
                                     >
-                                        <UserIcon className="w-4 h-4" />
+                                        <UserIcon className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>
 
                             {/* Messages Area */}
-                            <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-muted/10">
+                            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-muted/10 custom-scrollbar">
                                 {isLoadingMessages ? (
-                                    <div className="flex items-center justify-center h-full">
-                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                    <div className="flex flex-col items-center justify-center h-full gap-3">
+                                        <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                                        <p className="text-xs font-medium text-muted-foreground">Đang tải tin nhắn...</p>
                                     </div>
                                 ) : messages.length === 0 ? (
-                                    <div className="text-center text-muted-foreground py-8">
-                                        Chưa có tin nhắn
+                                    <div className="flex flex-col items-center justify-center h-full p-8 text-center opacity-40">
+                                        <div className="p-4 bg-muted/50 rounded-full mb-4">
+                                            <ChatBubbleLeftEllipsisIcon className="w-12 h-12" />
+                                        </div>
+                                        <p className="text-sm font-semibold">Bắt đầu trò chuyện</p>
+                                        <p className="text-xs mt-1">Gửi lời chào đầu tiên đến khách hàng!</p>
                                     </div>
                                 ) : (
                                     messages.map((msg) => (
@@ -1194,29 +1234,30 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                             className={`flex ${msg.isFromPage ? 'justify-end' : 'justify-start'}`}
                                         >
                                             <div
-                                                className={`max-w-[75%] px-3 py-2 rounded-2xl ${msg.isFromPage
-                                                    ? 'bg-primary text-primary-foreground rounded-br-md'
-                                                    : 'bg-card text-foreground rounded-bl-md border border-border'
+                                                className={`max-w-[70%] px-4 py-3 rounded-2xl shadow-sm ${msg.isFromPage
+                                                    ? 'bg-primary text-white rounded-tr-none'
+                                                    : 'bg-white text-foreground border border-border rounded-tl-none'
                                                     }`}
                                             >
                                                 {/* Hiển thị ảnh/attachments */}
                                                 {msg.attachments && msg.attachments.length > 0 && (
-                                                    <div className="mb-2 space-y-2">
+                                                    <div className="mb-3 grid grid-cols-1 gap-2">
                                                         {msg.attachments.map((att, idx) => (
                                                             att.type === 'image' ? (
-                                                                <img
-                                                                    key={idx}
-                                                                    src={att.url}
-                                                                    alt={att.name || 'Image'}
-                                                                    className="max-w-full rounded-lg cursor-pointer hover:opacity-90"
-                                                                    onClick={() => window.open(att.url, '_blank')}
-                                                                />
+                                                                <div key={idx} className="relative group overflow-hidden rounded-xl border border-border">
+                                                                    <img
+                                                                        src={att.url}
+                                                                        alt={att.name || 'Image'}
+                                                                        className="max-w-full hover:scale-105 transition-transform duration-300 cursor-pointer"
+                                                                        onClick={() => window.open(att.url, '_blank')}
+                                                                    />
+                                                                </div>
                                                             ) : att.type === 'video' ? (
                                                                 <video
                                                                     key={idx}
                                                                     src={att.url}
                                                                     controls
-                                                                    className="max-w-full rounded-lg"
+                                                                    className="max-w-full rounded-xl border border-border shadow-sm"
                                                                 />
                                                             ) : (
                                                                 <a
@@ -1224,17 +1265,18 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                                                     href={att.url}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg hover:bg-muted text-xs"
+                                                                    className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl hover:bg-muted text-[13px] border border-border transition-all"
                                                                 >
-                                                                    📎 {att.name || 'File'}
+                                                                    <div className="p-2 bg-white rounded-lg shadow-sm">📎</div>
+                                                                    <span className="font-medium truncate">{att.name || 'Tải file đính kèm'}</span>
                                                                 </a>
                                                             )
                                                         ))}
                                                     </div>
                                                 )}
                                                 {/* Text message */}
-                                                {msg.text && <p className="text-sm whitespace-pre-wrap">{msg.text}</p>}
-                                                <p className={`text-xs mt-1 ${msg.isFromPage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                                {msg.text && <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+                                                <p className={`text-[10px] mt-2 font-bold uppercase tracking-wider ${msg.isFromPage ? 'text-white/60 text-right' : 'text-muted-foreground/60'}`}>
                                                     {formatTime(msg.timestamp)}
                                                 </p>
                                             </div>
@@ -1244,217 +1286,217 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                 <div ref={messagesEndRef} />
                             </div>
 
-                            {/* Quick Templates */}
-                            {showTemplates && (
-                                <div className="px-3 py-2 border-t border-border bg-muted/30">
-                                    <div className="flex flex-wrap gap-1">
-                                        {QUICK_TEMPLATES.map(t => (
-                                            <button
-                                                key={t.id}
-                                                onClick={() => sendMessage(t.text)}
-                                                disabled={isSending}
-                                                className="px-2 py-1 bg-card border border-border rounded-lg text-xs hover:bg-muted transition-colors"
-                                            >
-                                                {t.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            {/* Quick Actions Row */}
+                            <div className="px-6 py-2 border-t border-border bg-white flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => { setShowTemplates(!showTemplates); setShowEmojis(false); }}
+                                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 border ${showTemplates ? 'bg-primary/10 text-primary border-primary/20 shadow-sm' : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'}`}
+                                >
+                                    ⚡ Mẫu tin nhắn
+                                </button>
+                                <button
+                                    onClick={() => { setShowEmojis(!showEmojis); setShowTemplates(false); }}
+                                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 border ${showEmojis ? 'bg-primary/10 text-primary border-primary/20 shadow-sm' : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'}`}
+                                >
+                                    😊 Emoji
+                                </button>
+                            </div>
 
-                            {/* Emoji Picker */}
-                            {showEmojis && (
-                                <div className="px-3 py-2 border-t border-border bg-muted/30">
-                                    <div className="flex flex-wrap gap-1">
-                                        {COMMON_EMOJIS.map(emoji => (
-                                            <button
-                                                key={emoji}
-                                                onClick={() => insertEmoji(emoji)}
-                                                className="w-8 h-8 flex items-center justify-center hover:bg-muted rounded text-lg"
-                                            >
-                                                {emoji}
-                                            </button>
-                                        ))}
+                            {/* Overlays Container */}
+                            <div className="relative px-6">
+                                {/* Quick Templates Overlay */}
+                                {showTemplates && (
+                                    <div className="absolute bottom-full left-6 right-6 mb-2 p-3 bg-white border border-border rounded-xl shadow-soft-lg z-20 max-h-48 overflow-y-auto custom-scrollbar animate-in slide-in-from-bottom-2">
+                                        <div className="grid grid-cols-1 gap-1.5">
+                                            {QUICK_TEMPLATES.map(t => (
+                                                <button
+                                                    key={t.id}
+                                                    onClick={() => { sendMessage(t.text); setShowTemplates(false); }}
+                                                    className="text-left px-3 py-2 hover:bg-muted rounded-lg text-[13px] font-medium text-foreground transition-colors border border-transparent hover:border-border/50"
+                                                >
+                                                    <span className="font-bold text-primary mr-2">{t.label}</span>
+                                                    <span className="text-muted-foreground line-clamp-1">{t.text}</span>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+
+                                {/* Emoji Overlay */}
+                                {showEmojis && (
+                                    <div className="absolute bottom-full left-6 right-6 mb-2 p-3 bg-white border border-border rounded-xl shadow-soft-lg z-20 animate-in slide-in-from-bottom-2">
+                                        <div className="grid grid-cols-8 gap-1">
+                                            {COMMON_EMOJIS.map(emoji => (
+                                                <button
+                                                    key={emoji}
+                                                    onClick={() => { insertEmoji(emoji); setShowEmojis(false); }}
+                                                    className="w-9 h-9 flex items-center justify-center hover:bg-muted rounded-xl text-xl transition-all hover:scale-110"
+                                                >
+                                                    {emoji}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Input Area */}
-                            <div className="p-3 border-t border-border bg-card">
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => { setShowTemplates(!showTemplates); setShowEmojis(false); }}
-                                        className={`p-2 rounded-lg transition-colors ${showTemplates ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
-                                        title="Mẫu tin nhắn"
-                                    >
-                                        ⚡
-                                    </button>
-                                    <button
-                                        onClick={() => { setShowEmojis(!showEmojis); setShowTemplates(false); }}
-                                        className={`p-2 rounded-lg transition-colors ${showEmojis ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
-                                        title="Emoji"
-                                    >
-                                        😊
-                                    </button>
-                                    <input
-                                        ref={inputRef}
-                                        type="text"
-                                        value={newMessage}
-                                        onChange={(e) => setNewMessage(e.target.value)}
-                                        onKeyDown={handleKeyDown}
-                                        placeholder="Nhập tin nhắn..."
-                                        className="flex-grow px-3 py-2 rounded-full border border-border bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                                        disabled={isSending}
-                                    />
-                                    <button
-                                        onClick={() => sendMessage()}
-                                        disabled={isSending || !newMessage.trim()}
-                                        className="p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                                    >
-                                        {isSending ? (
-                                            <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
-                                        ) : (
-                                            <PaperAirplaneIcon className="w-4 h-4" />
-                                        )}
-                                    </button>
+                            <div className="p-4 bg-white border-t border-border">
+                                <div className="flex items-end gap-3 p-1.5 rounded-[24px] bg-muted/30 border border-border focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+                                    <div className="flex-1">
+                                        <textarea
+                                            ref={inputRef as any}
+                                            rows={1}
+                                            value={newMessage}
+                                            onChange={(e) => {
+                                                setNewMessage(e.target.value);
+                                                // Auto-resize
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
+                                            }}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder="Phản hồi khách hàng..."
+                                            className="w-full px-5 py-3 focus:outline-none text-[14px] bg-transparent resize-none leading-relaxed"
+                                            disabled={isSending}
+                                        />
+                                    </div>
+                                    <div className="pb-1 pr-1">
+                                        <button
+                                            onClick={() => sendMessage()}
+                                            disabled={isSending || !newMessage.trim()}
+                                            className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-all shadow-sm group"
+                                        >
+                                            {isSending ? (
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            ) : (
+                                                <PaperAirplaneIcon className="w-5 h-5 -rotate-45 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
+                                <p className="text-[10px] text-muted-foreground/50 mt-3 text-center font-bold uppercase tracking-[0.15em]">
+                                    Enter để gửi • Shift+Enter để xuống dòng
+                                </p>
                             </div>
                         </>
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-muted/10">
-                            <ChatBubbleLeftEllipsisIcon className="w-16 h-16 mb-4 opacity-20" />
-                            <p className="font-medium">Chọn một cuộc hội thoại</p>
-                            <p className="text-sm">để bắt đầu trả lời khách hàng</p>
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-muted/10 p-12 text-center">
+                            <div className="p-6 bg-white rounded-[32px] shadow-soft-lg mb-8 animate-bounce transition-all duration-1000">
+                                <ChatBubbleLeftEllipsisIcon className="w-16 h-16 text-primary/40" />
+                            </div>
+                            <h3 className="text-xl font-bold text-foreground mb-2">Hộp thư Facebook</h3>
+                            <p className="text-sm max-w-xs text-muted-foreground leading-relaxed">Chọn một cuộc hội thoại từ danh sách bên trái để bắt đầu quản lý bán hàng.</p>
                         </div>
                     )}
                 </div>
 
                 {/* RIGHT: Customer Info Panel */}
                 {showCustomerPanel && selectedConversation && (
-                    <div className="w-[240px] min-w-[240px] border-l border-border bg-muted/20 flex flex-col">
+                    <div className="w-[300px] min-w-[300px] border-l border-border bg-white flex flex-col p-5 animate-in slide-in-from-right-4 overflow-y-auto custom-scrollbar">
                         {/* Customer Header */}
-                        <div className="p-4 border-b border-border text-center">
-                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-2">
+                        <div className="text-center mb-6">
+                            <div className="w-20 h-20 rounded-[28px] bg-gradient-to-br from-primary/10 to-primary/30 flex items-center justify-center text-primary text-3xl font-black mx-auto mb-4 shadow-soft border border-primary/20">
                                 {selectedConversation.customerName.charAt(0).toUpperCase()}
                             </div>
-                            <h4 className="font-semibold">{selectedConversation.customerName}</h4>
-                            <p className="text-xs text-muted-foreground">Facebook User</p>
+                            <h4 className="text-base font-bold text-foreground">{selectedConversation.customerName}</h4>
+                            <div className="flex items-center justify-center gap-1.5 mt-1">
+                                <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>
+                                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Khách hàng VIP</p>
+                            </div>
                         </div>
 
                         {/* Quick Actions */}
-                        <div className="p-3 border-b border-border">
-                            <div className="grid grid-cols-3 gap-2">
-                                <button className="flex flex-col items-center gap-1 p-2 bg-card rounded-lg hover:bg-muted transition-colors">
-                                    <PhoneIcon className="w-4 h-4 text-primary" />
-                                    <span className="text-xs">Gọi điện</span>
-                                </button>
-                                {onCreateOrderWithAI && (
-                                    <button
-                                        onClick={handleCreateOrder}
-                                        disabled={isParsingOrder}
-                                        className="flex flex-col items-center gap-1 p-2 bg-card rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
-                                    >
-                                        {isParsingOrder ? (
-                                            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                                        ) : (
-                                            <SparklesIcon className="w-4 h-4 text-primary" />
-                                        )}
-                                        <span className="text-xs">AI Tạo đơn</span>
-                                    </button>
-                                )}
+                        <div className="grid grid-cols-3 gap-2 mb-8">
+                            {[
+                                { label: 'Gọi điện', icon: PhoneIcon, color: 'text-primary', bg: 'bg-primary/5' },
+                                { label: 'AI Đơn', icon: SparklesIcon, color: 'text-secondary', bg: 'bg-secondary/5', onClick: handleCreateOrder },
+                                { label: 'Giỏ hàng', icon: ShoppingBagIcon, color: 'text-green-600', bg: 'bg-green-50' }
+                            ].map((action, i) => (
                                 <button
-                                    onClick={async () => {
-                                        if (selectedConversation) {
-                                            const response = await handleCartCommand('xem giỏ');
-                                            if (response) {
-                                                await sendMessage(response);
-                                            }
-                                        }
-                                    }}
-                                    className="flex flex-col items-center gap-1 p-2 bg-card rounded-lg hover:bg-muted transition-colors"
+                                    key={i}
+                                    onClick={action.onClick}
+                                    className="flex flex-col items-center gap-2 p-3 bg-white border border-border rounded-2xl hover:border-primary/30 hover:shadow-soft-sm transition-all group"
                                 >
-                                    <ShoppingBagIcon className="w-4 h-4 text-green-600" />
-                                    <span className="text-xs">Giỏ hàng</span>
+                                    <div className={`p-2 ${action.bg} ${action.color} rounded-xl group-hover:scale-110 transition-transform`}>
+                                        <action.icon className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{action.label}</span>
                                 </button>
-                            </div>
+                            ))}
                         </div>
 
                         {/* Order History */}
-                        <div className="flex-1 overflow-y-auto p-3">
-                            <h5 className="font-medium text-sm mb-2 flex items-center gap-1">
-                                <ClockIcon className="w-4 h-4" />
-                                Lịch sử đơn hàng
-                            </h5>
+                        <div className="flex-1 -mx-2 px-2">
+                            <div className="flex items-center justify-between mb-4 px-1">
+                                <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.15em] flex items-center gap-2">
+                                    <ClockIcon className="w-3.5 h-3.5" />
+                                    Lịch sử mua hàng
+                                </h5>
+                                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{customerOrders.length} Đơn</span>
+                            </div>
+
                             {customerOrders.length > 0 ? (
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     {customerOrders.map(order => (
-                                        <div key={order.id} className="p-2 bg-card rounded-lg border border-border relative">
+                                        <div key={order.id} className={`bg-white rounded-2xl border transition-all ${expandedOrderId === order.id ? 'border-primary/30 shadow-soft' : 'border-border hover:border-primary/20'}`}>
                                             <div
-                                                className="flex items-center justify-between cursor-pointer hover:bg-muted/50 rounded p-1 -m-1"
+                                                className="p-4 cursor-pointer"
                                                 onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
                                             >
-                                                <span className="text-xs font-medium">#{order.id.slice(0, 8)}</span>
-                                                <div className="flex items-center gap-1">
-                                                    <span className={`text-xs px-1.5 py-0.5 rounded ${order.status === 'Đã giao hàng' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                        order.status === 'Đã hủy' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                            'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-[13px] font-bold text-foreground">#{order.id.slice(0, 8)}</span>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg ${order.status === 'Đã giao hàng' ? 'bg-green-50 text-green-700' :
+                                                        order.status === 'Đã hủy' ? 'bg-red-50 text-red-700' :
+                                                            'bg-orange-50 text-orange-700'
                                                         }`}>
                                                         {order.status}
                                                     </span>
-                                                    <span className="text-xs text-muted-foreground">{expandedOrderId === order.id ? '▲' : '▼'}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[12px] font-bold text-primary">
+                                                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount)}
+                                                    </p>
+                                                    <ChevronDownIcon className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${expandedOrderId === order.id ? 'rotate-180' : ''}`} />
                                                 </div>
                                             </div>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount)}
-                                            </p>
 
                                             {/* Dropdown Menu */}
                                             {expandedOrderId === order.id && (
-                                                <div className="mt-2 pt-2 border-t border-border space-y-1">
-                                                    {/* Status Actions */}
-                                                    <div className="text-xs text-muted-foreground mb-1">📨 Gửi tin theo trạng thái:</div>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {ORDER_STATUSES.map(status => (
+                                                <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2">
+                                                    <div className="h-px bg-border/50 mb-3"></div>
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Thông báo trạng thái:</p>
+                                                    <div className="grid grid-cols-2 gap-1.5 mb-4">
+                                                        {ORDER_STATUSES.slice(1).map(status => (
                                                             <button
                                                                 key={status}
                                                                 onClick={() => handleStatusAction(order, status)}
                                                                 disabled={isSending}
-                                                                className={`text-xs px-2 py-1 rounded transition-colors ${status === 'Đã hủy'
-                                                                    ? 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400'
-                                                                    : status === 'Đã giao hàng'
-                                                                        ? 'bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400'
-                                                                        : 'bg-muted hover:bg-muted/80'
-                                                                    }`}
+                                                                className="text-[11px] font-bold py-2 bg-muted/50 hover:bg-muted text-foreground rounded-xl transition-all border border-border/30"
                                                             >
                                                                 {status}
                                                             </button>
                                                         ))}
                                                     </div>
 
-                                                    {/* Other Actions */}
-                                                    <div className="flex gap-2 mt-2">
-                                                        {onViewOrder && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    onViewOrder(order);
-                                                                    setExpandedOrderId(null);
-                                                                }}
-                                                                className="flex-1 text-xs px-2 py-1.5 bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors"
-                                                            >
-                                                                👁️ Xem chi tiết
-                                                            </button>
-                                                        )}
-                                                        {onEditOrder && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    onEditOrder(order);
-                                                                    setExpandedOrderId(null);
-                                                                }}
-                                                                className="flex-1 text-xs px-2 py-1.5 bg-muted text-foreground rounded hover:bg-muted/80 transition-colors"
-                                                            >
-                                                                ✏️ Sửa đơn
-                                                            </button>
-                                                        )}
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                onViewOrder?.(order);
+                                                                setExpandedOrderId(null);
+                                                            }}
+                                                            className="flex-1 text-[11px] font-bold py-2.5 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-all font-bold"
+                                                        >
+                                                            Chi tiết
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                onEditOrder?.(order);
+                                                                setExpandedOrderId(null);
+                                                            }}
+                                                            className="flex-1 text-[11px] font-bold py-2.5 bg-muted text-foreground rounded-xl hover:bg-muted/80 transition-all border border-border/50 font-bold"
+                                                        >
+                                                            Sửa đơn
+                                                        </button>
                                                     </div>
                                                 </div>
                                             )}
@@ -1462,29 +1504,25 @@ Nếu bạn cần hỗ trợ gì thêm, đừng ngại inbox cho mình nhé! �
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-xs text-muted-foreground text-center py-4">
-                                    Chưa có đơn hàng
-                                </p>
+                                <div className="p-8 text-center bg-muted/20 rounded-3xl border border-dashed border-border/50">
+                                    <p className="text-[12px] font-bold text-muted-foreground opacity-50 uppercase tracking-widest">Hưa có đơn hàng</p>
+                                </div>
                             )}
                         </div>
 
-                        {/* Notes */}
-                        <div className="p-3 border-t border-border">
-                            <h5 className="font-medium text-sm mb-2">📝 Ghi chú</h5>
+                        {/* Customer Notes */}
+                        <div className="mt-6">
+                            <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <PlusIcon className="w-3.5 h-3.5" />
+                                Ghi chú nội bộ
+                            </h5>
                             <textarea
-                                placeholder="Thêm ghi chú về khách..."
-                                className="w-full p-2 text-xs border border-border rounded-lg bg-card resize-none"
-                                rows={3}
+                                placeholder="Vd: Khách hay mua size L, ưu tiên giao sớm..."
+                                className="w-full p-4 text-[13px] bg-muted/30 border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all min-h-[100px] leading-relaxed"
                             />
                         </div>
                     </div>
                 )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-4 py-2 border-t border-border bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
-                <span>Cập nhật: {lastRefresh.toLocaleTimeString('vi-VN')}</span>
-                <span className="text-primary">{conversations.length} cuộc hội thoại</span>
             </div>
         </div>
     );

@@ -75,34 +75,49 @@ const OrderListPage: React.FC<OrderListPageProps> = React.memo(({ orders, onView
   }, [activeIndex, filteredOrders, onViewDetails, isAnyModalOpen]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6 border-b-2 border-border pb-4">
-        <h2 className="text-2xl font-black font-heading text-card-foreground">Quản lý Đơn hàng 📦</h2>
-        <div className="flex items-center gap-2">
-          <button onClick={onAddQuickOrder} className="btn-secondary flex items-center gap-2 px-4 py-2 shadow-sm">
-            <SparklesIcon className="w-5 h-5" /> Tạo nhanh (AI)
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-6 mb-12">
+        <div>
+          <h2 className="text-[28px] font-black font-heading text-foreground tracking-tighter leading-none">Quản lý Đơn hàng</h2>
+          <p className="text-[13px] font-bold text-muted-foreground mt-2">Theo dõi và vận hành toàn bộ vòng đời đơn hàng tại đây.</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <button onClick={onAddQuickOrder} className="px-6 py-3.5 bg-white text-secondary hover:bg-muted border border-border rounded-[18px] font-black text-[14px] transition-all flex items-center shadow-soft-sm active:scale-95 group">
+            <SparklesIcon className="w-5 h-5 mr-3 group-hover:animate-pulse" />
+            <span>Tạo nhanh (AI)</span>
           </button>
-          <button onClick={onAddOrder} className="btn-primary flex items-center gap-2 px-4 py-2 shadow-sm">
-            <PlusIcon className="w-5 h-5" /> Tạo đơn hàng
+          <button onClick={onAddOrder} className="px-8 py-3.5 bg-primary text-white hover:bg-primary-dark rounded-[18px] font-black text-[15px] shadow-soft-lg active:scale-95 transition-all flex items-center border-b-4 border-primary-dark/30">
+            <PlusIcon className="w-5 h-5 mr-2" />
+            <span>Tạo đơn hàng</span>
           </button>
         </div>
       </div>
 
-      <div className="bg-card p-4 rounded-lg flex flex-col md:flex-row gap-4 border-2 border-border shadow-[4px_4px_0px_var(--color-border)]">
-        <div className="flex-grow">
+      <div className="p-6 bg-muted/20 border border-border/50 rounded-[32px] flex flex-col md:flex-row gap-6 items-center">
+        <div className="relative flex-grow w-full group">
+          <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+            <svg className="h-5 w-5 text-muted-foreground/30 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           <input
             type="text"
-            placeholder="Tìm kiếm theo tên, SĐT khách hàng hoặc mã đơn hàng..."
+            placeholder="Tìm theo tên, SĐT hoặc mã vận đơn..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-4 pr-4 py-2 border-2 border-border rounded-lg focus:shadow-[2px_2px_0px_var(--color-border)] focus:outline-none bg-card font-body"
+            className="w-full pl-14 pr-6 py-4 bg-white border border-border rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/50 transition-all text-[15px] font-bold outline-none shadow-soft-sm placeholder:text-muted-foreground/20"
           />
         </div>
-        <div>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as OrderStatus | 'all')} className="w-full md:w-auto p-2 border-2 border-border rounded-lg text-sm bg-card h-full font-semibold focus:shadow-[2px_2px_0px_var(--color-border)] focus:outline-none">
-            <option value="all">Tất cả trạng thái</option>
+        <div className="w-full md:w-72">
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value as OrderStatus | 'all')}
+            className="w-full pl-6 pr-12 py-4 bg-white border border-border rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/50 transition-all text-[14px] font-black uppercase tracking-widest text-foreground outline-none cursor-pointer appearance-none shadow-soft-sm"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1.25rem center', backgroundSize: '1.25rem' }}
+          >
+            <option value="all">TẤT CẢ TRẠNG THÁI</option>
             {Object.values(OrderStatus).map(status => (
-              <option key={status} value={status}>{status}</option>
+              <option key={status} value={status}>{status.toUpperCase()}</option>
             ))}
           </select>
         </div>

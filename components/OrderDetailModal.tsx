@@ -80,25 +80,25 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
 
   const getStatusColor = (status: OrderStatus) => {
     const colors = {
-      [OrderStatus.Pending]: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      [OrderStatus.Processing]: 'bg-blue-100 text-blue-800 border-blue-300',
-      [OrderStatus.Shipped]: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-      [OrderStatus.Delivered]: 'bg-green-100 text-green-800 border-green-300',
-      [OrderStatus.Cancelled]: 'bg-red-100 text-red-800 border-red-300',
+      [OrderStatus.Pending]: 'bg-status-warning/10 text-status-warning border-status-warning/20',
+      [OrderStatus.Processing]: 'bg-status-info/10 text-status-info border-status-info/20',
+      [OrderStatus.Shipped]: 'bg-primary/10 text-primary border-primary/20',
+      [OrderStatus.Delivered]: 'bg-status-success/10 text-status-success border-status-success/20',
+      [OrderStatus.Cancelled]: 'bg-status-danger/10 text-status-danger border-status-danger/20',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-muted text-muted-foreground border-border';
   };
 
   const getPaymentStatusInfo = (order: Order) => {
     if (order.paymentMethod === 'cod') {
-      return { text: 'Thu hộ (COD)', color: 'bg-gray-100 text-gray-800' };
+      return { text: 'Thu hộ (COD)', color: 'bg-muted text-muted-foreground border-border/50' };
     }
 
     if (order.paymentStatus === 'Paid') {
-      return { text: 'Đã thanh toán', color: 'bg-green-100 text-green-800' };
+      return { text: 'Đã thanh toán', color: 'bg-status-success/10 text-status-success border-status-success/20' };
     }
 
-    return { text: 'Chờ thanh toán', color: 'bg-yellow-100 text-yellow-800' };
+    return { text: 'Chờ thanh toán', color: 'bg-status-warning/10 text-status-warning border-status-warning/20' };
   };
 
   const handleCreateShippingOrder = async () => {
@@ -163,46 +163,59 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
   const paymentStatusInfo = getPaymentStatusInfo(order);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Chi tiết đơn hàng #${order.id.substring(0, 8)}`}>
-      <div className="space-y-6">
-        {/* Header section */}
-        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 p-4 bg-muted rounded-lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Đơn hàng #${order.id.substring(0, 8)}`}>
+      <div className="space-y-8">
+        {/* Header section - Soft Modern Box */}
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-6 p-6 bg-muted/20 border border-border/50 rounded-[24px] animate-in fade-in slide-in-from-top-4 duration-500">
           <div>
-            <p className="text-sm text-muted-foreground">Ngày đặt: {formatDate(order.orderDate)}</p>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className={`text-sm font-bold px-3 py-1 rounded-full border-2 ${getStatusColor(order.status)}`}>{order.status}</span>
-              <span className={`text-sm font-bold px-3 py-1 rounded-full ${paymentStatusInfo.color}`}>{paymentStatusInfo.text}</span>
+            <div className="flex items-center gap-3 mb-3">
+              <span className={`text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border-2 ${getStatusColor(order.status)}`}>{order.status}</span>
+              <span className={`text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border-2 ${paymentStatusInfo.color}`}>{paymentStatusInfo.text}</span>
             </div>
+            <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Ngày khởi tạo: {formatDate(order.orderDate)}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
             {order.status === OrderStatus.Delivered && (
-              <button onClick={() => onOpenReturnRequest(order)} className="btn-muted px-3 py-2 text-sm flex items-center gap-2">
-                <ArrowUturnLeftIcon className="w-4 h-4" /> Xử lý Đổi/Trả
+              <button
+                onClick={() => onOpenReturnRequest(order)}
+                className="px-4 py-2.5 bg-accent-pink/5 text-accent-pink hover:bg-accent-pink hover:text-white rounded-xl transition-all font-black text-[12px] flex items-center gap-2 border border-accent-pink/20"
+              >
+                <ArrowUturnLeftIcon className="w-4 h-4" /> Đổi/Trả hàng
               </button>
             )}
 
-            {/* Message Template Button - Highlighted */}
-            <button onClick={() => onOpenMessageTemplates(order)} className="btn-primary px-3 py-2 text-sm flex items-center gap-2 shadow-sm">
+            <button
+              onClick={() => onOpenMessageTemplates(order)}
+              className="px-4 py-2.5 bg-primary text-white hover:bg-primary-dark rounded-xl transition-all font-black text-[12px] flex items-center gap-2 shadow-soft-sm active:scale-95"
+            >
               <ChatBubbleLeftEllipsisIcon className="w-4 h-4" /> Mẫu tin nhắn
             </button>
 
-            <button onClick={() => onEdit(order)} className="btn-muted px-3 py-2 text-sm flex items-center gap-2">
-              <PencilIcon className="w-4 h-4" /> Sửa
+            <button
+              onClick={() => onEdit(order)}
+              className="px-4 py-2.5 bg-white text-foreground hover:bg-muted border border-border rounded-xl transition-all font-black text-[12px] flex items-center gap-2 shadow-soft-sm"
+            >
+              <PencilIcon className="w-4 h-4" /> Chỉnh sửa
             </button>
           </div>
         </div>
 
-        {/* Customer & Items */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <h3 className="font-semibold text-card-foreground">Thông tin khách hàng</h3>
-            <div className="text-sm space-y-1">
-              <p className="font-bold text-card-foreground">{order.customerName}</p>
-              <p className="text-muted-foreground">{order.customerPhone}</p>
-              <p className="text-muted-foreground">{order.shippingAddress}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="p-6 bg-muted/20 border border-border/50 rounded-[28px] animate-in slide-in-from-left-4 duration-700">
+            <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+              Khách hàng
+            </h3>
+            <div className="space-y-3">
+              <p className="text-[16px] font-black text-foreground">{order.customerName}</p>
+              <p className="text-[14px] font-bold text-muted-foreground/70">{order.customerPhone}</p>
+              <div className="flex gap-2 items-start mt-2">
+                <MapPinIcon className="w-4 h-4 text-muted-foreground/40 mt-0.5 flex-shrink-0" />
+                <p className="text-[13px] font-bold text-muted-foreground opacity-80 leading-relaxed">{order.shippingAddress}</p>
+              </div>
             </div>
-            {/* Quick Actions Bar */}
-            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
+
+            <div className="flex flex-wrap gap-2 mt-6 pt-6 border-t border-border/50">
               <QuickCopyButton
                 text={order.customerPhone}
                 label="SĐT"
@@ -228,129 +241,176 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
               />
             </div>
           </div>
-          <div className="space-y-4">
-            <h3 className="font-semibold text-card-foreground">Sản phẩm đã đặt</h3>
-            <div className="text-sm space-y-2">
+          <div className="p-6 bg-muted/20 border border-border/50 rounded-[28px] animate-in slide-in-from-right-4 duration-700">
+            <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-secondary rounded-full"></div>
+              Sản phẩm
+            </h3>
+            <div className="space-y-4 max-h-[160px] overflow-y-auto custom-scrollbar pr-2 font-mono">
               {order.items.map((item, index) => (
-                <div key={index} className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium text-card-foreground">{item.productName} <span className="text-muted-foreground">x {item.quantity}</span></p>
-                    <p className="text-xs text-muted-foreground">{item.size} - {item.color}</p>
+                <div key={index} className="flex justify-between items-start group">
+                  <div className="flex gap-3">
+                    <span className="text-[12px] font-black text-primary opacity-40">x{item.quantity}</span>
+                    <div>
+                      <p className="text-[14px] font-black text-foreground leading-none mb-1 group-hover:text-primary transition-colors">{item.productName}</p>
+                      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{item.size} • {item.color}</p>
+                    </div>
                   </div>
-                  <p className="font-medium text-card-foreground">{formatCurrency(item.price * item.quantity)}</p>
+                  <p className="text-[13px] font-black text-foreground">{formatCurrency(item.price * item.quantity)}</p>
                 </div>
               ))}
             </div>
-          </div>
-        </div>
 
-        {/* Totals */}
-        <div className="p-4 bg-muted rounded-lg text-sm space-y-2">
-          {order.discount && (
-            <div className="flex justify-between text-green-600">
-              <span>Giảm giá ({order.discount.code}):</span>
-              <span>- {formatCurrency(order.discount.amount)}</span>
+            <div className="mt-8 pt-6 border-t border-border/50 space-y-2">
+              {order.discount && (
+                <div className="flex justify-between items-center text-status-success">
+                  <span className="text-[11px] font-black uppercase tracking-wider opacity-60">Ưu đãi ({order.discount.code}):</span>
+                  <span className="text-[13px] font-black">- {formatCurrency(order.discount.amount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-[12px] font-black uppercase tracking-[0.2em] text-muted-foreground">Tổng cộng:</span>
+                <span className="text-[20px] font-black text-primary tracking-tight">{formatCurrency(order.totalAmount)}</span>
+              </div>
             </div>
-          )}
-          <div className="flex justify-between font-bold text-lg text-card-foreground border-t border-border pt-2 mt-2">
-            <span>Thành tiền:</span>
-            <span className="text-primary">{formatCurrency(order.totalAmount)}</span>
           </div>
         </div>
 
-        {/* Bank Transfer Info */}
+        {/* Bank Transfer Info - Re-styled */}
         {order.paymentMethod === 'bank_transfer' && bankInfo && (
-          <div>
-            <h3 className="text-lg font-semibold text-card-foreground mb-4 border-t pt-6">Thông tin thanh toán</h3>
+          <div className="p-8 bg-muted/20 border border-border/50 rounded-[32px] animate-in fade-in duration-700">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+                <div className="w-1.5 h-1.5 bg-status-info rounded-full"></div>
+                Thanh toán chuyển khoản
+              </h3>
+              {order.paymentStatus === 'Paid' && (
+                <div className="px-3 py-1 bg-status-success/10 text-status-success text-[10px] font-black uppercase tracking-widest rounded-full border border-status-success/20">
+                  Đã xác nhận
+                </div>
+              )}
+            </div>
+
             {order.paymentStatus === 'Unpaid' && (
-              <>
-                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    Gửi link cho khách hàng để thanh toán online tiện lợi qua cổng VNPAY.
-                  </p>
-                  <button onClick={() => onGeneratePaymentLink(order)} className="btn-primary px-4 py-2 flex items-center gap-2 flex-shrink-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <button
+                  onClick={() => onGeneratePaymentLink(order)}
+                  className="p-5 bg-white border-2 border-primary/20 rounded-2xl flex flex-col items-center gap-3 hover:bg-primary hover:text-white group transition-all duration-500 shadow-soft-sm hover:shadow-primary/20"
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-white text-primary transition-all">
                     <CreditCardIcon className="w-5 h-5" />
-                    Tạo link thanh toán VNPAY
-                  </button>
-                </div>
-                <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg border border-yellow-200 dark:border-yellow-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    Hoặc, sau khi nhận được tiền từ khách hàng, hãy nhấn nút xác nhận thủ công.
-                  </p>
-                  <button onClick={() => onConfirmPayment(order.id)} className="btn-secondary px-4 py-2 flex items-center gap-2 flex-shrink-0">
-                    <CheckCircleIcon className="w-5 h-5" />
-                    Xác nhận đã thanh toán
-                  </button>
-                </div>
-              </>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-muted p-4 rounded-lg">
-              <div className="space-y-4">
-                <div className="text-sm">
-                  <p className="font-medium text-muted-foreground">Ngân hàng</p>
-                  <p className="text-card-foreground font-semibold">{getBankName(bankInfo.bin)}</p>
-                </div>
-                <div className="text-sm">
-                  <p className="font-medium text-muted-foreground">Số tài khoản</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-card-foreground font-semibold font-mono">{bankInfo.accountNumber}</p>
-                    <CopyButton textToCopy={bankInfo.accountNumber} />
                   </div>
-                </div>
-                <div className="text-sm">
-                  <p className="font-medium text-muted-foreground">Chủ tài khoản</p>
-                  <p className="text-card-foreground font-semibold">{bankInfo.accountName}</p>
-                </div>
-                <div className="text-sm">
-                  <p className="font-medium text-muted-foreground">Nội dung chuyển khoản</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-card-foreground font-semibold font-mono">{`Mixer ${order.id.substring(0, 8)}`}</p>
-                    <CopyButton textToCopy={`Mixer ${order.id.substring(0, 8)}`} />
+                  <div className="text-center">
+                    <p className="text-[13px] font-black uppercase tracking-wider">Tạo link thanh toán</p>
+                    <p className="text-[10px] font-bold opacity-60">Gửi link VNPAY cho khách</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => onConfirmPayment(order.id)}
+                  className="p-5 bg-white border-2 border-status-success/20 rounded-2xl flex flex-col items-center gap-3 hover:bg-status-success hover:text-white group transition-all duration-500 shadow-soft-sm hover:shadow-status-success/20"
+                >
+                  <div className="w-10 h-10 rounded-full bg-status-success/10 flex items-center justify-center group-hover:bg-white text-status-success transition-all">
+                    <CheckCircleIcon className="w-5 h-5" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[13px] font-black uppercase tracking-wider">Xác nhận đơn</p>
+                    <p className="text-[10px] font-bold opacity-60">Xác nhận tiền đã về túi</p>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center border border-border/30 bg-white/50 p-6 rounded-2xl backdrop-blur-sm shadow-soft-sm">
+              <div className="md:col-span-12 lg:col-span-7 space-y-6">
+                <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-50">Ngân hàng</p>
+                    <p className="text-[14px] font-black text-foreground">{getBankName(bankInfo.bin)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-50">Chủ tài khoản</p>
+                    <p className="text-[14px] font-black text-foreground">{bankInfo.accountName}</p>
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-50">Số tài khoản</p>
+                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-xl border border-border/50 group hover:border-primary/30 transition-all">
+                      <p className="text-[16px] font-black text-foreground font-mono tracking-tighter">{bankInfo.accountNumber}</p>
+                      <CopyButton textToCopy={bankInfo.accountNumber} />
+                    </div>
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-50">Nội dung chuyển</p>
+                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-xl border border-border/50 group hover:border-primary/30 transition-all">
+                      <p className="text-[16px] font-black text-foreground font-mono tracking-tighter">{`Mixer ${order.id.substring(0, 8)}`}</p>
+                      <CopyButton textToCopy={`Mixer ${order.id.substring(0, 8)}`} />
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="flex justify-center items-center">
+              <div className="md:col-span-12 lg:col-span-5 flex flex-col items-center justify-center p-4 bg-white rounded-3xl border-2 border-primary/5 shadow-soft-lg">
                 <img
                   src={`https://img.vietqr.io/image/${bankInfo.bin}-${bankInfo.accountNumber}-compact2.png?amount=${order.totalAmount}&addInfo=${encodeURIComponent(`Mixer ${order.id.substring(0, 8)}`)}&accountName=${encodeURIComponent(bankInfo.accountName)}`}
                   alt="VietQR Code"
-                  className="w-48 h-48 rounded-md border"
+                  className="w-48 h-48 rounded-xl"
                 />
+                <div className="mt-4 flex items-center gap-1.5">
+                  <QrCodeIcon className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">Scan to Pay via VietQR</span>
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Shipping */}
-        <div>
-          <h3 className="text-lg font-semibold text-card-foreground mb-4 border-t pt-6">Vận chuyển - Viettel Post</h3>
+        {/* Shipping - Mobile/Soft Modern Style */}
+        <div className="p-6 bg-muted/20 border border-border/50 rounded-[28px] animate-in fade-in duration-700 delay-100">
+          <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 bg-accent-pink rounded-full"></div>
+            Vận chuyển (Viettel Post)
+          </h3>
 
           {!order.trackingCode ? (
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
-              {/* Nút tạo vận đơn tự động */}
-              <div className="mb-4 pb-4 border-b border-blue-200 dark:border-blue-700">
-                <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">🚀 Tạo vận đơn tự động từ thông tin đơn hàng:</p>
+            <div className="space-y-6">
+              {/* Nút tạo vận đơn tự động - Premium Card */}
+              <div className="p-5 bg-primary/5 border border-primary/20 rounded-2xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow-soft-sm">
+                    <TruckIcon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-black text-primary uppercase tracking-tight">Tạo vận đơn tự động</p>
+                    <p className="text-[10px] font-bold text-primary/60">Gửi thông tin cho Viettel Post chỉ với 1 click</p>
+                  </div>
+                </div>
+
                 <button
                   onClick={handleCreateShippingOrder}
                   disabled={isCreatingShipping}
-                  className="btn-primary w-full px-4 py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-4 bg-primary text-white rounded-xl flex items-center justify-center gap-2 font-black text-[14px] shadow-soft-lg active:scale-95 disabled:opacity-50 transition-all"
                 >
                   {isCreatingShipping ? (
                     <>⏳ Đang tạo vận đơn...</>
                   ) : (
-                    <>📦 Tạo Vận Đơn Viettel Post</>
+                    <>📦 Bắt đầu tạo Vận đơn</>
                   )}
                 </button>
-                <p className="text-xs text-gray-500 mt-2 text-center">
-                  Người nhận: {order.customerName} - {order.customerPhone}
-                </p>
               </div>
 
-              {/* Hoặc nhập thủ công */}
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Hoặc nhập mã vận đơn thủ công:</p>
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300 w-24">Đơn vị VC:</span>
-                  <select value={shippingProvider} onChange={e => setShippingProvider(e.target.value)} className="input-base px-3 py-2 border flex-1">
+              {/* Hoặc nhập thủ công - Clean Divider */}
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/50"></div></div>
+                <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest text-muted-foreground/30 bg-muted/5 px-2">Hoặc nhập thủ công</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Đơn vị VC</label>
+                  <select
+                    value={shippingProvider}
+                    onChange={e => setShippingProvider(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-border rounded-xl text-sm font-bold outline-none cursor-pointer appearance-none"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.25rem' }}
+                  >
                     <option value="Viettel Post">Viettel Post</option>
                     <option value="GHTK">Giao Hàng Tiết Kiệm</option>
                     <option value="GHN">Giao Hàng Nhanh</option>
@@ -358,14 +418,14 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
                     <option value="Shopee Express">Shopee Express</option>
                   </select>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300 w-24">Mã vận đơn:</span>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Mã vận đơn</label>
                   <input
                     type="text"
                     value={trackingCode}
                     onChange={e => setTrackingCode(e.target.value)}
                     placeholder="VD: 123456789"
-                    className="input-base px-3 py-2 border flex-1 font-mono"
+                    className="w-full px-4 py-3 bg-white border border-border rounded-xl text-sm font-black font-mono outline-none focus:ring-4 focus:ring-primary/5 transition-all"
                   />
                 </div>
                 <button
@@ -377,73 +437,98 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, bankInfo, ac
                     }
                   }}
                   disabled={!trackingCode.trim()}
-                  className="btn-secondary px-4 py-2 flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="md:col-span-2 py-3.5 bg-secondary text-white rounded-xl flex items-center justify-center gap-2 font-black text-[13px] active:scale-95 disabled:opacity-50 transition-all shadow-soft-sm"
                 >
-                  💾 Lưu Thủ Công
+                  Lưu thông tin vận chuyển
                 </button>
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium">ĐVVC:</span>
-                <span className="font-semibold text-primary">{order.shippingProvider}</span>
-                <span className="font-medium">Mã vận đơn:</span>
-                <span className="font-semibold text-primary font-mono">{order.trackingCode}</span>
+            <div className="space-y-6">
+              <div className="p-5 bg-white border border-border/50 rounded-2xl flex items-center justify-between shadow-soft-sm">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-50">Đối tác vận chuyển</p>
+                  <p className="text-[15px] font-black text-primary capitalize">{order.shippingProvider}</p>
+                </div>
+                <div className="space-y-1 text-right">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-50">Mã vận đơn</p>
+                  <div className="flex items-center gap-2 justify-end">
+                    <p className="text-[15px] font-black text-foreground font-mono">{order.trackingCode}</p>
+                    <CopyButton textToCopy={order.trackingCode || ''} />
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={handleFetchShippingStatus} disabled={isFetchingStatus} className="btn-muted px-4 py-2 flex items-center gap-2 text-sm disabled:bg-gray-400">
-                  {isFetchingStatus ? 'Đang lấy...' : 'Lấy trạng thái đơn hàng'}
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleFetchShippingStatus}
+                  disabled={isFetchingStatus}
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl flex items-center justify-center gap-2 font-black text-[12px] hover:bg-muted/80 transition-all border border-border/30 disabled:opacity-50"
+                >
+                  <div className={`w-2 h-2 rounded-full ${isFetchingStatus ? 'bg-primary animate-pulse' : 'bg-primary'}`}></div>
+                  {isFetchingStatus ? 'Đang cập nhật...' : 'Cập nhật hành trình'}
                 </button>
-                <button className="btn-muted px-4 py-2 text-sm">In nhãn vận đơn</button>
+                <button className="flex-1 py-3 bg-muted text-foreground rounded-xl flex items-center justify-center gap-2 font-black text-[12px] hover:bg-muted/80 transition-all border border-border/30">
+                  <ClipboardDocumentIcon className="w-4 h-4 text-muted-foreground/60" />
+                  In nhãn vận đơn
+                </button>
               </div>
+
               {shippingHistory && (
-                <div className="p-3 border rounded-md max-h-40 overflow-y-auto">
-                  <ul className="space-y-2 text-xs">
+                <div className="p-5 bg-white rounded-2xl border border-border/50 shadow-soft-sm max-h-56 overflow-y-auto custom-scrollbar">
+                  <div className="space-y-6 relative">
+                    <div className="absolute left-1.5 top-1 bottom-1 w-0.5 bg-border/40"></div>
                     {shippingHistory.map((item, index) => (
-                      <li key={index} className="flex items-center gap-3">
-                        <span className="font-mono text-muted-foreground">{item.time}</span>
-                        <span className="font-semibold">{item.status}</span>
-                        <span className="text-muted-foreground">- {item.location}</span>
-                      </li>
+                      <div key={index} className="flex gap-4 relative pl-6">
+                        <div className={`absolute left-0 top-1.5 w-3 h-3 rounded-full border-2 border-white shadow-sm transition-all ${index === 0 ? 'bg-primary animate-bounce' : 'bg-muted-foreground/30'}`}></div>
+                        <div className="space-y-1">
+                          <p className="text-[13px] font-black text-foreground leading-tight">{item.status}</p>
+                          <p className="text-[11px] font-bold text-muted-foreground opacity-60 leading-none">{item.location} • {item.time}</p>
+                        </div>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Discussion Section */}
-        <div>
-          <h3 className="text-lg font-semibold text-card-foreground mb-4 border-t pt-6">Thảo luận & Giao việc</h3>
-          <div className="space-y-4">
-            {order.discussion && order.discussion.length > 0 && (
-              <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
-                {order.discussion.map(entry => (
-                  <div key={entry.id} className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold flex-shrink-0 mt-1 text-sm">{entry.authorAvatar}</div>
-                    <div className="flex-grow bg-muted p-3 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <p className="font-semibold text-sm text-card-foreground">{entry.authorName}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(entry.timestamp).toLocaleString('vi-VN')}</p>
+        {/* Discussion & History */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="lg:col-span-7 p-6 bg-muted/20 border border-border/50 rounded-[28px]">
+            <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-status-info rounded-full"></div>
+              Thảo luận nội bộ
+            </h3>
+            <div className="space-y-6">
+              {order.discussion && order.discussion.length > 0 && (
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-3 custom-scrollbar">
+                  {order.discussion.map(entry => (
+                    <div key={entry.id} className="flex items-start gap-3 animate-in fade-in duration-500">
+                      <div className="w-9 h-9 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-black text-[14px] flex-shrink-0 border border-primary/20">{entry.authorAvatar}</div>
+                      <div className="flex-grow bg-white p-4 rounded-2xl border border-border/30 shadow-soft-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-black text-[13px] text-foreground">{entry.authorName}</p>
+                          <p className="text-[10px] font-bold text-muted-foreground opacity-50 uppercase tracking-wider">{new Date(entry.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} • {new Date(entry.timestamp).toLocaleDateString('vi-VN')}</p>
+                        </div>
+                        <p className="text-[14px] font-bold text-muted-foreground/80 leading-relaxed whitespace-pre-wrap">{entry.text}</p>
                       </div>
-                      <p className="text-sm text-card-foreground whitespace-pre-wrap">{entry.text}</p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <DiscussionInput
-              currentUser={currentUser}
-              users={users}
-              onAddDiscussion={(text) => onAddDiscussion(order.id, text)}
-            />
+                  ))}
+                </div>
+              )}
+              <DiscussionInput
+                currentUser={currentUser}
+                users={users}
+                onAddDiscussion={(text) => onAddDiscussion(order.id, text)}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="max-h-64 overflow-y-auto">
-          <ActivityFeed logs={orderActivity} title="Lịch sử Hoạt động Đơn hàng" />
+          <div className="lg:col-span-5 max-h-[480px] overflow-y-auto custom-scrollbar p-6 bg-muted/20 border border-border/50 rounded-[28px]">
+            <ActivityFeed logs={orderActivity} title="Lịch sử vận hành" />
+          </div>
         </div>
       </div>
     </Modal>

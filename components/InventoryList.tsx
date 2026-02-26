@@ -31,11 +31,11 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
 
 
 
-  const getStockStatusColor = (variant: ProductVariant) => {
-    if (variant.stock <= 0) return 'text-accent-pink font-bold';
-    if (variant.stock <= variant.lowStockThreshold) return 'text-accent-orange font-bold';
-    return 'text-card-foreground';
-  }
+  const getStockStatusClass = (variant: ProductVariant) => {
+    if (variant.stock <= 0) return 'text-accent-pink font-black uppercase tracking-wider';
+    if (variant.stock <= variant.lowStockThreshold) return 'text-secondary font-black uppercase tracking-wider';
+    return 'text-foreground font-medium';
+  };
 
   const confirmDelete = () => {
     if (productToDelete) {
@@ -45,85 +45,95 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b-2 border-border pb-4">
-        <h2 className="text-2xl font-black font-heading text-card-foreground">Quản lý Kho hàng 📦</h2>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setIsForecastModalOpen(true)} className="btn-secondary flex items-center gap-2 px-4 py-2">
-            <SparklesIcon className="w-5 h-5" />Dự báo Nhập hàng (AI)
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-6 mb-12">
+        <div>
+          <h2 className="text-[28px] font-black font-heading text-foreground tracking-tighter leading-none">Quản lý Kho hàng</h2>
+          <p className="text-[13px] font-bold text-muted-foreground mt-2">Kiểm soát tồn kho, dự báo nhập hàng và tối ưu hóa hiển thị sản phẩm.</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <button onClick={() => setIsForecastModalOpen(true)} className="px-6 py-3.5 bg-white text-secondary hover:bg-muted border border-border rounded-[18px] font-black text-[14px] transition-all flex items-center shadow-soft-sm active:scale-95 group">
+            <SparklesIcon className="w-5 h-5 mr-3 group-hover:animate-pulse" />
+            <span>Dự báo Nhập hàng</span>
           </button>
-          <button onClick={onAddProduct} className="btn-primary flex items-center gap-2 px-4 py-2 shadow-sm">
-            <PlusIcon className="w-5 h-5" />Thêm sản phẩm
+          <button onClick={onAddProduct} className="px-8 py-3.5 bg-primary text-white hover:bg-primary-dark rounded-[18px] font-black text-[15px] shadow-soft-lg active:scale-95 transition-all flex items-center border-b-4 border-primary-dark/30">
+            <PlusIcon className="w-5 h-5 mr-2" />
+            <span>Thêm sản phẩm</span>
           </button>
         </div>
       </div>
       {products.length === 0 ? (
-        <div className="text-center py-16 card-base border border-dashed flex flex-col items-center">
-          <CubeIcon className="w-16 h-16 text-muted-foreground/50 mb-4" />
-          <p className="text-muted-foreground text-lg font-semibold">Kho hàng của bạn đang trống.</p>
-          <p className="text-muted-foreground/70 mt-2 mb-6">Nhấn "Thêm sản phẩm" để bắt đầu quản lý kho.</p>
-          <button onClick={onAddProduct} className="btn-primary flex items-center gap-2 px-4 py-2">
-            <PlusIcon className="w-5 h-5" />Thêm sản phẩm
+        <div className="text-center py-20 card-base border-dashed flex flex-col items-center animate-in fade-in zoom-in-95 duration-500">
+          <div className="w-20 h-20 bg-muted/30 rounded-[32px] flex items-center justify-center mb-6">
+            <CubeIcon className="w-10 h-10 text-muted-foreground/30" />
+          </div>
+          <h3 className="text-xl font-bold text-foreground mb-2">Kho hàng của bạn đang trống</h3>
+          <p className="text-muted-foreground max-w-xs mb-8">Hãy thêm sản phẩm đầu tiên để bắt đầu quản lý kinh doanh của bạn.</p>
+          <button onClick={onAddProduct} className="btn-primary flex items-center gap-2 px-6 py-3 shadow-soft hover:shadow-soft-md transition-all active:scale-95">
+            <PlusIcon className="w-5 h-5" />
+            <span className="font-bold">Thêm sản phẩm ngay</span>
           </button>
         </div>
       ) : (
-        <div className="bg-card rounded-lg overflow-hidden border-2 border-border shadow-[4px_4px_0px_var(--color-border)]">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-border">
-              <thead className="bg-muted/50 border-b-2 border-border">
-                <tr>
-                  <th scope="col" className="w-1/3 px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider compact-px compact-py">Sản phẩm</th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider compact-px compact-py">Messenger</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider compact-px compact-py">Tổng tồn kho</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider compact-px compact-py">Giá bán</th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider compact-px compact-py">Hành động</th>
+        <div className="bg-white border border-border/50 rounded-[32px] overflow-hidden shadow-soft-lg">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="min-w-full divide-y divide-border/50">
+              <thead>
+                <tr className="bg-muted/20">
+                  <th scope="col" className="w-[45%] px-8 py-5 text-left text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.2em]">Sản phẩm</th>
+                  <th scope="col" className="px-8 py-5 text-center text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.2em]">Hiển thị</th>
+                  <th scope="col" className="px-8 py-5 text-right text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.2em]">Tổng tồn kho</th>
+                  <th scope="col" className="px-8 py-5 text-right text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.2em]">Giá niêm yết</th>
+                  <th scope="col" className="px-8 py-5 text-center text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.2em]">Hành động</th>
                 </tr>
               </thead>
-              <tbody className="bg-card divide-y divide-border">
+              <tbody className="bg-white divide-y divide-border/30">
                 {products.map(product => (
                   <React.Fragment key={product.id}>
-                    <tr className="hover:bg-muted group">
-                      <td onClick={() => toggleProductExpansion(product.id)} className="cursor-pointer px-6 py-4 whitespace-nowrap compact-px compact-py">
+                    <tr className={`transition-all duration-200 group ${expandedProducts.has(product.id) ? 'bg-primary/5' : 'hover:bg-muted/30'}`}>
+                      <td onClick={() => toggleProductExpansion(product.id)} className="cursor-pointer px-6 py-5 whitespace-nowrap">
                         <div className="flex items-center">
-                          <ChevronDownIcon className={`w-5 h-5 text-muted-foreground/70 mr-2 transition-transform ${expandedProducts.has(product.id) ? 'rotate-180' : ''}`} />
-                          <span className="text-sm font-medium text-card-foreground compact-text-sm">{product.name}</span>
+                          <div className={`p-1 rounded-lg transition-transform ${expandedProducts.has(product.id) ? 'rotate-180 bg-primary/20 text-primary' : 'text-muted-foreground/40'}`}>
+                            <ChevronDownIcon className="w-5 h-5" />
+                          </div>
+                          <span className="ml-3 text-[14px] font-bold text-foreground group-hover:text-primary transition-colors">{product.name}</span>
                         </div>
                       </td>
-                      {/* Toggle Messenger visibility */}
-                      <td className="px-6 py-4 whitespace-nowrap text-center compact-px compact-py">
+                      <td className="px-6 py-5 whitespace-nowrap text-center">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             const newValue = product.is_active === false ? true : false;
                             onToggleVisibility?.(product.id, newValue);
                           }}
-                          className={`p-2 rounded-lg border-2 transition-all duration-150 ${product.is_active !== false
-                            ? 'text-accent-mint border-black bg-accent-mint/20 hover:bg-accent-mint/40 shadow-[2px_2px_0px_#000]'
-                            : 'text-muted-foreground border-border bg-muted hover:bg-muted/80'
+                          className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${product.is_active !== false
+                            ? 'bg-status-success-bg text-status-success shadow-soft-sm'
+                            : 'bg-muted text-muted-foreground/40'
                             }`}
                           title={product.is_active !== false ? 'Bấm để ẩn khỏi Messenger' : 'Bấm để hiện trên Messenger'}
                         >
                           {product.is_active !== false ? <EyeIcon className="w-5 h-5" /> : <EyeSlashIcon className="w-5 h-5" />}
                         </button>
                       </td>
-                      <td onClick={() => toggleProductExpansion(product.id)} className="cursor-pointer px-6 py-4 whitespace-nowrap text-sm text-card-foreground text-right font-medium compact-px compact-py compact-text-sm">
+                      <td onClick={() => toggleProductExpansion(product.id)} className="cursor-pointer px-6 py-5 whitespace-nowrap text-[15px] font-black text-foreground text-right tabular-nums">
                         {product.variants.reduce((sum, v) => sum + v.stock, 0)}
                       </td>
-                      <td onClick={() => toggleProductExpansion(product.id)} className="cursor-pointer px-6 py-4 whitespace-nowrap text-sm text-muted-foreground text-right compact-px compact-py compact-text-sm">{formatCurrency(product.price)}</td>
+                      <td onClick={() => toggleProductExpansion(product.id)} className="cursor-pointer px-6 py-5 whitespace-nowrap text-[14px] font-bold text-muted-foreground text-right">
+                        {formatCurrency(product.price)}
+                      </td>
 
-                      {/* Action Cell */}
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium compact-px compact-py">
-                        <div className="flex items-center justify-center gap-2 relative z-50">
+                      <td className="px-6 py-5 whitespace-nowrap text-center text-sm font-medium">
+                        <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               onEdit(product);
                             }}
-                            className="text-primary hover:bg-primary/10 p-2 rounded-lg border-2 border-transparent hover:border-border transition-all"
+                            className="w-9 h-9 flex items-center justify-center text-primary-dark bg-primary/10 hover:bg-primary transition-all rounded-xl hover:text-white shadow-soft-sm"
                             title="Sửa"
                           >
-                            <PencilIcon className="w-5 h-5" />
+                            <PencilIcon className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
@@ -131,36 +141,35 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
                               e.stopPropagation();
                               setProductToDelete(product);
                             }}
-                            className="text-accent-pink hover:bg-accent-pink/10 p-2 rounded-lg border-2 border-transparent hover:border-accent-pink transition-all"
+                            className="w-9 h-9 flex items-center justify-center text-accent-pink bg-accent-pink/10 hover:bg-accent-pink transition-all rounded-xl hover:text-white shadow-soft-sm"
                             title="Xóa sản phẩm"
                           >
-                            <TrashIcon className="w-5 h-5" />
+                            <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
                     </tr>
                     {expandedProducts.has(product.id) && (
-                      <tr>
+                      <tr className="animate-in slide-in-from-top-2 duration-300">
                         <td colSpan={5} className="p-0">
-                          <div className="p-4 bg-muted/30">
-                            <h4 className="text-sm font-semibold text-card-foreground mb-2 pl-2 compact-text-sm">Chi tiết tồn kho:</h4>
-                            <div className="overflow-hidden border-2 border-border rounded-lg">
-                              <table className="min-w-full divide-y divide-border bg-card">
-                                <thead className="bg-muted/50">
-                                  <tr>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase compact-px compact-py">Size</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase compact-px compact-py">Màu sắc</th>
-                                    <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase compact-px compact-py">Tồn kho</th>
-                                    <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase compact-px compact-py">Ngưỡng sắp hết</th>
+                          <div className="px-12 py-6 bg-muted/10">
+                            <div className="card-base p-0 overflow-hidden border-border/30 shadow-none">
+                              <table className="min-w-full divide-y divide-border/20">
+                                <thead>
+                                  <tr className="bg-muted/30">
+                                    <th className="px-6 py-3 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Loại sản phẩm</th>
+                                    <th className="px-6 py-3 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Màu sắc</th>
+                                    <th className="px-6 py-3 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Số lượng tồn</th>
+                                    <th className="px-6 py-3 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Ngưỡng cảnh báo</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-border">
+                                <tbody className="divide-y divide-border/10 bg-white">
                                   {product.variants.map(variant => (
-                                    <tr key={variant.id}>
-                                      <td className="px-4 py-3 text-sm text-card-foreground compact-px compact-py compact-text-sm">{variant.size}</td>
-                                      <td className="px-4 py-3 text-sm text-card-foreground compact-px compact-py compact-text-sm">{variant.color}</td>
-                                      <td className={`px-4 py-3 text-sm text-right compact-px compact-py compact-text-sm ${getStockStatusColor(variant)}`}>{variant.stock}</td>
-                                      <td className="px-4 py-3 text-sm text-muted-foreground text-right compact-px compact-py compact-text-sm">{variant.lowStockThreshold}</td>
+                                    <tr key={variant.id} className="hover:bg-primary/5 transition-colors">
+                                      <td className="px-6 py-4 text-[13px] font-bold text-foreground">{variant.size}</td>
+                                      <td className="px-6 py-4 text-[13px] font-medium text-muted-foreground">{variant.color}</td>
+                                      <td className={`px-6 py-4 text-[13px] text-right tabular-nums ${getStockStatusClass(variant)}`}>{variant.stock}</td>
+                                      <td className="px-6 py-4 text-[12px] text-muted-foreground/50 text-right font-medium italic">{variant.lowStockThreshold} đơn vị</td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -180,32 +189,30 @@ const InventoryList: React.FC<InventoryListProps> = React.memo(({ products, onEd
       <InventoryForecastModal isOpen={isForecastModalOpen} onClose={() => setIsForecastModalOpen(false)} products={products} />
 
       {/* Delete Confirmation Modal */}
-      <Modal isOpen={!!productToDelete} onClose={() => setProductToDelete(null)} title="Xác nhận xóa">
-        <div className="space-y-4">
-          <div className="flex items-center gap-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <div className="p-3 bg-red-100 dark:bg-red-900/50 rounded-full text-red-600">
-              <ExclamationTriangleIcon className="w-6 h-6" />
+      <Modal isOpen={!!productToDelete} onClose={() => setProductToDelete(null)} title="Xác nhận xóa sản phẩm">
+        <div className="space-y-6">
+          <div className="flex flex-col items-center text-center p-6 bg-accent-pink/5 rounded-3xl border border-accent-pink/10">
+            <div className="w-16 h-16 bg-accent-pink/10 rounded-full flex items-center justify-center text-accent-pink mb-4">
+              <ExclamationTriangleIcon className="w-8 h-8" />
             </div>
-            <div>
-              <h3 className="font-bold text-red-800 dark:text-red-200">Bạn có chắc chắn muốn xóa?</h3>
-              <p className="text-sm text-red-700 dark:text-red-300">
-                Sản phẩm <strong>{productToDelete?.name}</strong> sẽ bị xóa vĩnh viễn khỏi kho hàng.
-              </p>
-            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">Bạn có chắc chắn muốn xóa?</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Sản phẩm <span className="font-bold text-foreground">{productToDelete?.name}</span> sẽ bị xóa vĩnh viễn khỏi kho hàng và các kênh bán hàng liên quan.
+            </p>
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex gap-3">
             <button
               onClick={() => setProductToDelete(null)}
-              className="btn-muted px-4 py-2 font-semibold"
+              className="flex-1 px-4 py-3 bg-muted text-foreground rounded-2xl hover:bg-muted/80 font-bold transition-all"
             >
               Hủy bỏ
             </button>
             <button
               onClick={confirmDelete}
-              className="px-4 py-2 bg-accent-pink text-white border-2 border-black rounded-lg shadow-[2px_2px_0px_#000] hover:shadow-[4px_4px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 font-bold flex items-center gap-2 transition-all duration-150"
+              className="flex-1 px-4 py-3 bg-accent-pink text-white rounded-2xl hover:bg-accent-pink/90 font-bold shadow-soft transition-all flex items-center justify-center gap-2"
             >
               <TrashIcon className="w-4 h-4" />
-              Xóa sản phẩm
+              Xác nhận xóa
             </button>
           </div>
         </div>

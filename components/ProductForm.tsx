@@ -93,38 +93,96 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onClose, product }) =
 
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-3">
-          <label htmlFor="productName" className="block text-sm font-medium text-gray-700 mb-1">Tên sản phẩm</label>
-          <input type="text" id="productName" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary" />
-          {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-        </div>
-        <div>
-          <label htmlFor="productCostPrice" className="block text-sm font-medium text-gray-700 mb-1">Giá vốn</label>
-          <input type="number" id="productCostPrice" value={costPrice} onChange={(e) => setCostPrice(parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary" />
-          {errors.costPrice && <p className="text-red-500 text-xs mt-1">{errors.costPrice}</p>}
-        </div>
-        <div>
-          <label htmlFor="productPrice" className="block text-sm font-medium text-gray-700 mb-1">Giá bán</label>
-          <input type="number" id="productPrice" value={price} onChange={(e) => setPrice(parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary" />
-          {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
-        </div>
-        <div className="flex items-end">
-          <div className="w-full p-2 text-center bg-gray-50 rounded-md">
-            <p className="text-xs text-gray-500">Lợi nhuận dự kiến</p>
-            <p className="font-semibold text-green-600">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price - costPrice)}</p>
+    <form onSubmit={handleSubmit} className="space-y-10">
+      <div className="p-6 bg-muted/20 border border-border/50 rounded-[28px] animate-in fade-in slide-in-from-top-4 duration-500">
+        <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+          <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+          Thông tin cơ bản
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+          <div className="md:col-span-6">
+            <label htmlFor="productName" className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 ml-1">Tên sản phẩm *</label>
+            <input
+              type="text"
+              id="productName"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ví dụ: Áo Hoodie Black Swan V2"
+              className="w-full px-4 py-3 bg-white border border-border rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/50 transition-all text-sm font-bold outline-none"
+            />
+            {errors.name && <p className="text-status-danger text-[11px] font-bold mt-2 ml-1 animate-in shake-sm">{errors.name}</p>}
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="productCostPrice" className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 ml-1">Giá vốn</label>
+            <div className="relative">
+              <input
+                type="number"
+                id="productCostPrice"
+                value={costPrice}
+                onChange={(e) => setCostPrice(parseFloat(e.target.value) || 0)}
+                className="w-full pl-4 pr-12 py-3 bg-white border border-border rounded-xl focus:ring-4 focus:ring-primary/5 transition-all text-sm font-bold outline-none"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground/40 uppercase">VND</span>
+            </div>
+            {errors.costPrice && <p className="text-status-danger text-[11px] font-bold mt-2 ml-1 animate-in shake-sm">{errors.costPrice}</p>}
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="productPrice" className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 ml-1">Giá bán *</label>
+            <div className="relative">
+              <input
+                type="number"
+                id="productPrice"
+                value={price}
+                onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+                className="w-full pl-4 pr-12 py-3 bg-white border border-border rounded-xl focus:ring-4 focus:ring-primary/5 transition-all text-sm font-bold outline-none"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground/40 uppercase">VND</span>
+            </div>
+            {errors.price && <p className="text-status-danger text-[11px] font-bold mt-2 ml-1 animate-in shake-sm">{errors.price}</p>}
+          </div>
+          <div className="md:col-span-2 flex items-end">
+            <div className="w-full p-3 bg-status-success/5 border border-status-success/20 rounded-xl flex flex-col items-center justify-center min-h-[50px] group transition-all hover:bg-status-success/10">
+              <p className="text-[9px] font-black text-status-success uppercase tracking-widest opacity-60">Lợi nhuận dự kiến</p>
+              <p className="font-black text-status-success text-[14px] tracking-tight">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price - costPrice)}</p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Ảnh sản phẩm (5 ảnh) */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Ảnh sản phẩm (tối đa 5 ảnh)</h3>
-        <p className="text-xs text-gray-500">Paste URL ảnh từ Facebook, Shopee, hoặc website khác</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+      <div className="p-6 bg-muted/20 border border-border/50 rounded-[28px] animate-in fade-in slide-in-from-top-4 duration-500 delay-75">
+        <div className="flex justify-between items-end mb-6">
+          <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+            <div className="w-1.5 h-1.5 bg-accent-pink rounded-full"></div>
+            Hình ảnh sản phẩm
+          </h3>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-50 tracking-wider">Tối đa 5 ảnh</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {imageUrls.map((url, index) => (
-            <div key={index} className="space-y-2">
+            <div key={index} className="space-y-3 p-3 bg-white rounded-2xl border border-border/50 shadow-soft-sm group hover:border-primary/20 transition-all">
+              <div className="aspect-square bg-muted/30 rounded-xl overflow-hidden flex items-center justify-center relative border border-border/30">
+                {url ? (
+                  <img
+                    src={url}
+                    alt={`Ảnh ${index + 1}`}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150x150?text=Lỗi';
+                    }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 opacity-20">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Trống</span>
+                  </div>
+                )}
+                {index === 0 && (
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-primary text-white text-[8px] font-black uppercase tracking-widest rounded-md shadow-sm">Chính</div>
+                )}
+              </div>
               <input
                 type="url"
                 value={url}
@@ -133,85 +191,119 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onClose, product }) =
                   newUrls[index] = e.target.value;
                   setImageUrls(newUrls);
                 }}
-                placeholder={`Ảnh ${index + 1}`}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                placeholder="Dán URL ảnh..."
+                className="w-full px-2.5 py-2 text-[12px] bg-muted/20 border border-border rounded-lg focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all outline-none"
               />
-              <div className="aspect-square bg-gray-100 rounded-lg border border-gray-200 overflow-hidden flex items-center justify-center">
-                {url ? (
-                  <img
-                    src={url}
-                    alt={`Ảnh ${index + 1}`}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150x150?text=Lỗi';
-                    }}
-                  />
-                ) : (
-                  <span className="text-gray-400 text-xs">Ảnh {index + 1}</span>
-                )}
-              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Mô tả sản phẩm */}
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-          Mô tả sản phẩm
+      <div className="p-6 bg-muted/20 border border-border/50 rounded-[28px] animate-in fade-in slide-in-from-top-4 duration-500 delay-100">
+        <label htmlFor="description" className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+          <div className="w-1.5 h-1.5 bg-status-info rounded-full"></div>
+          Mô tả chi tiết
         </label>
         <textarea
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          placeholder="Mô tả chi tiết về sản phẩm..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary resize-none"
+          placeholder="Nhập chất liệu, kiểu dáng, hướng dẫn chọn size..."
+          className="w-full p-5 bg-white border border-border rounded-2xl text-[14px] outline-none focus:ring-4 focus:ring-primary/5 transition-all resize-none leading-relaxed placeholder:text-muted-foreground/30 mt-4"
         />
       </div>
 
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Phân loại sản phẩm (Size, Màu sắc, Tồn kho)</h3>
-        {variants.map((variant, index) => (
-          <div key={variant.id} className="grid grid-cols-12 gap-x-3 gap-y-2 p-3 bg-slate-50 rounded-lg relative">
-            <div className="col-span-6 sm:col-span-3">
-              <label className="block text-xs font-medium text-gray-600">Size</label>
-              <input type="text" value={variant.size} onChange={(e) => handleVariantChange(index, 'size', e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm" />
-              {errors[`variantSize_${index}`] && <p className="text-red-500 text-xs mt-1">{errors[`variantSize_${index}`]}</p>}
+      <div className="p-6 bg-muted/20 border border-border/50 rounded-[28px] animate-in fade-in slide-in-from-top-4 duration-500 delay-150">
+        <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+          <div className="w-1.5 h-1.5 bg-secondary rounded-full"></div>
+          Phân loại & Tồn kho
+        </h3>
+        <div className="space-y-4">
+          {variants.map((variant, index) => (
+            <div key={variant.id} className="grid grid-cols-12 gap-4 p-5 bg-white rounded-2xl border border-border/50 items-center shadow-soft-sm group hover:border-primary/20 transition-all animate-in slide-in-from-right-4 duration-500" style={{ animationDelay: `${index * 50}ms` }}>
+              <div className="col-span-6 sm:col-span-3">
+                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 ml-1">Kích cỡ (Size)</label>
+                <input
+                  type="text"
+                  value={variant.size}
+                  onChange={(e) => handleVariantChange(index, 'size', e.target.value)}
+                  placeholder="S, M, L..."
+                  className="w-full px-3 py-2.5 bg-muted/30 border border-border rounded-xl focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all text-sm font-bold outline-none"
+                />
+                {errors[`variantSize_${index}`] && <p className="text-status-danger text-[9px] font-bold mt-1 ml-1 shake-sm">{errors[`variantSize_${index}`]}</p>}
+              </div>
+              <div className="col-span-6 sm:col-span-3">
+                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 ml-1">Màu sắc</label>
+                <input
+                  type="text"
+                  value={variant.color}
+                  onChange={(e) => handleVariantChange(index, 'color', e.target.value)}
+                  placeholder="Đen, Trắng..."
+                  className="w-full px-3 py-2.5 bg-muted/30 border border-border rounded-xl focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all text-sm font-bold outline-none"
+                />
+                {errors[`variantColor_${index}`] && <p className="text-status-danger text-[9px] font-bold mt-1 ml-1 shake-sm">{errors[`variantColor_${index}`]}</p>}
+              </div>
+              <div className="col-span-6 sm:col-span-2">
+                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 ml-1">Số lượng tồn</label>
+                <input
+                  type="number"
+                  value={variant.stock}
+                  onChange={(e) => handleVariantChange(index, 'stock', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2.5 bg-muted/30 border border-border rounded-xl focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all text-sm font-bold text-center outline-none"
+                />
+                {errors[`variantStock_${index}`] && <p className="text-status-danger text-[9px] font-bold mt-1 ml-1 shake-sm">{errors[`variantStock_${index}`]}</p>}
+              </div>
+              <div className="col-span-6 sm:col-span-3">
+                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 ml-1">Ngưỡng cảnh báo</label>
+                <input
+                  type="number"
+                  value={variant.lowStockThreshold}
+                  onChange={(e) => handleVariantChange(index, 'lowStockThreshold', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2.5 bg-muted/30 border border-border rounded-xl focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all text-sm font-bold text-center outline-none"
+                />
+                {errors[`variantThreshold_${index}`] && <p className="text-status-danger text-[9px] font-bold mt-1 ml-1 shake-sm">{errors[`variantThreshold_${index}`]}</p>}
+              </div>
+              <div className="col-span-12 sm:col-span-1 flex items-end justify-end pt-4 sm:pt-0">
+                {variants.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(index)}
+                    className="w-9 h-9 flex items-center justify-center text-accent-pink bg-accent-pink/5 hover:bg-accent-pink hover:text-white rounded-xl transition-all active:scale-90"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="col-span-6 sm:col-span-3">
-              <label className="block text-xs font-medium text-gray-600">Màu sắc</label>
-              <input type="text" value={variant.color} onChange={(e) => handleVariantChange(index, 'color', e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm" />
-              {errors[`variantColor_${index}`] && <p className="text-red-500 text-xs mt-1">{errors[`variantColor_${index}`]}</p>}
-            </div>
-            <div className="col-span-4 sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-600">Tồn kho</label>
-              <input type="number" value={variant.stock} onChange={(e) => handleVariantChange(index, 'stock', parseInt(e.target.value) || 0)} className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm" />
-              {errors[`variantStock_${index}`] && <p className="text-red-500 text-xs mt-1">{errors[`variantStock_${index}`]}</p>}
-            </div>
-            <div className="col-span-8 sm:col-span-3">
-              <label className="block text-xs font-medium text-gray-600">Ngưỡng sắp hết</label>
-              <input type="number" value={variant.lowStockThreshold} onChange={(e) => handleVariantChange(index, 'lowStockThreshold', parseInt(e.target.value) || 0)} className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm" />
-              {errors[`variantThreshold_${index}`] && <p className="text-red-500 text-xs mt-1">{errors[`variantThreshold_${index}`]}</p>}
-            </div>
-            <div className="col-span-12 sm:col-span-1 flex items-end justify-start sm:justify-center">
-              {variants.length > 1 && (
-                <button type="button" onClick={() => removeVariant(index)} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors">
-                  <TrashIcon className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addVariant}
+          className="mt-6 flex items-center gap-2 text-[13px] font-black text-primary hover:text-primary-dark transition-all group"
+        >
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+            <PlusIcon className="w-4 h-4" />
           </div>
-        ))}
-        <button type="button" onClick={addVariant} className="flex items-center gap-2 text-sm font-medium text-primary hover:text-indigo-800 transition-colors">
-          <PlusIcon className="w-5 h-5" />
-          Thêm phân loại
+          <span>Thêm phân loại mới</span>
         </button>
       </div>
 
-      <div className="flex justify-end gap-4 pt-4 border-t">
-        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">Hủy</button>
-        <button type="submit" className="px-4 py-2 bg-primary text-white rounded-md hover:bg-indigo-700 transition-colors">Lưu sản phẩm</button>
+      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-8 border-t border-border/30">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-8 py-4 bg-muted text-foreground rounded-2xl hover:bg-muted/80 font-black text-[14px] transition-all active:scale-95"
+        >
+          Hủy bỏ
+        </button>
+        <button
+          type="submit"
+          className="px-10 py-4 bg-primary text-white rounded-2xl hover:bg-primary-dark font-black text-[15px] shadow-soft-lg transition-all active:scale-95"
+        >
+          Lưu sản phẩm
+        </button>
       </div>
     </form>
   );

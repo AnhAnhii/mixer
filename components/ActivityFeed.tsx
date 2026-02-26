@@ -13,7 +13,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ logs, title, limit }) => {
   const displayedLogs = limit ? logs.slice(0, limit) : logs;
 
   const getIcon = (type?: 'order' | 'customer' | 'system' | 'automation' | 'return' | 'user') => {
-    switch(type) {
+    switch (type) {
       case 'order': return <ShoppingBagIcon className="w-4 h-4" />;
       // FIX: Add 'return' to the switch case to handle the new entityType and fix the type error.
       case 'return': return <ShoppingBagIcon className="w-4 h-4" />; // Returns are related to orders
@@ -41,24 +41,34 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ logs, title, limit }) => {
   };
 
   return (
-    <div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-      {title && <h3 className="text-lg font-semibold text-card-foreground mb-4">{title}</h3>}
+    <div className="space-y-6">
+      {title && <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+        <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+        {title}
+      </h3>}
       {displayedLogs.length > 0 ? (
-        <ul className="space-y-4">
+        <div className="space-y-6 relative ml-3">
+          <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-border/40"></div>
           {displayedLogs.map((log) => (
-            <li key={log.id} className="flex gap-3">
-              <div className="mt-1 flex-shrink-0 h-8 w-8 flex items-center justify-center bg-muted rounded-full text-muted-foreground">
+            <div key={log.id} className="flex gap-5 relative group animate-in slide-in-from-left-2 duration-500">
+              <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center bg-white border border-border/60 rounded-xl text-primary shadow-soft-sm z-10 transition-all group-hover:scale-110 group-hover:border-primary/30 group-hover:text-primary-dark">
                 {getIcon(log.entityType)}
               </div>
-              <div>
-                <p className="text-sm text-card-foreground" dangerouslySetInnerHTML={{ __html: log.description }} />
-                <p className="text-xs text-muted-foreground">{timeAgo(log.timestamp)}</p>
+              <div className="flex-1 pt-0.5">
+                <div className="text-[13px] font-bold text-foreground leading-relaxed group-hover:text-primary transition-colors" dangerouslySetInnerHTML={{ __html: log.description }} />
+                <div className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
+                  <ClockIcon className="w-3 h-3 opacity-40" />
+                  {timeAgo(log.timestamp)}
+                </div>
               </div>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       ) : (
-        <p className="text-center text-muted-foreground py-8">Không có hoạt động nào.</p>
+        <div className="p-12 border-2 border-dashed border-border/30 rounded-[28px] flex flex-col items-center justify-center opacity-40">
+          <ClockIcon className="w-8 h-8 mb-2 text-muted-foreground" />
+          <p className="text-[12px] font-bold">Trống lịch sử hoạt động</p>
+        </div>
       )}
     </div>
   );
