@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import type { BankInfo, Order, Product, Customer, Voucher, SocialPostConfig, UiMode, ThemeSettings, ActivityLog, AutomationRule, ReturnRequest, User } from '../types';
+import type { BankInfo, Order, Product, Customer, Voucher, SocialPostConfig, ActivityLog, AutomationRule, ReturnRequest, User } from '../types';
 import { banks } from '../data/banks';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon } from './icons';
 import { useToast } from './Toast';
@@ -15,7 +15,6 @@ interface SettingsPageProps {
     vouchers: Voucher[];
     bankInfo: BankInfo | null;
     socialConfigs: SocialPostConfig[];
-    uiMode: UiMode;
     activityLog: ActivityLog[];
     automationRules: AutomationRule[];
     returnRequests: ReturnRequest[];

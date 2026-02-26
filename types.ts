@@ -190,19 +190,6 @@ export interface SocialPostConfig {
   attachedProductVariantId?: string;
 }
 
-export type UiMode = 'default' | 'zen' | 'top-nav';
-
-// New Theme Engine Types
-export type ThemePalette = 'modern' | 'elegant' | 'classic' | 'glass';
-export type ThemeDensity = 'comfortable' | 'compact';
-export type ThemeStyle = 'rounded' | 'sharp';
-
-export interface ThemeSettings {
-  palette: ThemePalette;
-  density: ThemeDensity;
-  style: ThemeStyle;
-}
-
 export interface GoogleSheetsConfig {
   scriptUrl: string;
   lastSynced?: string;

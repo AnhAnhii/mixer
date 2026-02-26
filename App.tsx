@@ -64,7 +64,7 @@ import { syncOrderDirect, loadGoogleSheetsSettings } from './services/googleShee
 import { GOOGLE_SCRIPT_URL } from './config';
 
 // Types
-import type { Order, Product, Customer, Voucher, BankInfo, ParsedOrderData, ParsedOrderItem, OrderItem, SocialPostConfig, UiMode, ThemeSettings, ActivityLog, AutomationRule, Page, User, DiscussionEntry, PaymentStatus, ReturnRequest, ReturnRequestItem, ProductVariant, GoogleSheetsConfig, Role } from './types';
+import type { Order, Product, Customer, Voucher, BankInfo, ParsedOrderData, ParsedOrderItem, OrderItem, SocialPostConfig, ActivityLog, AutomationRule, Page, User, DiscussionEntry, PaymentStatus, ReturnRequest, ReturnRequestItem, ProductVariant, GoogleSheetsConfig, Role } from './types';
 import { OrderStatus, ReturnRequestStatus } from './types';
 
 // Main App Logic
@@ -121,9 +121,9 @@ const AppContent: React.FC = () => {
     // Update refs whenever data changes (for automation/export features)
     useEffect(() => {
         allDataRef.current = {
-            orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, activityLog, automationRules, returnRequests, users
+            orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users
         };
-    }, [orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, activityLog, automationRules, returnRequests, users]);
+    }, [orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users]);
 
     // --- Data Migration & Safety Checks ---
     useEffect(() => {
@@ -630,46 +630,13 @@ const AppContent: React.FC = () => {
         </aside>
     );
 
-    const renderTopNav = () => (
-        <header className="bg-white border-b border-border flex flex-col sticky top-0 z-40 shadow-soft">
-            <div className="h-16 flex items-center justify-between px-4 md:px-6">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-muted-foreground hover:text-foreground"><Bars3Icon className="w-6 h-6" /></button>
-                    <div className="flex items-center cursor-pointer gap-2" onClick={() => setView('dashboard')}>
-                        <div className="bg-primary p-1.5 rounded-lg">
-                            <AppLogoIcon className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="text-xl font-bold font-heading hidden sm:inline-block">Mixer</span>
-                    </div>
-                </div>
-                <nav className="hidden md:flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 px-4 justify-center">
-                    {navItems.map(item => (
-                        <button
-                            key={item.id}
-                            onClick={() => setView(item.id as Page)}
-                            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-semibold transition-all duration-150 whitespace-nowrap ${view === item.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-                        >
-                            <item.icon className={`w-4 h-4 ${view === item.id ? 'text-primary' : ''}`} />
-                            <span className="hidden lg:inline">{item.label}</span>
-                        </button>
-                    ))}
-                </nav>
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setView('profile')} className="w-9 h-9 rounded-full bg-primary-light text-primary flex items-center justify-center text-xs font-bold border border-primary/10 hover:shadow-soft transition-all">
-                        {currentUser.avatar}
-                    </button>
-                </div>
-            </div>
-        </header>
-    );
-
     return (
         <div className="flex h-screen bg-background text-foreground overflow-hidden">
             {/* Mobile Drawer Overlay */}
             {isSidebarOpen && <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={() => setIsSidebarOpen(false)} aria-hidden="true"></div>}
 
-            {/* Render Sidebar if mode is 'default' */}
-            {uiMode === 'default' && renderSidebar()}
+            {/* Main Sidebar (Desktop) */}
+            {renderSidebar()}
 
             {/* Mobile Drawer */}
             <aside className={`fixed inset-y-0 left-0 w-64 sidebar-modern flex-shrink-0 border-r border-border flex flex-col z-40 transform transition-transform duration-300 ease-in-out md:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -710,25 +677,12 @@ const AppContent: React.FC = () => {
             </aside>
 
             <main className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
-                {(uiMode === 'default' || uiMode === 'zen') && (
-                    <header className="h-16 bg-white border-b border-border flex items-center justify-between px-6 shrink-0 shadow-soft">
-                        <div className="flex items-center">
-                            {uiMode === 'default' && <button onClick={() => setIsSidebarOpen(true)} className="md:hidden mr-4 text-muted-foreground hover:text-foreground transition-colors"><Bars3Icon className="w-6 h-6" /></button>}
-                            {uiMode === 'zen' && <button onClick={() => setIsZenMenuOpen(true)} className="mr-4 text-muted-foreground hover:text-foreground transition-colors"><Squares2X2Icon className="w-6 h-6" /></button>}
-                            <h1 className="text-lg font-bold font-heading text-foreground tracking-tight">{currentNavItem?.label}</h1>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => setUiMode(uiMode === 'default' ? 'zen' : 'default')}
-                                className="p-2.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all"
-                            >
-                                {uiMode === 'default' ? <ArrowsPointingInIcon className="w-5 h-5" /> : <ArrowsPointingOutIcon className="w-5 h-5" />}
-                            </button>
-                        </div>
-                    </header>
-                )}
-
-                {uiMode === 'top-nav' && renderTopNav()}
+                <header className="h-16 bg-white border-b border-border flex items-center justify-between px-6 shrink-0 shadow-soft">
+                    <div className="flex items-center">
+                        <button onClick={() => setIsSidebarOpen(true)} className="md:hidden mr-4 text-muted-foreground hover:text-foreground transition-colors"><Bars3Icon className="w-6 h-6" /></button>
+                        <h1 className="text-lg font-bold font-heading text-foreground tracking-tight">{currentNavItem?.label}</h1>
+                    </div>
+                </header>
 
                 <div className="flex-1 p-4 md:p-6 overflow-y-auto scroll-smooth">{renderView()}</div>
             </main>
