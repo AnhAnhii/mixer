@@ -1583,7 +1583,7 @@ Trả lời (1-2 câu, giọng Gen Z):`;
         try {
             const client = new GoogleGenAI({ apiKey: GEMINI_KEYS[i] });
             const response = await client.models.generateContent({
-                model: 'gemini-2.0-flash',
+                model: 'gemini-2.0-flash-lite',
                 contents: prompt
             });
             responseText = (response.text || '').trim();
