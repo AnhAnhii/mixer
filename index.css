@@ -214,34 +214,7 @@ h6 {
     box-shadow: var(--shadow-soft);
 }
 
-/* ==================== DENSITY ==================== */
-.density-compact .compact-py {
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-}
 
-.density-compact .compact-px {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-}
-
-.density-compact .compact-p {
-    padding: 0.5rem;
-}
-
-.density-compact .compact-gap {
-    gap: 0.5rem;
-}
-
-.density-compact .compact-text-sm {
-    font-size: 0.8rem;
-    line-height: 1.1rem;
-}
-
-.density-compact .compact-text-base {
-    font-size: 0.9rem;
-    line-height: 1.3rem;
-}
 
 /* ==================== SCROLLBAR ==================== */
 ::-webkit-scrollbar {

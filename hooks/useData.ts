@@ -24,7 +24,6 @@ import type {
     ReturnRequest,
     AutomationRule,
     BankInfo,
-    ThemeSettings,
 } from '../types';
 
 // Sample data for localStorage fallback
@@ -236,29 +235,7 @@ export function useBankInfoData() {
     };
 }
 
-export function useThemeData() {
-    const source = getDataSource();
 
-    const defaultTheme: ThemeSettings = { palette: 'modern', density: 'comfortable', style: 'rounded' };
-    const supabase = useSettings<ThemeSettings>('theme', defaultTheme);
-    const [localTheme, setLocalTheme] = useLocalStorage<ThemeSettings>('themeSettings-v2', defaultTheme);
-
-    if (source === 'supabase') {
-        return {
-            theme: supabase.value,
-            setTheme: supabase.setValue,
-            isLoading: supabase.isLoading,
-            source: 'supabase' as const,
-        };
-    }
-
-    return {
-        theme: localTheme,
-        setTheme: async (value: ThemeSettings) => setLocalTheme(value),
-        isLoading: false,
-        source: 'localStorage' as const,
-    };
-}
 
 // ==================== ACTIVITY LOGS ====================
 
@@ -404,27 +381,4 @@ export function useSocialConfigsData() {
     };
 }
 
-// ==================== UI MODE ====================
 
-export function useUiModeData() {
-    const source = getDataSource();
-
-    const supabase = useSettings<string>('ui_mode', 'default');
-    const [localMode, setLocalMode] = useLocalStorage<string>('uiMode-v2', 'default');
-
-    if (source === 'supabase') {
-        return {
-            uiMode: supabase.value || 'default',
-            setUiMode: supabase.setValue,
-            isLoading: supabase.isLoading,
-            source: 'supabase' as const,
-        };
-    }
-
-    return {
-        uiMode: localMode,
-        setUiMode: async (value: string) => setLocalMode(value),
-        isLoading: false,
-        source: 'localStorage' as const,
-    };
-}

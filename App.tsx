@@ -53,7 +53,7 @@ import { logger } from './utils/logger';
 
 // Hooks & Data
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useThemeData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus, useSocialConfigsData, useUiModeData } from './hooks/useData';
+import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus, useSocialConfigsData } from './hooks/useData';
 import { useFacebookMessenger } from './hooks/useFacebookMessenger';
 import { useActivityLogger } from './hooks/useActivityLogger';
 import { useAutomations } from './hooks/useAutomations';
@@ -80,7 +80,6 @@ const AppContent: React.FC = () => {
     const { vouchers, setVouchers, addVoucher, updateVoucher, deleteVoucher, isLoading: vouchersLoading } = useVouchersData();
     const { bankInfo, setBankInfo, isLoading: bankInfoLoading } = useBankInfoData();
     const { socialConfigs, setSocialConfigs, isLoading: socialConfigsLoading } = useSocialConfigsData();
-    const { uiMode, setUiMode, isLoading: uiModeLoading } = useUiModeData();
 
     // Activity Log and Automation - Using Supabase
     const { logs: activityLog, setLogs: setActivityLog, isLoading: activityLoading } = useActivityLogsData();
@@ -99,8 +98,7 @@ const AppContent: React.FC = () => {
     // Refs for data tracking
     const allDataRef = useRef<any>(null);
 
-    // Theme - Using Supabase 
-    const { theme, setTheme, isLoading: themeLoading } = useThemeData();
+    // URL-based routing now handles view persistence
     const { currentPage: view, navigateTo } = useAppNavigation();
     const setView = navigateTo; // backward-compatible alias
 
@@ -123,9 +121,9 @@ const AppContent: React.FC = () => {
     // Update refs whenever data changes (for automation/export features)
     useEffect(() => {
         allDataRef.current = {
-            orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, theme, activityLog, automationRules, returnRequests, users
+            orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, activityLog, automationRules, returnRequests, users
         };
-    }, [orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, theme, activityLog, automationRules, returnRequests, users]);
+    }, [orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, activityLog, automationRules, returnRequests, users]);
 
     // --- Data Migration & Safety Checks ---
     useEffect(() => {
@@ -159,16 +157,7 @@ const AppContent: React.FC = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    useEffect(() => {
-        const root = document.documentElement;
-        root.classList.remove('dark', 'classic', 'glass', 'density-compact', 'style-sharp');
-        if (theme.palette === 'elegant') root.classList.add('dark');
-        else if (theme.palette === 'classic') root.classList.add('classic');
-        else if (theme.palette === 'glass') root.classList.add('glass');
 
-        if (theme.density === 'compact') root.classList.add('density-compact');
-        if (theme.style === 'sharp') root.classList.add('style-sharp');
-    }, [theme]);
 
     const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
     const [editingOrder, setEditingOrder] = useState<Partial<Order> | null>(null);
@@ -576,7 +565,7 @@ const AppContent: React.FC = () => {
             case 'reports': return <ReportsPage orders={orders} />;
             case 'staff': return <StaffManagement users={users} roles={roles} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onAddRole={handleAddRole} onUpdateRole={handleUpdateRole} onDeleteRole={handleDeleteRole} />;
             case 'profile': return <ProfilePage user={currentUser} activityLog={activityLog} onUpdateProfile={updateProfile} />;
-            case 'settings': return <SettingsPage bankInfo={bankInfo} allData={{ orders, products, customers, vouchers, bankInfo, socialConfigs, uiMode, theme, activityLog, automationRules, returnRequests, users: users }} onImportData={() => { }} theme={theme} setTheme={setTheme} />;
+            case 'settings': return <SettingsPage bankInfo={bankInfo} allData={{ orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users: users }} onImportData={() => { }} />;
             default: return <div className="text-center py-20">Tính năng đang phát triển hoặc bạn không có quyền truy cập.</div>;
         }
     };

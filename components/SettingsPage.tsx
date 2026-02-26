@@ -16,18 +16,15 @@ interface SettingsPageProps {
     bankInfo: BankInfo | null;
     socialConfigs: SocialPostConfig[];
     uiMode: UiMode;
-    theme: ThemeSettings;
     activityLog: ActivityLog[];
     automationRules: AutomationRule[];
     returnRequests: ReturnRequest[];
     users: User[];
   };
   onImportData: (data: any) => void;
-  theme: ThemeSettings;
-  setTheme: (theme: ThemeSettings) => void;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImportData, theme, setTheme }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImportData }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
@@ -116,69 +113,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
       </div>
       <div className="max-w-4xl mx-auto space-y-12">
 
-        {/* Theme Section */}
-        <div className="animate-in slide-in-from-bottom-4 duration-500 delay-75">
-          <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-            Giao diện & Chủ đề
-          </h3>
-          <div className="p-8 bg-muted/20 border border-border/50 rounded-[32px] space-y-8">
-            {/* Palette */}
-            <div>
-              <label className="text-[12px] font-black text-foreground uppercase tracking-wider mb-4 block opacity-60">Bảng màu hệ thống</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {['modern', 'elegant', 'classic', 'glass'].map(p => (
-                  <div
-                    key={p}
-                    onClick={() => setTheme({ ...theme, palette: p as any })}
-                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 capitalize flex flex-col gap-2 group shadow-soft-sm ${theme.palette === p ? 'border-primary bg-white ring-8 ring-primary/5' : 'border-border bg-white/50 hover:border-primary/30 hover:bg-white'}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[14px] font-black ${theme.palette === p ? 'text-primary' : 'text-foreground/70'}`}>{p}</span>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${theme.palette === p ? 'border-primary bg-primary shadow-sm shadow-primary/40' : 'border-border'}`}>
-                        {theme.palette === p && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-border/50">
-              {/* Density */}
-              <div>
-                <label className="text-[12px] font-black text-foreground uppercase tracking-wider mb-4 block opacity-60">Mật độ hiển thị</label>
-                <div className="flex gap-3">
-                  {['comfortable', 'compact'].map(d => (
-                    <button
-                      key={d}
-                      onClick={() => setTheme({ ...theme, density: d as any })}
-                      className={`flex-1 p-4 rounded-xl border-2 transition-all duration-300 font-black text-[13px] uppercase tracking-wider ${theme.density === d ? 'border-primary bg-primary text-white shadow-soft-lg' : 'border-border bg-white/50 text-muted-foreground hover:border-primary/30'}`}
-                    >
-                      {d === 'comfortable' ? 'Thoải mái' : 'Gọn gàng'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Style */}
-              <div>
-                <label className="text-[12px] font-black text-foreground uppercase tracking-wider mb-4 block opacity-60">Kiểu bo góc</label>
-                <div className="flex gap-3">
-                  {['rounded', 'sharp'].map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setTheme({ ...theme, style: s as any })}
-                      className={`flex-1 p-4 rounded-xl border-2 transition-all duration-300 font-black text-[13px] uppercase tracking-wider ${theme.style === s ? 'border-primary bg-primary text-white shadow-soft-lg' : 'border-border bg-white/50 text-muted-foreground hover:border-primary/30'}`}
-                    >
-                      {s === 'rounded' ? 'Bo tròn' : 'Vuông vắn'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Bank Info Section */}
         <div className="animate-in slide-in-from-bottom-4 duration-500 delay-150">
