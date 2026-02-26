@@ -1,7 +1,6 @@
 // services/aiChatService.ts
 // AI Chat Service với Gemini - Xử lý tin nhắn và tạo response
 
-import { GoogleGenerativeAI } from '@google/genai';
 
 interface TrainingPair {
     customerMessage: string;
@@ -31,20 +30,6 @@ interface AIResponse {
     shouldHandoff: boolean; // Nên chuyển nhân viên không
     suggestedProducts?: string[];
 }
-
-// Singleton Gemini client
-let geminiClient: GoogleGenerativeAI | null = null;
-
-const getGeminiClient = () => {
-    if (!geminiClient) {
-        const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            throw new Error('Gemini API key not configured');
-        }
-        geminiClient = new GoogleGenerativeAI(apiKey);
-    }
-    return geminiClient;
-};
 
 // Tạo prompt với training examples
 const buildPrompt = (
@@ -156,6 +141,8 @@ const analyzeResponse = (response: string): { message: string; confidence: numbe
     };
 };
 
+import { sanitizePrompt } from '../utils/sanitize';
+
 // Main function: Generate AI response
 export const generateAIResponse = async (
     customerMessage: string,
@@ -164,15 +151,22 @@ export const generateAIResponse = async (
     context: ChatContext
 ): Promise<AIResponse> => {
     try {
-        const client = getGeminiClient();
-        const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const sanitizedMessage = sanitizePrompt(customerMessage);
+        const prompt = buildPrompt(sanitizedMessage, trainingPairs, products, context);
 
-        const prompt = buildPrompt(customerMessage, trainingPairs, products, context);
+        const res = await fetch('/api/ai/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt,
+                model: 'gemini-2.0-flash'
+            })
+        });
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'AI generation failed');
 
-        const analysis = analyzeResponse(responseText);
+        const analysis = analyzeResponse(data.text || '');
 
         return {
             message: analysis.message,
@@ -194,3 +188,4 @@ export const generateAIResponse = async (
 
 // Export for testing
 export const buildPromptForTesting = buildPrompt;
+

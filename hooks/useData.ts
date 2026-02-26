@@ -348,7 +348,8 @@ export function useReturnRequestsData() {
         return {
             returnRequests: supabase.returnRequests,
             isLoading: supabase.isLoading,
-            setReturnRequests: () => { },
+            setReturnRequests: (val: any) => { }, // No-op for Supabase
+            updateStatus: supabase.updateStatus,
             source: 'supabase' as const,
         };
     }
@@ -357,6 +358,10 @@ export function useReturnRequestsData() {
         returnRequests: localRequests,
         isLoading: false,
         setReturnRequests: setLocalRequests,
+        updateStatus: async (id: string, status: string) => {
+            setLocalRequests(prev => prev.map(r => r.id === id ? { ...r, status: status as any } : r));
+            return true;
+        },
         source: 'localStorage' as const,
     };
 }

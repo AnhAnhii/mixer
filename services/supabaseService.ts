@@ -2,6 +2,7 @@
 // Supabase CRUD operations for all entities
 
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { logger } from '../utils/logger';
 import type {
     Product,
     ProductVariant,
@@ -33,7 +34,7 @@ export const productService = {
             .order('created_at', { ascending: false });
 
         if (error) {
-            console.error('Error fetching products:', error);
+            logger.error('Error fetching products:', error);
             return [];
         }
 
@@ -372,7 +373,7 @@ export const orderService = {
             .single();
 
         if (error) {
-            console.error('Error creating order:', error);
+            logger.error('Error creating order:', error);
             return null;
         }
 
@@ -613,27 +614,27 @@ export const settingsService = {
     },
 
     async getBankInfo(): Promise<BankInfo | null> {
-        return this.get<BankInfo>('bank_info');
+        return settingsService.get<BankInfo>('bank_info');
     },
 
     async setBankInfo(bankInfo: BankInfo): Promise<boolean> {
-        return this.set('bank_info', bankInfo);
+        return settingsService.set('bank_info', bankInfo);
     },
 
     async getTheme(): Promise<ThemeSettings | null> {
-        return this.get<ThemeSettings>('theme');
+        return settingsService.get<ThemeSettings>('theme');
     },
 
     async setTheme(theme: ThemeSettings): Promise<boolean> {
-        return this.set('theme', theme);
+        return settingsService.set('theme', theme);
     },
 
     async getGoogleSheetsConfig(): Promise<{ scriptUrl: string; sheetName: string } | null> {
-        return this.get<{ scriptUrl: string; sheetName: string }>('google_sheets_config');
+        return settingsService.get<{ scriptUrl: string; sheetName: string }>('google_sheets_config');
     },
 
     async setGoogleSheetsConfig(config: { scriptUrl: string; sheetName: string }): Promise<boolean> {
-        return this.set('google_sheets_config', config);
+        return settingsService.set('google_sheets_config', config);
     },
 };
 

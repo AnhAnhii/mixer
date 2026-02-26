@@ -16,8 +16,8 @@ import {
     SparklesIcon
 } from './icons';
 import { useToast } from './Toast';
-import { GoogleGenAI } from '@google/genai';
-import { GEMINI_API_KEY } from '../config';
+import { getConversations, getMessages, sendMessage, markAsRead } from '../services/facebookService';
+import { logger } from '../utils/logger';
 import type { Order, Product, OrderItem, Customer } from '../types';
 import { cartService } from '../services/cartService';
 
@@ -549,12 +549,6 @@ Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc,
         toast.success('🔮 Đang phân tích cuộc hội thoại...');
 
         try {
-            if (!GEMINI_API_KEY) {
-                throw new Error("Chưa cấu hình GEMINI_API_KEY");
-            }
-
-            const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-
             // Chỉ lấy tin nhắn gần đây (30 tin nhắn cuối hoặc trong 24 giờ)
             const now = new Date();
             const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -632,15 +626,19 @@ Trả về JSON với cấu trúc:
 }
 `;
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                }
+            const res = await fetch('/api/ai/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt,
+                    responseFormat: 'json'
+                })
             });
 
-            const parsed = JSON.parse(response.text || '{}');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'AI processing failed');
+
+            const parsed = JSON.parse(data.text || '{}');
 
             // Build order items from parsed data
             const orderItems: OrderItem[] = [];
@@ -717,7 +715,7 @@ Trả về JSON với cấu trúc:
             onCreateOrderWithAI(orderData, customerData);
 
         } catch (err) {
-            console.error('AI Parse Error:', err);
+            logger.error('AI Parse Error:', err);
             toast.error('Lỗi phân tích: ' + (err instanceof Error ? err.message : 'Unknown'));
         } finally {
             setIsParsingOrder(false);

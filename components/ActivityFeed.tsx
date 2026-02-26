@@ -3,6 +3,8 @@ import React from 'react';
 import type { ActivityLog } from '../types';
 import { ClockIcon, BoltIcon, ShoppingBagIcon, UserGroupIcon, UserCircleIcon } from './icons';
 
+import { sanitizeHtml } from '../utils/sanitize';
+
 interface ActivityFeedProps {
   logs: ActivityLog[];
   title?: string;
@@ -55,7 +57,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ logs, title, limit }) => {
                 {getIcon(log.entityType)}
               </div>
               <div className="flex-1 pt-0.5">
-                <div className="text-[13px] font-bold text-foreground leading-relaxed group-hover:text-primary transition-colors" dangerouslySetInnerHTML={{ __html: log.description }} />
+                <div className="text-[13px] font-bold text-foreground leading-relaxed group-hover:text-primary transition-colors" dangerouslySetInnerHTML={{ __html: sanitizeHtml(log.description) }} />
                 <div className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
                   <ClockIcon className="w-3 h-3 opacity-40" />
                   {timeAgo(log.timestamp)}

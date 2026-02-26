@@ -1,6 +1,4 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
 
 // Components
 import Dashboard from './components/Dashboard';
@@ -51,15 +49,19 @@ import {
     PlusIcon, MoonIcon, SunIcon, SparklesIcon, BoltIcon, ClockIcon, ViewColumnsIcon, RssIcon, ArrowUturnLeftIcon,
     ArrowsPointingInIcon, ArrowsPointingOutIcon, ArrowPathIcon, UserCircleIcon, ShieldCheckIcon, ArrowDownTrayIcon
 } from './components/icons';
+import { logger } from './utils/logger';
 
 // Hooks & Data
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useThemeData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus, useSocialConfigsData, useUiModeData } from './hooks/useData';
+import { useFacebookMessenger } from './hooks/useFacebookMessenger';
+import { useActivityLogger } from './hooks/useActivityLogger';
+import { useAutomations } from './hooks/useAutomations';
 import { useAuth } from './hooks/useAuth';
 import { useAppNavigation } from './router/useAppNavigation';
 import { sampleProducts, sampleCustomers, sampleOrders, sampleFacebookPosts, sampleAutomationRules, sampleActivityLogs, sampleReturnRequests } from './data/sampleData';
 import { syncOrderDirect, loadGoogleSheetsSettings } from './services/googleSheetsService';
-import { GOOGLE_SCRIPT_URL, GEMINI_API_KEY } from './config';
+import { GOOGLE_SCRIPT_URL } from './config';
 
 // Types
 import type { Order, Product, Customer, Voucher, BankInfo, ParsedOrderData, ParsedOrderItem, OrderItem, SocialPostConfig, UiMode, ThemeSettings, ActivityLog, AutomationRule, Page, User, DiscussionEntry, PaymentStatus, ReturnRequest, ReturnRequestItem, ProductVariant, GoogleSheetsConfig, Role } from './types';
@@ -67,7 +69,7 @@ import { OrderStatus, ReturnRequestStatus } from './types';
 
 // Main App Logic
 const AppContent: React.FC = () => {
-    const { currentUser, login, logout, hasPermission, users, setUsers, roles, setRoles, updateProfile } = useAuth();
+    const { login, logout, hasPermission, users, setUsers, roles, setRoles, updateProfile } = useAuth();
     const [appIsLoading, setAppIsLoading] = useState(true);
     const [isInitialSyncing, setIsInitialSyncing] = useState(false);
 
@@ -85,7 +87,7 @@ const AppContent: React.FC = () => {
     const { rules: automationRules, setRules: setAutomationRules, addRule, updateRule, deleteRule, toggleRule, isLoading: automationLoading } = useAutomationRulesData();
 
     // Return/Exchange State - Using Supabase
-    const { returnRequests, setReturnRequests, isLoading: returnsLoading } = useReturnRequestsData();
+    const { returnRequests, setReturnRequests, updateStatus: updateReturnStatus, isLoading: returnsLoading } = useReturnRequestsData();
 
     // Data source status
     const { source: dataSource, isSupabaseConfigured, isSupabaseConnected } = useDataSourceStatus();
@@ -144,52 +146,8 @@ const AppContent: React.FC = () => {
     }, [users, setUsers]);
 
     // --- Activity & Automation Logic ---
-    const logActivity = (description: string, entityId?: string, entityType?: ActivityLog['entityType']) => {
-        const newLog: ActivityLog = {
-            id: crypto.randomUUID(),
-            timestamp: new Date().toISOString(),
-            description,
-            entityId,
-            entityType
-        };
-        setActivityLog(prev => [newLog, ...prev]);
-    };
-
-    const runAutomations = (triggerType: 'ORDER_CREATED', payload: { order: Order }) => {
-        const applicableRules = automationRules.filter(r => r.trigger === triggerType && r.isEnabled);
-
-        for (const rule of applicableRules) {
-            const { order } = payload;
-
-            const conditionsMet = rule.conditions.every(cond => {
-                if (cond.field === 'totalAmount' && cond.operator === 'GREATER_THAN') {
-                    return order.totalAmount > cond.value;
-                }
-                return false;
-            });
-
-            if (conditionsMet) {
-                rule.actions.forEach(action => {
-                    if (action.type === 'ADD_CUSTOMER_TAG') {
-                        setCustomers(prev => {
-                            const newCustomers = [...prev];
-                            const customerIndex = newCustomers.findIndex(c => c.id === order.customerId);
-                            if (customerIndex > -1) {
-                                const customer = { ...newCustomers[customerIndex] };
-                                const tags = new Set(customer.tags || []);
-                                tags.add(action.value);
-                                customer.tags = Array.from(tags);
-                                newCustomers[customerIndex] = customer;
-
-                                logActivity(`Quy tắc <strong>${rule.name}</strong> đã thêm nhãn "<strong>${action.value}</strong>" cho khách hàng <strong>${customer.name}</strong>.`, customer.id, 'customer');
-                            }
-                            return newCustomers;
-                        });
-                    }
-                });
-            }
-        }
-    };
+    const { logActivity, currentUser } = useActivityLogger();
+    const { runAutomations } = useAutomations(automationRules, setCustomers);
 
 
     // URL-based routing now handles view persistence
@@ -262,132 +220,7 @@ const AppContent: React.FC = () => {
     const handleOpenReturnRequest = (order: Order) => setReturnRequestOrder(order);
     const handleViewReturnDetails = (request: ReturnRequest) => setViewingReturnRequest(request);
 
-    // Gửi tin nhắn qua Facebook Messenger
-    const sendMessageToFacebook = async (message: string, recipientId: string): Promise<boolean> => {
-        try {
-            const response = await fetch('/api/facebook/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ recipientId, message, messageType: 'text' })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to send message');
-            }
-
-            return true;
-        } catch (err) {
-            console.error('Facebook send error:', err);
-            return false;
-        }
-    };
-
-    // Gửi ảnh qua Facebook Messenger
-    const sendImageToFacebook = async (imageUrl: string, recipientId: string): Promise<boolean> => {
-        try {
-            const response = await fetch('/api/facebook/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ recipientId, imageUrl, messageType: 'image' })
-            });
-            return response.ok;
-        } catch (err) {
-            console.error('Facebook send image error:', err);
-            return false;
-        }
-    };
-
-    // Generate VietQR URL
-    const getVietQRUrl = (amount: number, orderId: string) => {
-        if (!bankInfo) return '';
-        const content = encodeURIComponent(`Mixer ${orderId}`);
-        return `https://img.vietqr.io/image/${bankInfo.bin}-${bankInfo.accountNumber}-compact2.png?amount=${amount}&addInfo=${content}&accountName=${encodeURIComponent(bankInfo.accountName)}`;
-    };
-
-    // Tạo tin nhắn trạng thái đơn hàng chi tiết
-    const generateOrderStatusMessage = (order: Order, status: 'Chờ xử lý' | 'Đang xử lý' | 'Đã gửi hàng' | 'Đã giao hàng') => {
-        const formatCurrency = (amount: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-        const formatDate = (dateString: string) => new Date(dateString).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-        const orderId = order.id.substring(0, 8);
-        const productList = order.items.map(item => `- ${item.productName} (${item.size} - ${item.color}) x ${item.quantity}`).join('\n');
-
-        if (status === 'Chờ xử lý') {
-            if (order.paymentMethod === 'cod') {
-                return `📦 Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
-🆔 Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(order.orderDate)}
-
-👤 Tên người nhận: ${order.customerName}
-📱 Số điện thoại: ${order.customerPhone}
-📍 Địa chỉ: ${order.shippingAddress}
-
-🛒 Sản phẩm bao gồm:
-${productList}
-💰 Tổng trị giá đơn hàng: ${formatCurrency(order.totalAmount)}
-
-💵 Đơn hàng của bạn sẽ được giao COD (thanh toán khi nhận hàng) ♥
-Cảm ơn bạn đã tin tưởng Mixer! 💕`;
-            } else {
-                return `📦 Dạ cho mình xác nhận lại thông tin đơn hàng bạn đã đặt nha
-🆔 Mã đơn hàng #${orderId} được đặt vào lúc ${formatDate(order.orderDate)}
-
-👤 Tên người nhận: ${order.customerName}
-📱 Số điện thoại: ${order.customerPhone}
-📍 Địa chỉ: ${order.shippingAddress}
-
-🛒 Sản phẩm bao gồm:
-${productList}
-💰 Tổng trị giá đơn hàng: ${formatCurrency(order.totalAmount)}
-
-💳 Bạn xác nhận lại thông tin nhận hàng, sản phẩm, size, màu sắc, số lượng rồi quét mã QR bên dưới để chuyển khoản giúp mình nhé ♥
-⏰ Đơn hàng sẽ được giữ trong vòng 24h, sau 24h sẽ tự động huỷ nếu chưa chuyển khoản ạ.`;
-            }
-        }
-
-        if (status === 'Đang xử lý') {
-            return `✅ Mixer xác nhận đã nhận được thanh toán cho đơn hàng #${orderId}.
-📦 Đơn hàng của bạn đang được chuẩn bị và sẽ sớm được gửi đi.
-💕 Cảm ơn bạn đã mua sắm tại Mixer!`;
-        }
-
-        if (status === 'Đã gửi hàng') {
-            const shippingDetails = order.shippingProvider && order.trackingCode
-                ? `🚚 Đơn vị vận chuyển: ${order.shippingProvider}\n📋 Mã vận đơn: ${order.trackingCode}`
-                : `🚚 Đơn vị vận chuyển: [Đang cập nhật]`;
-            return `🎉 Mixer xin thông báo: Đơn hàng #${orderId} của bạn đã được gửi đi!
-${shippingDetails}
-📞 Bạn vui lòng để ý điện thoại để nhận hàng nhé. Cảm ơn bạn! 💕`;
-        }
-
-        if (status === 'Đã giao hàng') {
-            return `🎊 Mixer xin thông báo: Đơn hàng #${orderId} đã được giao thành công!
-💕 Cảm ơn bạn đã tin tưởng và mua sắm tại Mixer.
-🛍️ Hẹn gặp lại bạn ở những đơn hàng tiếp theo nhé!`;
-        }
-
-        return '';
-    };
-
-    // Gửi trạng thái đơn hàng đến khách (bao gồm QR nếu cần)
-    const sendOrderStatusToCustomer = async (order: Order, status: 'Chờ xử lý' | 'Đang xử lý' | 'Đã gửi hàng' | 'Đã giao hàng') => {
-        if (!order.facebookUserId) return;
-
-        const message = generateOrderStatusMessage(order, status);
-        if (message) {
-            // Gửi tin nhắn text trước
-            await sendMessageToFacebook(message, order.facebookUserId);
-
-            // Nếu là Chờ xử lý + chuyển khoản → gửi QR
-            if (status === 'Chờ xử lý' && order.paymentMethod !== 'cod' && bankInfo) {
-                const qrUrl = getVietQRUrl(order.totalAmount, order.id.substring(0, 8));
-                if (qrUrl) {
-                    // Đợi 1 giây để đảm bảo text gửi xong
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    await sendImageToFacebook(qrUrl, order.facebookUserId);
-                }
-            }
-        }
-    };
+    const { sendMessageToFacebook, sendOrderStatusToCustomer } = useFacebookMessenger(bankInfo);
 
     const handleDeleteOrder = async (orderId: string) => {
         await deleteOrder(orderId);
@@ -572,44 +405,40 @@ ${shippingDetails}
         setAiError(null);
 
         try {
-            if (!GEMINI_API_KEY) {
-                throw new Error("Vui lòng cấu hình API Key trong file .env.local (VITE_GEMINI_API_KEY).");
-            }
-
-            const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-            const modelId = useThinkingMode ? 'gemini-3-pro-preview' : 'gemini-2.5-flash';
-
-            const prompt = `
-                Trích xuất thông tin đơn hàng từ văn bản sau đây thành JSON.
-                Văn bản: "${text}"
-                
-                Danh sách sản phẩm hiện có trong kho (để đối chiếu tên và ID):
-                ${JSON.stringify(products.map(p => ({ id: p.id, name: p.name, variants: p.variants.map(v => ({ id: v.id, size: v.size, color: v.color })) })))}
-                
-                Yêu cầu:
-                - Tìm tên khách hàng, số điện thoại, địa chỉ.
-                - Tìm các sản phẩm được nhắc đến. Cố gắng khớp với danh sách sản phẩm bên trên. Nếu không tìm thấy chính xác, hãy chọn cái gần nhất hoặc để trống variantId.
-                - Trả về JSON với cấu trúc:
-                {
-                    "customerName": string,
-                    "customerPhone": string,
-                    "shippingAddress": string,
-                    "items": [
-                        { "productId": string, "variantId": string, "quantity": number }
-                    ]
-                }
-            `;
-
-            const response = await ai.models.generateContent({
-                model: modelId,
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                    thinkingConfig: useThinkingMode ? { thinkingBudget: 2048 } : undefined
-                }
+            const response = await fetch('/api/ai/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: `
+                        Trích xuất thông tin đơn hàng từ văn bản sau đây thành JSON.
+                        Văn bản: "${text}"
+                        
+                        Danh sách sản phẩm hiện có trong kho (để đối chiếu tên và ID):
+                        ${JSON.stringify(products.map(p => ({ id: p.id, name: p.name, variants: p.variants.map(v => ({ id: v.id, size: v.size, color: v.color })) })))}
+                        
+                        Yêu cầu:
+                        - Tìm tên khách hàng, số điện thoại, địa chỉ.
+                        - Tìm các sản phẩm được nhắc đến. Cố gắng khớp với danh sách sản phẩm bên trên. Nếu không tìm thấy chính xác, hãy chọn cái gần nhất hoặc để trống variantId.
+                        - Trả về JSON với cấu trúc:
+                        {
+                            "customerName": string,
+                            "customerPhone": string,
+                            "shippingAddress": string,
+                            "items": [
+                                { "productId": string, "variantId": string, "quantity": number }
+                            ]
+                        }
+                    `,
+                    model: useThinkingMode ? 'gemini-3-pro-preview' : 'gemini-2.5-flash',
+                    responseFormat: 'json',
+                    thinkingBudget: useThinkingMode ? 2048 : undefined
+                })
             });
 
-            const result = JSON.parse(response.text || '{}') as ParsedOrderData;
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'AI Parse failed');
+
+            const result = JSON.parse(data.text || '{}') as ParsedOrderData;
 
             if (result.items && result.items.length > 0) {
                 const fullItems: OrderItem[] = [];
@@ -647,7 +476,7 @@ ${shippingDetails}
             }
 
         } catch (error) {
-            console.error(error);
+            logger.error('Quick Order Parse Error:', error);
             setAiError(`Lỗi: ${error instanceof Error ? error.message : 'Không xác định'}`);
         } finally {
             setIsAiLoading(false);
@@ -739,7 +568,7 @@ ${shippingDetails}
             case 'workflow': return <KanbanBoardPage orders={orders} onUpdateStatus={handleUpdateStatus} onViewDetails={handleViewOrderDetails} />;
             case 'inventory': return <InventoryList products={products} onEdit={handleOpenProductForm} onDelete={handleDeleteProduct} onAddProduct={() => handleOpenProductForm(null)} onToggleVisibility={async (id, isActive) => { setProducts(prev => prev.map(p => p.id === id ? { ...p, is_active: isActive } : p)); const { productService } = await import('./services/supabaseService'); await productService.toggleVisibility(id, isActive); }} />;
             case 'customers': return <CustomerListPage customers={customers} onViewDetails={handleViewCustomerDetails} onEdit={handleOpenCustomerForm} onDelete={handleDeleteCustomer} onBulkDelete={handleBulkDeleteCustomers} onAddCustomer={() => handleOpenCustomerForm(null)} />;
-            case 'returns': return <ReturnsPage returnRequests={returnRequests} onUpdateStatus={async (id, status) => { /* TODO: Add updateReturnRequestStatus hook */ }} onViewDetails={handleViewReturnDetails} />;
+            case 'returns': return <ReturnsPage returnRequests={returnRequests} onUpdateStatus={updateReturnStatus} onViewDetails={handleViewReturnDetails} />;
             case 'vouchers': return <VoucherListPage vouchers={vouchers} onEdit={handleOpenVoucherForm} onDelete={async (id) => await deleteVoucher(id)} onAdd={() => handleOpenVoucherForm(null)} />;
             case 'social': return <SocialPage products={products} configs={socialConfigs} setConfigs={setSocialConfigs} />;
             case 'automation': return <AutomationPage rules={automationRules} onAdd={() => handleOpenAutomationForm(null)} onEdit={handleOpenAutomationForm} onDelete={async (id) => await deleteRule(id)} onToggle={async (id, isEnabled) => await toggleRule(id, isEnabled)} />;
