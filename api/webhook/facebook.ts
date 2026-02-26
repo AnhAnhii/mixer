@@ -9,10 +9,9 @@ const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
 const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 
 // Auto-reply settings (có thể chuyển sang database sau)
-let AUTO_REPLY_ENABLED = process.env.AI_AUTO_REPLY === 'true';
+let AUTO_REPLY_ENABLED = process.env.AI_AUTO_REPLY === 'true'; // Fallback only
 
-// Training data cache (trong thực tế nên lưu database)
-let trainingDataCache: Array<{ customerMessage: string; employeeResponse: string }> = [];
+// Training data loaded from Supabase per-request (no in-memory cache on serverless)
 
 // ==================== TYPES ====================
 
@@ -1441,12 +1440,17 @@ async function handleMessage(event: MessagingEvent) {
     }
 
     // ==================== AI AUTO-REPLY ====================
-    // Kiểm tra xem có bật auto-reply không (gọi API settings)
+    // Read enabled state from Supabase (persistent across serverless invocations)
     try {
-        // Trong production, gọi API. Tạm thời dùng env var + global state
-        const isEnabled = AUTO_REPLY_ENABLED || process.env.AI_AUTO_REPLY === 'true';
+        const { data: settings } = await supabase
+            .from('app_settings')
+            .select('ai_auto_reply_enabled')
+            .eq('id', 'default')
+            .single();
+
+        const isEnabled = settings?.ai_auto_reply_enabled || process.env.AI_AUTO_REPLY === 'true';
         if (!isEnabled) {
-            console.log('⏸️ Auto-reply is disabled');
+            console.log('⏸️ Auto-reply is disabled (from DB)');
             return;
         }
     } catch (e) {
@@ -1496,8 +1500,24 @@ async function generateAIResponse(customerMessage: string): Promise<{
     const { GoogleGenAI } = await import('@google/genai');
     const client = new GoogleGenAI({ apiKey: GEMINI_API_KEY! });
 
-    // Build training examples
-    const examples = trainingDataCache
+    // Load training data from Supabase
+    let trainingExamples: Array<{ customerMessage: string; employeeResponse: string }> = [];
+    try {
+        const { data } = await supabase
+            .from('ai_training_pairs')
+            .select('customer_message, employee_response')
+            .limit(20);
+        if (data) {
+            trainingExamples = data.map(d => ({
+                customerMessage: d.customer_message,
+                employeeResponse: d.employee_response
+            }));
+        }
+    } catch (e) {
+        console.log('⚠️ Could not load training data from DB');
+    }
+
+    const examples = trainingExamples
         .slice(0, 8)
         .map(p => `Khách: "${p.customerMessage}"\nShop: "${p.employeeResponse}"`)
         .join('\n\n');
@@ -1889,17 +1909,8 @@ async function sendMessage(recipientId: string, messageText: string, quickReplie
 
 // ==================== UTILITY FUNCTIONS ====================
 
-// Update training data cache (gọi từ UI)
-export function updateTrainingData(data: Array<{ customerMessage: string; employeeResponse: string }>) {
-    trainingDataCache = data;
-    console.log(`📚 Training data updated: ${data.length} pairs`);
-}
-
-// Toggle auto-reply
-export function setAutoReplyEnabled(enabled: boolean) {
-    AUTO_REPLY_ENABLED = enabled;
-    console.log(`🤖 Auto-reply ${enabled ? 'ENABLED' : 'DISABLED'}`);
-}
+// Legacy exports kept for backward compatibility but no longer used for state
+// (state now lives in Supabase app_settings and ai_training_pairs tables)
 
 // Lấy thông tin user profile
 export async function getUserProfile(userId: string): Promise<{

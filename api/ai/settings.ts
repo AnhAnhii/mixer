@@ -1,44 +1,14 @@
 // api/ai/settings.ts
-// API endpoint để quản lý AI auto-reply settings - SHARED giữa UI và Webhook
+// AI auto-reply settings — persisted in Supabase (not in-memory)
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 
-// Global state (shared trong cùng process)
-// NOTE: Trên Vercel, mỗi request có thể là process khác nhau
-// Để persistent, cần dùng database hoặc KV store
-// Tạm thời dùng env var làm default, API override khi cần
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
-interface AISettings {
-    autoReplyEnabled: boolean;
-    confidenceThreshold: number;
-    lastUpdated: string;
-}
-
-// Initialize từ env var
-let globalSettings: AISettings = {
-    autoReplyEnabled: process.env.AI_AUTO_REPLY === 'true',
-    confidenceThreshold: 0.6,
-    lastUpdated: new Date().toISOString()
-};
-
-let trainingData: Array<{ customerMessage: string; employeeResponse: string; category?: string }> = [];
-
-// Export để webhook có thể import
-export function getSettings(): AISettings {
-    return globalSettings;
-}
-
-export function setAutoReplyEnabled(enabled: boolean): void {
-    globalSettings.autoReplyEnabled = enabled;
-    globalSettings.lastUpdated = new Date().toISOString();
-}
-
-export function getTrainingData() {
-    return trainingData;
-}
-
-export function setTrainingData(data: typeof trainingData) {
-    trainingData = data;
+function getSupabase() {
+    return createClient(supabaseUrl, supabaseKey);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -46,59 +16,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
+    if (req.method === 'OPTIONS') return res.status(200).end();
 
-    // GET - Lấy settings hiện tại
+    const supabase = getSupabase();
+
+    // GET — current settings + training pair count
     if (req.method === 'GET') {
+        const { data: settings } = await supabase
+            .from('app_settings')
+            .select('*')
+            .eq('id', 'default')
+            .single();
+
+        const { count } = await supabase
+            .from('ai_training_pairs')
+            .select('*', { count: 'exact', head: true });
+
         return res.status(200).json({
             success: true,
-            settings: globalSettings,
-            trainingDataCount: trainingData.length
+            settings: settings || { ai_auto_reply_enabled: false, ai_confidence_threshold: 0.6 },
+            trainingDataCount: count || 0
         });
     }
 
-    // POST - Cập nhật settings
+    // POST — update settings
     if (req.method === 'POST') {
         const { action, data } = req.body;
 
         switch (action) {
-            case 'toggle':
-                globalSettings.autoReplyEnabled = !globalSettings.autoReplyEnabled;
-                globalSettings.lastUpdated = new Date().toISOString();
-                console.log(`🤖 AI Auto-reply ${globalSettings.autoReplyEnabled ? 'ENABLED' : 'DISABLED'}`);
-                break;
+            case 'toggle': {
+                const { data: current } = await supabase
+                    .from('app_settings')
+                    .select('ai_auto_reply_enabled')
+                    .eq('id', 'default')
+                    .single();
 
-            case 'setEnabled':
-                globalSettings.autoReplyEnabled = !!data?.enabled;
-                globalSettings.lastUpdated = new Date().toISOString();
-                console.log(`🤖 AI Auto-reply set to ${globalSettings.autoReplyEnabled ? 'ENABLED' : 'DISABLED'}`);
-                break;
+                const newValue = !(current?.ai_auto_reply_enabled);
+                await supabase
+                    .from('app_settings')
+                    .upsert({ id: 'default', ai_auto_reply_enabled: newValue, updated_at: new Date().toISOString() });
 
-            case 'updateSettings':
+                console.log(`🤖 AI Auto-reply toggled to ${newValue ? 'ON' : 'OFF'}`);
+                return res.status(200).json({ success: true, enabled: newValue });
+            }
+
+            case 'setEnabled': {
+                const enabled = !!data?.enabled;
+                await supabase
+                    .from('app_settings')
+                    .upsert({ id: 'default', ai_auto_reply_enabled: enabled, updated_at: new Date().toISOString() });
+
+                console.log(`🤖 AI Auto-reply set to ${enabled ? 'ON' : 'OFF'}`);
+                return res.status(200).json({ success: true, enabled });
+            }
+
+            case 'updateSettings': {
+                const updates: any = { id: 'default', updated_at: new Date().toISOString() };
                 if (data?.confidenceThreshold !== undefined) {
-                    globalSettings.confidenceThreshold = data.confidenceThreshold;
+                    updates.ai_confidence_threshold = data.confidenceThreshold;
                 }
-                globalSettings.lastUpdated = new Date().toISOString();
-                break;
-
-            case 'setTrainingData':
-                if (Array.isArray(data)) {
-                    trainingData = data;
-                    console.log(`📚 Training data updated: ${data.length} pairs`);
-                }
-                break;
+                await supabase.from('app_settings').upsert(updates);
+                return res.status(200).json({ success: true });
+            }
 
             default:
                 return res.status(400).json({ error: 'Unknown action' });
         }
-
-        return res.status(200).json({
-            success: true,
-            settings: globalSettings,
-            trainingDataCount: trainingData.length
-        });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
