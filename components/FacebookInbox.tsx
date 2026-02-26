@@ -143,6 +143,21 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
         selectedConversationRef.current = selectedConversation;
     }, [selectedConversation]);
 
+    // Load AI settings from Supabase on mount
+    useEffect(() => {
+        fetch('/api/ai/settings')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    setIsAIEnabled(data.settings?.ai_auto_reply_enabled || false);
+                    if (data.trainingDataCount > 0) {
+                        setTrainingStats(prev => prev || { totalPairs: data.trainingDataCount, byCategory: {} });
+                    }
+                }
+            })
+            .catch(() => { });
+    }, []);
+
     // Scroll to bottom when needed (new conversation, send message, or new message from customer)
     useEffect(() => {
         if (shouldScrollToBottom) {
