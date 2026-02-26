@@ -173,9 +173,15 @@ export const productService = {
     async delete(id: string): Promise<boolean> {
         if (!isSupabaseConfigured()) return false;
 
+        // Delete variants first (foreign key constraint)
+        await supabase
+            .from('product_variants')
+            .delete()
+            .eq('product_id', id);
+
         const { error } = await supabase
             .from('products')
-            .update({ is_active: false })
+            .delete()
             .eq('id', id);
 
         return !error;

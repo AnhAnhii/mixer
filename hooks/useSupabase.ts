@@ -1,7 +1,7 @@
 // hooks/useSupabase.ts
 // React hooks for Supabase data fetching and mutations
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
     productService,
@@ -34,6 +34,7 @@ function useSupabaseData<T>(
     const [data, setData] = useState<T[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
+    const mutatingRef = useRef(false);
 
     const refetch = useCallback(async () => {
         if (!isSupabaseConfigured()) {
@@ -56,11 +57,13 @@ function useSupabaseData<T>(
     useEffect(() => {
         refetch();
 
-        // Subscribe to realtime changes
+        // Subscribe to realtime changes (with debounce to avoid overwriting optimistic updates)
         if (isSupabaseConfigured()) {
             const subscription = supabase
                 .channel(`${tableName}_changes`)
                 .on('postgres_changes', { event: '*', schema: 'public', table: tableName }, () => {
+                    // Skip refetch if we just did a mutation (optimistic update is already correct)
+                    if (mutatingRef.current) return;
                     refetch();
                 })
                 .subscribe();
@@ -71,40 +74,58 @@ function useSupabaseData<T>(
         }
     }, deps);
 
-    return { data, isLoading, error, refetch, setData };
+    // Wrapper to pause realtime during mutations
+    const mutate = useCallback(async <R>(fn: () => Promise<R>): Promise<R> => {
+        mutatingRef.current = true;
+        try {
+            const result = await fn();
+            return result;
+        } finally {
+            // Resume realtime after a delay to let DB settle
+            setTimeout(() => { mutatingRef.current = false; }, 2000);
+        }
+    }, []);
+
+    return { data, isLoading, error, refetch, setData, mutate };
 }
 
 // ==================== PRODUCTS ====================
 
 export function useProducts() {
-    const { data: products, isLoading, error, refetch, setData } = useSupabaseData<Product>(
+    const { data: products, isLoading, error, refetch, setData, mutate } = useSupabaseData<Product>(
         productService.getAll,
         'products'
     );
 
     const addProduct = useCallback(async (product: Omit<Product, 'id'>) => {
-        const newProduct = await productService.create(product);
-        if (newProduct) {
-            setData(prev => [newProduct, ...prev]);
-        }
-        return newProduct;
-    }, [setData]);
+        return mutate(async () => {
+            const newProduct = await productService.create(product);
+            if (newProduct) {
+                setData(prev => [newProduct, ...prev]);
+            }
+            return newProduct;
+        });
+    }, [setData, mutate]);
 
     const updateProduct = useCallback(async (id: string, product: Partial<Product>) => {
-        const success = await productService.update(id, product);
-        if (success) {
-            setData(prev => prev.map(p => p.id === id ? { ...p, ...product } : p));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await productService.update(id, product);
+            if (success) {
+                setData(prev => prev.map(p => p.id === id ? { ...p, ...product } : p));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     const deleteProduct = useCallback(async (id: string) => {
-        const success = await productService.delete(id);
-        if (success) {
-            setData(prev => prev.filter(p => p.id !== id));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await productService.delete(id);
+            if (success) {
+                setData(prev => prev.filter(p => p.id !== id));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     return { products, isLoading, error, refetch, addProduct, updateProduct, deleteProduct };
 }
