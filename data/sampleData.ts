@@ -1,112 +1,132 @@
 
-import type { Product, ProductVariant, Customer, Order, FacebookPost, AutomationRule, ActivityLog, User, ReturnRequest, Role } from '../types';
+import type { Product, ProductVariant, Customer, Order, FacebookPost, AutomationRule, ActivityLog, User, ReturnRequest, Role, MessageTemplate } from '../types';
 import { OrderStatus, ReturnRequestStatus } from '../types';
 
+export const sampleQuickTemplates: MessageTemplate[] = [
+    { id: 'greeting', label: '👋 Chào', text: 'Dạ chào bạn! Cảm ơn bạn đã quan tâm đến sản phẩm của shop ạ. Bạn cần tư vấn size/màu gì để em kiểm tra tồn kho nhé? 😊' },
+    { id: 'confirm', label: '✅ Xác nhận', text: 'Dạ em xác nhận đơn hàng của bạn rồi ạ. Bạn vui lòng gửi em địa chỉ và SĐT để em ship hàng nhé! 📦' },
+    { id: 'payment', label: '💳 CK', text: 'Dạ bạn chuyển khoản theo thông tin:\n🏦 MB Bank\n💳 STK: [số tài khoản]\n👤 Chủ TK: [tên]\n\nSau khi CK xong bạn gửi em bill để xác nhận ạ! 🙏' },
+    { id: 'shipped', label: '🚚 Đã ship', text: 'Dạ đơn hàng của bạn đã được gửi đi rồi ạ! 📦\nMã vận đơn: [mã]\nDự kiến 2-3 ngày sẽ nhận được hàng nhé! ✨' },
+    { id: 'thanks', label: '🙏 Cảm ơn', text: 'Cảm ơn bạn đã mua hàng tại shop ạ! 💕 Nếu hài lòng với sản phẩm, bạn để lại đánh giá 5⭐ giúp shop nhé. Hẹn gặp lại bạn! 🥰' },
+];
+
 export const sampleRoles: Role[] = [
-  {
-    id: 'role-admin',
-    name: 'Quản trị viên (Admin)',
-    description: 'Toàn quyền truy cập hệ thống',
-    isSystem: true,
-    permissions: ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_customers', 'manage_marketing', 'manage_staff', 'view_reports', 'manage_settings']
-  },
-  {
-    id: 'role-manager',
-    name: 'Quản lý (Manager)',
-    description: 'Quản lý vận hành, không can thiệp nhân sự cấp cao',
-    isSystem: true,
-    permissions: ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_customers', 'manage_marketing', 'view_reports']
-  },
-  {
-    id: 'role-staff',
-    name: 'Nhân viên (Staff)',
-    description: 'Xử lý đơn hàng và kho',
-    isSystem: true,
-    permissions: ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_customers']
-  }
+    {
+        id: 'role-admin',
+        name: 'Quản trị viên (Admin)',
+        description: 'Toàn quyền truy cập hệ thống',
+        isSystem: true,
+        permissions: ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_customers', 'manage_marketing', 'manage_staff', 'view_reports', 'manage_settings']
+    },
+    {
+        id: 'role-manager',
+        name: 'Quản lý (Manager)',
+        description: 'Quản lý vận hành, không can thiệp nhân sự cấp cao',
+        isSystem: true,
+        permissions: ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_customers', 'manage_marketing', 'view_reports']
+    },
+    {
+        id: 'role-staff',
+        name: 'Nhân viên (Staff)',
+        description: 'Xử lý đơn hàng và kho',
+        isSystem: true,
+        permissions: ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_customers']
+    }
 ];
 
 export const sampleUsers: User[] = [
-    { 
-      id: 'user-1', 
-      name: 'Nguyễn Quynh Trang', 
-      email: 'admin@mixer.com',
-      password: 'admin', // In real app, this is hashed
-      avatar: 'QT', 
-      roleId: 'role-admin',
-      joinDate: '2023-01-15T08:00:00Z',
-      bio: 'Founder & CEO tại Mixer Fashion. Đam mê thời trang và công nghệ.',
-      coverImage: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
-      status: 'active',
-      socialLinks: { facebook: 'fb.com/trangnq', instagram: 'inst.com/trangnq' }
+    {
+        id: 'user-1',
+        name: 'Nguyễn Quynh Trang',
+        email: 'admin@mixer.com',
+        password: 'admin', // In real app, this is hashed
+        avatar: 'QT',
+        roleId: 'role-admin',
+        joinDate: '2023-01-15T08:00:00Z',
+        bio: 'Founder & CEO tại Mixer Fashion. Đam mê thời trang và công nghệ.',
+        coverImage: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+        status: 'active',
+        socialLinks: { facebook: 'fb.com/trangnq', instagram: 'inst.com/trangnq' }
     },
-    { 
-      id: 'user-2', 
-      name: 'Trần Văn Bảo', 
-      email: 'bao@mixer.com',
-      password: '123',
-      avatar: 'TB', 
-      roleId: 'role-manager',
-      joinDate: '2023-03-10T09:30:00Z',
-      bio: 'Quản lý vận hành kho và đơn hàng.',
-      status: 'active'
+    {
+        id: 'user-2',
+        name: 'Trần Văn Bảo',
+        email: 'bao@mixer.com',
+        password: '123',
+        avatar: 'TB',
+        roleId: 'role-manager',
+        joinDate: '2023-03-10T09:30:00Z',
+        bio: 'Quản lý vận hành kho và đơn hàng.',
+        status: 'active'
     },
-    { 
-      id: 'user-3', 
-      name: 'Lê Thị Hoa', 
-      email: 'hoa@mixer.com',
-      password: '123',
-      avatar: 'LH', 
-      roleId: 'role-staff',
-      joinDate: '2023-06-20T08:45:00Z',
-      bio: 'Nhân viên chăm sóc khách hàng.',
-      status: 'active'
+    {
+        id: 'user-3',
+        name: 'Lê Thị Hoa',
+        email: 'hoa@mixer.com',
+        password: '123',
+        avatar: 'LH',
+        roleId: 'role-staff',
+        joinDate: '2023-06-20T08:45:00Z',
+        bio: 'Nhân viên chăm sóc khách hàng.',
+        status: 'active'
     }
 ];
 
 const sampleProductsData: Array<Omit<Product, 'id' | 'variants'> & { variants: Omit<ProductVariant, 'id'>[] }> = [
-  { name: 'Áo Thun Cotton Basic', price: 250000, costPrice: 120000, variants: [
-    { size: 'S', color: 'Trắng', stock: 50, lowStockThreshold: 10 },
-    { size: 'M', color: 'Trắng', stock: 45, lowStockThreshold: 10 },
-    { size: 'L', color: 'Trắng', stock: 3, lowStockThreshold: 5 },
-    { size: 'S', color: 'Đen', stock: 48, lowStockThreshold: 10 },
-    { size: 'M', color: 'Đen', stock: 52, lowStockThreshold: 10 },
-    { size: 'L', color: 'Đen', stock: 25, lowStockThreshold: 5 },
-  ]},
-  { name: 'Quần Jeans Slim-fit', price: 550000, costPrice: 300000, variants: [
-    { size: '29', color: 'Xanh nhạt', stock: 20, lowStockThreshold: 5 },
-    { size: '30', color: 'Xanh nhạt', stock: 25, lowStockThreshold: 5 },
-    { size: '31', color: 'Xanh nhạt', stock: 15, lowStockThreshold: 5 },
-    { size: '30', color: 'Đen', stock: 22, lowStockThreshold: 5 },
-    { size: '32', color: 'Đen', stock: 0, lowStockThreshold: 5 },
-  ]},
-  { name: 'Áo Sơ Mi Oxford', price: 450000, costPrice: 250000, variants: [
-    { size: 'M', color: 'Trắng', stock: 30, lowStockThreshold: 8 },
-    { size: 'L', color: 'Trắng', stock: 20, lowStockThreshold: 8 },
-    { size: 'M', color: 'Xanh da trời', stock: 35, lowStockThreshold: 8 },
-    { size: 'L', color: 'Xanh da trời', stock: 22, lowStockThreshold: 8 },
-  ]},
-  { name: 'Áo Hoodie Nỉ Bông', price: 650000, costPrice: 350000, variants: [
-      { size: 'S', color: 'Xám', stock: 15, lowStockThreshold: 5 },
-      { size: 'M', color: 'Xám', stock: 12, lowStockThreshold: 5 },
-      { size: 'L', color: 'Xám', stock: 8, lowStockThreshold: 5 },
-  ]},
-  { name: 'Quần Short Kaki', price: 320000, costPrice: 150000, variants: [
-      { size: '28', color: 'Be', stock: 40, lowStockThreshold: 10 },
-      { size: '30', color: 'Be', stock: 30, lowStockThreshold: 10 },
-      { size: '32', color: 'Be', stock: 25, lowStockThreshold: 10 },
-  ]},
-   { name: 'Jacket Da Lộn', price: 890000, costPrice: 500000, variants: [
-      { size: 'M', color: 'Nâu', stock: 10, lowStockThreshold: 3 },
-      { size: 'L', color: 'Nâu', stock: 7, lowStockThreshold: 3 },
-  ]}
+    {
+        name: 'Áo Thun Cotton Basic', price: 250000, costPrice: 120000, variants: [
+            { size: 'S', color: 'Trắng', stock: 50, lowStockThreshold: 10 },
+            { size: 'M', color: 'Trắng', stock: 45, lowStockThreshold: 10 },
+            { size: 'L', color: 'Trắng', stock: 3, lowStockThreshold: 5 },
+            { size: 'S', color: 'Đen', stock: 48, lowStockThreshold: 10 },
+            { size: 'M', color: 'Đen', stock: 52, lowStockThreshold: 10 },
+            { size: 'L', color: 'Đen', stock: 25, lowStockThreshold: 5 },
+        ]
+    },
+    {
+        name: 'Quần Jeans Slim-fit', price: 550000, costPrice: 300000, variants: [
+            { size: '29', color: 'Xanh nhạt', stock: 20, lowStockThreshold: 5 },
+            { size: '30', color: 'Xanh nhạt', stock: 25, lowStockThreshold: 5 },
+            { size: '31', color: 'Xanh nhạt', stock: 15, lowStockThreshold: 5 },
+            { size: '30', color: 'Đen', stock: 22, lowStockThreshold: 5 },
+            { size: '32', color: 'Đen', stock: 0, lowStockThreshold: 5 },
+        ]
+    },
+    {
+        name: 'Áo Sơ Mi Oxford', price: 450000, costPrice: 250000, variants: [
+            { size: 'M', color: 'Trắng', stock: 30, lowStockThreshold: 8 },
+            { size: 'L', color: 'Trắng', stock: 20, lowStockThreshold: 8 },
+            { size: 'M', color: 'Xanh da trời', stock: 35, lowStockThreshold: 8 },
+            { size: 'L', color: 'Xanh da trời', stock: 22, lowStockThreshold: 8 },
+        ]
+    },
+    {
+        name: 'Áo Hoodie Nỉ Bông', price: 650000, costPrice: 350000, variants: [
+            { size: 'S', color: 'Xám', stock: 15, lowStockThreshold: 5 },
+            { size: 'M', color: 'Xám', stock: 12, lowStockThreshold: 5 },
+            { size: 'L', color: 'Xám', stock: 8, lowStockThreshold: 5 },
+        ]
+    },
+    {
+        name: 'Quần Short Kaki', price: 320000, costPrice: 150000, variants: [
+            { size: '28', color: 'Be', stock: 40, lowStockThreshold: 10 },
+            { size: '30', color: 'Be', stock: 30, lowStockThreshold: 10 },
+            { size: '32', color: 'Be', stock: 25, lowStockThreshold: 10 },
+        ]
+    },
+    {
+        name: 'Jacket Da Lộn', price: 890000, costPrice: 500000, variants: [
+            { size: 'M', color: 'Nâu', stock: 10, lowStockThreshold: 3 },
+            { size: 'L', color: 'Nâu', stock: 7, lowStockThreshold: 3 },
+        ]
+    }
 ];
 
 
 export const sampleProducts: Product[] = sampleProductsData.map(p => ({
-  id: crypto.randomUUID(),
-  ...p,
-  variants: p.variants.map(v => ({ id: crypto.randomUUID(), ...v }))
+    id: crypto.randomUUID(),
+    ...p,
+    variants: p.variants.map(v => ({ id: crypto.randomUUID(), ...v }))
 }));
 
 const sampleCustomersData: Omit<Customer, 'id' | 'createdAt'>[] = [
@@ -180,7 +200,7 @@ export const sampleOrders: Order[] = [
         paymentStatus: 'Unpaid',
         discussion: []
     },
-     {
+    {
         id: crypto.randomUUID().substring(0, 8),
         customerId: sampleCustomers[3].id,
         customerName: sampleCustomers[3].name,

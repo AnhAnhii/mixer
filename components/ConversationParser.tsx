@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { SparklesIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ExclamationTriangleIcon } from './icons';
-import { GEMINI_API_KEY } from '../config';
 import type { Product, Order, OrderItem, Customer } from '../types';
 
 interface ParsedConversationData {
@@ -40,70 +39,71 @@ const ConversationParser: React.FC<ConversationParserProps> = ({ products, onOrd
         setResult(null);
 
         try {
-            if (!GEMINI_API_KEY) {
-                throw new Error("Vui lòng cấu hình GEMINI_API_KEY trong file .env.local");
-            }
-
-            const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-
-            const productList = products.map(p => ({
-                id: p.id,
-                name: p.name,
-                price: p.price,
-                variants: p.variants.map(v => ({
-                    id: v.id,
-                    size: v.size,
-                    color: v.color,
-                    stock: v.stock
-                }))
-            }));
-
-            const prompt = `
-Bạn là AI trợ lý bán hàng thời trang. Phân tích cuộc hội thoại Messenger/Zalo sau đây và trích xuất thông tin đặt hàng.
-
-CUỘC HỘI THOẠI:
-"""
-${conversation}
-"""
-
-DANH SÁCH SẢN PHẨM CÓ SẴN:
-${JSON.stringify(productList, null, 2)}
-
-YÊU CẦU:
-1. Trích xuất: Tên khách, SĐT, địa chỉ, sản phẩm muốn mua (tên, size, màu, số lượng), ghi chú
-2. Khớp sản phẩm khách nói với danh sách có sẵn (nếu có thể)
-3. Liệt kê những thông tin còn THIẾU cần hỏi thêm
-
-Trả về JSON với cấu trúc:
-{
-  "customerName": string | null,
-  "customerPhone": string | null,
-  "shippingAddress": string | null,
-  "items": [
-    {
-      "productName": string,
-      "size": string | null,
-      "color": string | null,
-      "quantity": number,
-      "matchedProductId": string | null,
-      "matchedVariantId": string | null
-    }
-  ],
-  "notes": string | null,
-  "missingInfo": ["Thiếu size", "Thiếu địa chỉ", ...]
-}
-`;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
+            setError("Tính năng này đang được nâng cấp để bảo mật hơn. Vui lòng sử dụng AI trích xuất trong Messenger.");
+            setIsLoading(false);
+            return;
+            /*
+                        const ai = new GoogleGenAI({ apiKey: 'PROXY' });
+            
+                        const productList = products.map(p => ({
+                            id: p.id,
+                            name: p.name,
+                            price: p.price,
+                            variants: p.variants.map(v => ({
+                                id: v.id,
+                                size: v.size,
+                                color: v.color,
+                                stock: v.stock
+                            }))
+                        }));
+            
+                        const prompt = `
+            Bạn là AI trợ lý bán hàng thời trang. Phân tích cuộc hội thoại Messenger/Zalo sau đây và trích xuất thông tin đặt hàng.
+            
+            CUỘC HỘI THOẠI:
+            """
+            ${conversation}
+            """
+            
+            DANH SÁCH SẢN PHẨM CÓ SẴN:
+            ${JSON.stringify(productList, null, 2)}
+            
+            YÊU CẦU:
+            1. Trích xuất: Tên khách, SĐT, địa chỉ, sản phẩm muốn mua (tên, size, màu, số lượng), ghi chú
+            2. Khớp sản phẩm khách nói với danh sách có sẵn (nếu có thể)
+            3. Liệt kê những thông tin còn THIẾU cần hỏi thêm
+            
+            Trả về JSON với cấu trúc:
+            {
+              "customerName": string | null,
+              "customerPhone": string | null,
+              "shippingAddress": string | null,
+              "items": [
+                {
+                  "productName": string,
+                  "size": string | null,
+                  "color": string | null,
+                  "quantity": number,
+                  "matchedProductId": string | null,
+                  "matchedVariantId": string | null
                 }
-            });
-
-            const parsed = JSON.parse(response.text || '{}') as ParsedConversationData;
-            setResult(parsed);
+              ],
+              "notes": string | null,
+              "missingInfo": ["Thiếu size", "Thiếu địa chỉ", ...]
+            }
+            `;
+            
+                        const response = await ai.models.generateContent({
+                            model: 'gemini-2.5-flash',
+                            contents: prompt,
+                            config: {
+                                responseMimeType: "application/json",
+                            }
+                        });
+            
+                        const parsed = JSON.parse(response.text || '{}') as ParsedConversationData;
+                        setResult(parsed);
+            */
 
         } catch (err) {
             console.error(err);

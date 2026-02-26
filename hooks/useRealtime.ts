@@ -3,7 +3,7 @@
  * When a row is inserted/updated/deleted, the local state is updated immediately.
  */
 
-import { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 

@@ -182,6 +182,12 @@ export interface CommentReply {
   text: string;
 }
 
+export interface MessageTemplate {
+  id: string;
+  label: string;
+  text: string;
+}
+
 export interface SocialPostConfig {
   postId: string;
   isEnabled: boolean;

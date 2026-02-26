@@ -24,10 +24,38 @@ import type {
     ReturnRequest,
     AutomationRule,
     BankInfo,
+    MessageTemplate,
 } from '../types';
 
 // Sample data for localStorage fallback
-import { sampleProducts, sampleCustomers, sampleOrders, sampleActivityLogs, sampleAutomationRules, sampleReturnRequests } from '../data/sampleData';
+import { sampleProducts, sampleCustomers, sampleOrders, sampleActivityLogs, sampleAutomationRules, sampleReturnRequests, sampleQuickTemplates } from '../data/sampleData';
+
+// ... (existing code)
+
+// ==================== QUICK TEMPLATES ====================
+
+export function useQuickTemplatesData() {
+    const source = getDataSource();
+
+    const supabase = useSettings<MessageTemplate[]>('quick_templates', sampleQuickTemplates);
+    const [localTemplates, setLocalTemplates] = useLocalStorage<MessageTemplate[]>('quickTemplates-v2', sampleQuickTemplates);
+
+    if (source === 'supabase') {
+        return {
+            templates: supabase.value || [],
+            setTemplates: supabase.setValue,
+            isLoading: supabase.isLoading,
+            source: 'supabase' as const,
+        };
+    }
+
+    return {
+        templates: localTemplates,
+        setTemplates: async (value: MessageTemplate[]) => setLocalTemplates(value),
+        isLoading: false,
+        source: 'localStorage' as const,
+    };
+}
 
 // ==================== UNIFIED DATA PROVIDER ====================
 

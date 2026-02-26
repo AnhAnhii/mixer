@@ -53,7 +53,7 @@ import { logger } from './utils/logger';
 
 // Hooks & Data
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus, useSocialConfigsData } from './hooks/useData';
+import { useProductsData, useCustomersData, useOrdersData, useVouchersData, useBankInfoData, useActivityLogsData, useAutomationRulesData, useReturnRequestsData, useDataSourceStatus, useSocialConfigsData, useQuickTemplatesData } from './hooks/useData';
 import { useFacebookMessenger } from './hooks/useFacebookMessenger';
 import { useActivityLogger } from './hooks/useActivityLogger';
 import { useAutomations } from './hooks/useAutomations';
@@ -87,6 +87,7 @@ const AppContent: React.FC = () => {
 
     // Return/Exchange State - Using Supabase
     const { returnRequests, setReturnRequests, updateStatus: updateReturnStatus, isLoading: returnsLoading } = useReturnRequestsData();
+    const { templates, setTemplates } = useQuickTemplatesData();
 
     // Data source status
     const { source: dataSource, isSupabaseConfigured, isSupabaseConnected } = useDataSourceStatus();
@@ -121,9 +122,9 @@ const AppContent: React.FC = () => {
     // Update refs whenever data changes (for automation/export features)
     useEffect(() => {
         allDataRef.current = {
-            orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users
+            orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users, messageTemplates: templates
         };
-    }, [orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users]);
+    }, [orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users, templates]);
 
     // --- Data Migration & Safety Checks ---
     useEffect(() => {
@@ -565,7 +566,7 @@ const AppContent: React.FC = () => {
             case 'reports': return <ReportsPage orders={orders} />;
             case 'staff': return <StaffManagement users={users} roles={roles} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onAddRole={handleAddRole} onUpdateRole={handleUpdateRole} onDeleteRole={handleDeleteRole} />;
             case 'profile': return <ProfilePage user={currentUser} activityLog={activityLog} onUpdateProfile={updateProfile} />;
-            case 'settings': return <SettingsPage bankInfo={bankInfo} allData={{ orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users: users }} onImportData={() => { }} />;
+            case 'settings': return <SettingsPage bankInfo={bankInfo} allData={{ orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users, messageTemplates: templates }} onUpdateTemplates={setTemplates} onImportData={(data) => { }} />;
             default: return <div className="text-center py-20">Tính năng đang phát triển hoặc bạn không có quyền truy cập.</div>;
         }
     };

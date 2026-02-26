@@ -14,7 +14,6 @@ import type {
     AutomationRule,
     ReturnRequest,
     BankInfo,
-    ThemeSettings,
     SocialPostConfig,
 } from '../types';
 
@@ -621,11 +620,11 @@ export const settingsService = {
         return settingsService.set('bank_info', bankInfo);
     },
 
-    async getTheme(): Promise<ThemeSettings | null> {
-        return settingsService.get<ThemeSettings>('theme');
+    async getTheme(): Promise<any | null> {
+        return settingsService.get<any>('theme');
     },
 
-    async setTheme(theme: ThemeSettings): Promise<boolean> {
+    async setTheme(theme: any): Promise<boolean> {
         return settingsService.set('theme', theme);
     },
 

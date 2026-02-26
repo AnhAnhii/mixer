@@ -1,8 +1,8 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import type { BankInfo, Order, Product, Customer, Voucher, SocialPostConfig, ActivityLog, AutomationRule, ReturnRequest, User } from '../types';
+import type { BankInfo, Order, Product, Customer, Voucher, SocialPostConfig, ActivityLog, AutomationRule, ReturnRequest, User, MessageTemplate } from '../types';
 import { banks } from '../data/banks';
-import { ArrowDownTrayIcon, ArrowUpTrayIcon } from './icons';
+import { ArrowDownTrayIcon, ArrowUpTrayIcon, TrashIcon, PencilIcon, PlusIcon, ChatBubbleLeftEllipsisIcon } from './icons';
 import { useToast } from './Toast';
 import { saveGoogleSheetsSettings, loadGoogleSheetsSettings, getStoredGoogleScriptUrl, getStoredSheetName } from '../services/googleSheetsService';
 
@@ -19,11 +19,13 @@ interface SettingsPageProps {
     automationRules: AutomationRule[];
     returnRequests: ReturnRequest[];
     users: User[];
+    messageTemplates: MessageTemplate[];
   };
+  onUpdateTemplates: (templates: MessageTemplate[]) => void;
   onImportData: (data: any) => void;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImportData }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onUpdateTemplates, onImportData }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
@@ -31,6 +33,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
   const [googleScriptUrl, setGoogleScriptUrl] = useState('');
   const [sheetName, setSheetName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
+  const [newTemplate, setNewTemplate] = useState<Omit<MessageTemplate, 'id'>>({ label: '', text: '' });
+  const [isAddingTemplate, setIsAddingTemplate] = useState(false);
 
   // Load Google Sheets settings on mount
   useEffect(() => {
@@ -102,6 +107,40 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
     }
   };
 
+  const currentTemplates = allData.messageTemplates || [];
+
+  const handleAddTemplate = () => {
+    if (!newTemplate.label || !newTemplate.text) {
+      toast.error('Vui lòng nhập đầy đủ thông tin mẫu tin nhắn');
+      return;
+    }
+    const id = `tpl-${Date.now()}`;
+    const updatedTemplates = [...currentTemplates, { ...newTemplate, id }];
+    onUpdateTemplates(updatedTemplates);
+    setNewTemplate({ label: '', text: '' });
+    setIsAddingTemplate(false);
+    toast.success('Đã thêm mẫu tin nhắn thành công!');
+  };
+
+  const handleUpdateTemplate = () => {
+    if (!editingTemplate || !editingTemplate.label || !editingTemplate.text) {
+      toast.error('Vui lòng nhập đầy đủ thông tin mẫu tin nhắn');
+      return;
+    }
+    const updatedTemplates = currentTemplates.map(t => t.id === editingTemplate.id ? editingTemplate : t);
+    onUpdateTemplates(updatedTemplates);
+    setEditingTemplate(null);
+    toast.success('Đã cập nhật mẫu tin nhắn!');
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa mẫu tin nhắn này?')) {
+      const updatedTemplates = currentTemplates.filter(t => t.id !== id);
+      onUpdateTemplates(updatedTemplates);
+      toast.success('Đã xóa mẫu tin nhắn!');
+    }
+  };
+
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500">
       <div className="flex justify-between items-center mb-10">
@@ -168,6 +207,112 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ bankInfo, allData, onImport
               </button>
               <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
             </div>
+          </div>
+        </div>
+
+        {/* Message Templates Section */}
+        <div className="animate-in slide-in-from-bottom-4 duration-500 delay-[260ms]">
+          <h3 className="text-[13px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+            Mẫu tin nhắn nhanh
+          </h3>
+          <div className="p-8 bg-muted/20 border border-border/50 rounded-[32px] space-y-6">
+            <p className="text-[14px] font-bold text-muted-foreground opacity-60 leading-relaxed max-w-2xl px-1">
+              Quản lý các mẫu tin nhắn nhanh để phản hồi khách hàng trong Inbox Command Center. Sử dụng để chào hỏi, thông báo phí ship hoặc xác nhận đơn hàng.
+            </p>
+
+            {/* List of Templates */}
+            <div className="grid grid-cols-1 gap-4">
+              {currentTemplates.map(template => (
+                <div key={template.id} className="p-5 bg-white border border-border rounded-2xl shadow-soft-sm group hover:border-primary/20 transition-all">
+                  {editingTemplate?.id === template.id ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                        <div className="sm:col-span-1">
+                          <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5 ml-1">Nhãn nút</label>
+                          <input
+                            type="text"
+                            value={editingTemplate.label}
+                            onChange={e => setEditingTemplate({ ...editingTemplate, label: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-sm font-bold outline-none focus:border-primary/50"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5 ml-1">Nội dung tin nhắn</label>
+                          <textarea
+                            value={editingTemplate.text}
+                            onChange={e => setEditingTemplate({ ...editingTemplate, text: e.target.value })}
+                            rows={3}
+                            className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-sm font-medium outline-none focus:border-primary/50"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-3">
+                        <button onClick={() => setEditingTemplate(null)} className="px-4 py-2 text-sm font-bold text-muted-foreground hover:text-foreground">Hủy</button>
+                        <button onClick={handleUpdateTemplate} className="px-6 py-2 bg-primary text-white rounded-xl text-sm font-black shadow-soft-sm hover:bg-primary-dark transition-all">Lưu</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className="mt-1 px-3 py-1.5 bg-primary/5 text-primary border border-primary/10 rounded-lg font-black text-[12px] uppercase tracking-wide">
+                          {template.label}
+                        </div>
+                        <p className="text-sm font-medium text-foreground leading-relaxed whitespace-pre-line">{template.text}</p>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => setEditingTemplate(template)} className="p-2 text-muted-foreground hover:text-primary transition-colors">
+                          <PencilIcon className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => handleDeleteTemplate(template.id)} className="p-2 text-muted-foreground hover:text-status-error transition-colors">
+                          <TrashIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Add New Template */}
+            {!isAddingTemplate ? (
+              <button
+                onClick={() => setIsAddingTemplate(true)}
+                className="w-full py-4 border-2 border-dashed border-border rounded-[20px] flex items-center justify-center gap-2 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all font-black text-sm uppercase tracking-widest"
+              >
+                <PlusIcon className="w-5 h-5" />
+                Thêm mẫu tin nhắn mới
+              </button>
+            ) : (
+              <div className="p-6 bg-white border-2 border-primary/20 rounded-[28px] shadow-soft-lg animate-in zoom-in-95 duration-300">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-6 mb-6">
+                  <div className="sm:col-span-1">
+                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1">Nhãn nút (Ngắn)</label>
+                    <input
+                      type="text"
+                      placeholder="Ví dụ: 👋 Chào"
+                      value={newTemplate.label}
+                      onChange={e => setNewTemplate({ ...newTemplate, label: e.target.value })}
+                      className="w-full px-5 py-3.5 bg-muted/10 border border-border rounded-2xl text-sm font-bold outline-none focus:border-primary/50"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1">Nội dung tin nhắn</label>
+                    <textarea
+                      placeholder="Nhập nội dung mẫu..."
+                      value={newTemplate.text}
+                      onChange={e => setNewTemplate({ ...newTemplate, text: e.target.value })}
+                      rows={4}
+                      className="w-full px-5 py-3.5 bg-muted/10 border border-border rounded-2xl text-sm font-medium outline-none focus:border-primary/50"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <button onClick={() => setIsAddingTemplate(false)} className="px-6 py-3 text-sm font-black text-muted-foreground hover:text-foreground">Đóng</button>
+                  <button onClick={handleAddTemplate} className="px-10 py-3.5 bg-primary text-white rounded-2xl text-sm font-black shadow-soft-lg hover:bg-primary-dark transition-all active:scale-95">Xác nhận thêm</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

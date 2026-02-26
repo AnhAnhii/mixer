@@ -58,15 +58,6 @@ interface FacebookInboxProps {
     onUpdateOrderStatus?: (orderId: string, status: string) => void;
 }
 
-// Quick Reply Templates
-const QUICK_TEMPLATES = [
-    { id: 'greeting', label: '👋 Chào', text: 'Dạ chào bạn! Cảm ơn bạn đã quan tâm đến sản phẩm của shop ạ. Bạn cần tư vấn size/màu gì để em kiểm tra tồn kho nhé? 😊' },
-    { id: 'confirm', label: '✅ Xác nhận', text: 'Dạ em xác nhận đơn hàng của bạn rồi ạ. Bạn vui lòng gửi em địa chỉ và SĐT để em ship hàng nhé! 📦' },
-    { id: 'payment', label: '💳 CK', text: 'Dạ bạn chuyển khoản theo thông tin:\n🏦 MB Bank\n💳 STK: [số tài khoản]\n👤 Chủ TK: [tên]\n\nSau khi CK xong bạn gửi em bill để xác nhận ạ! 🙏' },
-    { id: 'shipped', label: '🚚 Đã ship', text: 'Dạ đơn hàng của bạn đã được gửi đi rồi ạ! 📦\nMã vận đơn: [mã]\nDự kiến 2-3 ngày sẽ nhận được hàng nhé! ✨' },
-    { id: 'thanks', label: '🙏 Cảm ơn', text: 'Cảm ơn bạn đã mua hàng tại shop ạ! 💕 Nếu hài lòng với sản phẩm, bạn để lại đánh giá 5⭐ giúp shop nhé. Hẹn gặp lại bạn! 🥰' },
-];
-
 // Common emojis
 const COMMON_EMOJIS = ['😊', '👍', '❤️', '🙏', '✨', '📦', '🚚', '💕', '🔥', '💯', '👋', '😍', '🎉', '💪', '✅'];
 
@@ -84,6 +75,9 @@ const playNotificationSound = () => {
     } catch (e) { }
 };
 
+// Components & Hooks
+import { useQuickTemplatesData } from '../hooks/useData';
+
 const FacebookInbox: React.FC<FacebookInboxProps> = ({
     pageId = '105265398928721',
     orders = [],
@@ -96,6 +90,7 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     onUpdateOrderStatus
 }) => {
     const toast = useToast();
+    const { templates: QUICK_TEMPLATES } = useQuickTemplatesData();
 
     // State
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -259,6 +254,8 @@ const FacebookInbox: React.FC<FacebookInboxProps> = ({
     const selectConversation = (conv: Conversation) => {
         setSelectedConversation(conv);
         setShouldScrollToBottom(true); // Scroll xuống khi chọn conversation mới
+        setShowTemplates(false);
+        setShowEmojis(false);
         loadMessages(conv.id);
 
         // Mark as read locally

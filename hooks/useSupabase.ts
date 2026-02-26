@@ -22,7 +22,6 @@ import type {
     ReturnRequest,
     AutomationRule,
     BankInfo,
-    ThemeSettings,
 } from '../types';
 
 // Generic hook for Supabase data
@@ -289,7 +288,7 @@ export function useBankInfo() {
 }
 
 export function useTheme() {
-    return useSettings<ThemeSettings>('theme', {
+    return useSettings<{ palette: string; density: string; style: string }>('theme', {
         palette: 'modern',
         density: 'comfortable',
         style: 'rounded',
