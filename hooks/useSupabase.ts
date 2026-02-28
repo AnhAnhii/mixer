@@ -132,34 +132,40 @@ export function useProducts() {
 // ==================== CUSTOMERS ====================
 
 export function useCustomers() {
-    const { data: customers, isLoading, error, refetch, setData } = useSupabaseData<Customer>(
+    const { data: customers, isLoading, error, refetch, setData, mutate } = useSupabaseData<Customer>(
         customerService.getAll,
         'customers'
     );
 
     const addCustomer = useCallback(async (customer: Omit<Customer, 'id'>) => {
-        const newCustomer = await customerService.create(customer);
-        if (newCustomer) {
-            setData(prev => [newCustomer, ...prev]);
-        }
-        return newCustomer;
-    }, [setData]);
+        return mutate(async () => {
+            const newCustomer = await customerService.create(customer);
+            if (newCustomer) {
+                setData(prev => [newCustomer, ...prev]);
+            }
+            return newCustomer;
+        });
+    }, [setData, mutate]);
 
     const updateCustomer = useCallback(async (id: string, customer: Partial<Customer>) => {
-        const success = await customerService.update(id, customer);
-        if (success) {
-            setData(prev => prev.map(c => c.id === id ? { ...c, ...customer } : c));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await customerService.update(id, customer);
+            if (success) {
+                setData(prev => prev.map(c => c.id === id ? { ...c, ...customer } : c));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     const deleteCustomer = useCallback(async (id: string) => {
-        const success = await customerService.delete(id);
-        if (success) {
-            setData(prev => prev.filter(c => c.id !== id));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await customerService.delete(id);
+            if (success) {
+                setData(prev => prev.filter(c => c.id !== id));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     return { customers, isLoading, error, refetch, addCustomer, updateCustomer, deleteCustomer };
 }
@@ -167,42 +173,50 @@ export function useCustomers() {
 // ==================== ORDERS ====================
 
 export function useOrders() {
-    const { data: orders, isLoading, error, refetch, setData } = useSupabaseData<Order>(
+    const { data: orders, isLoading, error, refetch, setData, mutate } = useSupabaseData<Order>(
         orderService.getAll,
         'orders'
     );
 
     const addOrder = useCallback(async (order: Omit<Order, 'id'>) => {
-        const newOrder = await orderService.create(order);
-        if (newOrder) {
-            setData(prev => [newOrder, ...prev]);
-        }
-        return newOrder;
-    }, [setData]);
+        return mutate(async () => {
+            const newOrder = await orderService.create(order);
+            if (newOrder) {
+                setData(prev => [newOrder, ...prev]);
+            }
+            return newOrder;
+        });
+    }, [setData, mutate]);
 
     const updateOrder = useCallback(async (id: string, order: Partial<Order>) => {
-        const success = await orderService.update(id, order);
-        if (success) {
-            setData(prev => prev.map(o => o.id === id ? { ...o, ...order } : o));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await orderService.update(id, order);
+            if (success) {
+                setData(prev => prev.map(o => o.id === id ? { ...o, ...order } : o));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     const updateOrderStatus = useCallback(async (id: string, status: string) => {
-        const success = await orderService.updateStatus(id, status);
-        if (success) {
-            setData(prev => prev.map(o => o.id === id ? { ...o, status: status as any } : o));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await orderService.updateStatus(id, status);
+            if (success) {
+                setData(prev => prev.map(o => o.id === id ? { ...o, status: status as any } : o));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     const deleteOrder = useCallback(async (id: string) => {
-        const success = await orderService.delete(id);
-        if (success) {
-            setData(prev => prev.filter(o => o.id !== id));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await orderService.delete(id);
+            if (success) {
+                setData(prev => prev.filter(o => o.id !== id));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     return { orders, isLoading, error, refetch, addOrder, updateOrder, updateOrderStatus, deleteOrder };
 }
@@ -210,34 +224,40 @@ export function useOrders() {
 // ==================== VOUCHERS ====================
 
 export function useVouchers() {
-    const { data: vouchers, isLoading, error, refetch, setData } = useSupabaseData<Voucher>(
+    const { data: vouchers, isLoading, error, refetch, setData, mutate } = useSupabaseData<Voucher>(
         voucherService.getAll,
         'vouchers'
     );
 
     const addVoucher = useCallback(async (voucher: Omit<Voucher, 'id'>) => {
-        const newVoucher = await voucherService.create(voucher);
-        if (newVoucher) {
-            setData(prev => [newVoucher, ...prev]);
-        }
-        return newVoucher;
-    }, [setData]);
+        return mutate(async () => {
+            const newVoucher = await voucherService.create(voucher);
+            if (newVoucher) {
+                setData(prev => [newVoucher, ...prev]);
+            }
+            return newVoucher;
+        });
+    }, [setData, mutate]);
 
     const updateVoucher = useCallback(async (id: string, voucher: Partial<Voucher>) => {
-        const success = await voucherService.update(id, voucher);
-        if (success) {
-            setData(prev => prev.map(v => v.id === id ? { ...v, ...voucher } : v));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await voucherService.update(id, voucher);
+            if (success) {
+                setData(prev => prev.map(v => v.id === id ? { ...v, ...voucher } : v));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     const deleteVoucher = useCallback(async (id: string) => {
-        const success = await voucherService.delete(id);
-        if (success) {
-            setData(prev => prev.filter(v => v.id !== id));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await voucherService.delete(id);
+            if (success) {
+                setData(prev => prev.filter(v => v.id !== id));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     return { vouchers, isLoading, error, refetch, addVoucher, updateVoucher, deleteVoucher };
 }
@@ -317,42 +337,50 @@ export function useReturnRequests() {
 // ==================== AUTOMATION RULES ====================
 
 export function useAutomationRules() {
-    const { data: rules, isLoading, error, refetch, setData } = useSupabaseData<AutomationRule>(
+    const { data: rules, isLoading, error, refetch, setData, mutate } = useSupabaseData<AutomationRule>(
         automationRuleService.getAll,
         'automation_rules'
     );
 
     const addRule = useCallback(async (rule: Omit<AutomationRule, 'id'>) => {
-        const newRule = await automationRuleService.create(rule);
-        if (newRule) {
-            setData(prev => [newRule, ...prev]);
-        }
-        return newRule;
-    }, [setData]);
+        return mutate(async () => {
+            const newRule = await automationRuleService.create(rule);
+            if (newRule) {
+                setData(prev => [newRule, ...prev]);
+            }
+            return newRule;
+        });
+    }, [setData, mutate]);
 
     const updateRule = useCallback(async (id: string, rule: Partial<AutomationRule>) => {
-        const success = await automationRuleService.update(id, rule);
-        if (success) {
-            setData(prev => prev.map(r => r.id === id ? { ...r, ...rule } : r));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await automationRuleService.update(id, rule);
+            if (success) {
+                setData(prev => prev.map(r => r.id === id ? { ...r, ...rule } : r));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     const deleteRule = useCallback(async (id: string) => {
-        const success = await automationRuleService.delete(id);
-        if (success) {
-            setData(prev => prev.filter(r => r.id !== id));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await automationRuleService.delete(id);
+            if (success) {
+                setData(prev => prev.filter(r => r.id !== id));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     const toggleRule = useCallback(async (id: string, isEnabled: boolean) => {
-        const success = await automationRuleService.toggle(id, isEnabled);
-        if (success) {
-            setData(prev => prev.map(r => r.id === id ? { ...r, isEnabled } : r));
-        }
-        return success;
-    }, [setData]);
+        return mutate(async () => {
+            const success = await automationRuleService.toggle(id, isEnabled);
+            if (success) {
+                setData(prev => prev.map(r => r.id === id ? { ...r, isEnabled } : r));
+            }
+            return success;
+        });
+    }, [setData, mutate]);
 
     return { rules, isLoading, error, refetch, addRule, updateRule, deleteRule, toggleRule };
 }
