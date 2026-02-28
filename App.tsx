@@ -354,25 +354,48 @@ const AppContent: React.FC = () => {
         const isEditing = orders.some(o => o.id === order.id);
 
         // Save/Update customer using Supabase hooks
+        let finalCustomer = customerToSave;
         const customerIndex = customers.findIndex(c => c.id === customerToSave.id);
+
         if (customerIndex > -1) {
             await updateCustomer(customerToSave.id, customerToSave);
         } else {
             // Strip id for new customer - Supabase will generate UUID
             const { id: _customerId, ...customerWithoutId } = customerToSave;
-            await addCustomer(customerWithoutId);
+            const savedCustomer = await addCustomer(customerWithoutId);
+            if (savedCustomer) {
+                finalCustomer = savedCustomer;
+            }
         }
+
+        // Update order with the final customer ID (especially if it was a new customer)
+        const orderToSave = {
+            ...order,
+            customerId: finalCustomer.id,
+            customerName: finalCustomer.name,
+            customerPhone: finalCustomer.phone,
+            shippingAddress: finalCustomer.address || order.shippingAddress
+        };
 
         // Save/Update order using Supabase hooks
         if (isEditing) {
-            await updateOrder(order.id, order);
-            logActivity(`<strong>${currentUser?.name}</strong> đã cập nhật đơn hàng <strong>#${orderIdShort}</strong>.`, order.id, 'order');
-            // Sync to Google Sheets
-            syncOrderDirect({ ...order, staffName: currentUser?.name }, 'update').catch(console.error);
+            const success = await updateOrder(orderToSave.id as string, orderToSave as Order);
+            if (success) {
+                logActivity(`<strong>${currentUser?.name}</strong> đã cập nhật đơn hàng <strong>#${orderIdShort}</strong>.`, order.id as string, 'order');
+                // Sync to Google Sheets
+                syncOrderDirect({ ...orderToSave, staffName: currentUser?.name } as any, 'update').catch(console.error);
+
+                setIsOrderFormOpen(false);
+                setEditingOrder(null);
+                toast.success('Cập nhật đơn hàng thành công!');
+            } else {
+                toast.error('Lỗi khi cập nhật đơn hàng.');
+            }
         } else {
             // Strip id for new order - Supabase will generate UUID
-            const { id: _orderId, ...orderWithoutId } = order;
-            const newOrder = await addOrder(orderWithoutId);
+            const { id: _orderId, ...orderWithoutId } = orderToSave;
+            const newOrder = await addOrder(orderWithoutId as Omit<Order, 'id'>);
+
             if (newOrder) {
                 logActivity(`<strong>${currentUser?.name}</strong> đã tạo đơn hàng mới <strong>#${newOrder.id.substring(0, 8)}</strong>.`, newOrder.id, 'order');
                 runAutomations('ORDER_CREATED', { order: newOrder });
@@ -383,11 +406,14 @@ const AppContent: React.FC = () => {
                 if (newOrder.facebookUserId) {
                     sendOrderStatusToCustomer(newOrder, 'Chờ xử lý').catch(console.error);
                 }
+
+                setIsOrderFormOpen(false);
+                setEditingOrder(null);
+                toast.success('Tạo đơn hàng thành công!');
+            } else {
+                toast.error('Lỗi khi tạo đơn hàng mới. Vui lòng kiểm tra lại dữ liệu.');
             }
         }
-        setIsOrderFormOpen(false);
-        setEditingOrder(null);
-        toast.success('Lưu đơn hàng thành công!');
     };
 
     const handleQuickOrderParse = async (text: string, useThinkingMode: boolean) => {
