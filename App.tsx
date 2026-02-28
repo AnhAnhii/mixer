@@ -592,7 +592,7 @@ const AppContent: React.FC = () => {
             case 'reports': return <ReportsPage orders={orders} />;
             case 'staff': return <StaffManagement users={users} roles={roles} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onAddRole={handleAddRole} onUpdateRole={handleUpdateRole} onDeleteRole={handleDeleteRole} />;
             case 'profile': return <ProfilePage user={currentUser} activityLog={activityLog} onUpdateProfile={updateProfile} />;
-            case 'settings': return <SettingsPage bankInfo={bankInfo} allData={{ orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users, messageTemplates: templates }} onUpdateTemplates={setTemplates} onImportData={(data) => { }} />;
+            case 'settings': return <SettingsPage bankInfo={bankInfo} onUpdateBankInfo={setBankInfo} allData={{ orders, products, customers, vouchers, bankInfo, socialConfigs, activityLog, automationRules, returnRequests, users, messageTemplates: templates }} onUpdateTemplates={setTemplates} onImportData={(data) => { }} />;
             default: return <div className="text-center py-20">Tính năng đang phát triển hoặc bạn không có quyền truy cập.</div>;
         }
     };
