@@ -7,6 +7,7 @@ import { appendAuditLog, appendPendingHandoff, appendRawEventLog, buildPendingHa
 import { sendFacebookMessage } from './facebook-send.js';
 import { buildMessageKey, createMessageDeduper } from './idempotency.js';
 import { createThreadStateStore } from './thread-state.js';
+import { notifyTelegramDraft } from './telegram-notify.js';
 
 const DEFAULT_PIPELINE_VERSION = '0.1.0';
 
@@ -109,6 +110,11 @@ export async function processWebhookBody(body, options = {}) {
 
     let handoffPath = null;
 
+    const telegramNotifyResult = await maybeNotifyTelegram(record, options);
+    if (telegramNotifyResult?.status === 'failed') {
+      console.error('fanpage-bot telegram notify failed', telegramNotifyResult);
+    }
+
     if (sendResult.status === 'sent') {
       threadStateStore.markAutoSend(normalizedMessage.thread_key, {
         sentAt: normalizeMessageTimestamp(normalizedMessage.timestamp),
@@ -129,7 +135,7 @@ export async function processWebhookBody(body, options = {}) {
       handoffPath = appendPendingHandoff(pendingRecord, options.handoffPath);
     }
 
-    outputs.push({ ...record, log_path: logPath, raw_log_path: rawLogPath, handoff_path: handoffPath });
+    outputs.push({ ...record, log_path: logPath, raw_log_path: rawLogPath, handoff_path: handoffPath, telegram_notify_result: telegramNotifyResult });
   }
 
   return outputs;
@@ -339,4 +345,17 @@ function truncateText(text, maxLength = 120) {
   const normalized = String(text).replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxLength) return normalized;
   return `${normalized.slice(0, maxLength - 1)}…`;
+}
+
+
+async function maybeNotifyTelegram(record, options) {
+  try {
+    return await notifyTelegramDraft(record, options);
+  } catch (error) {
+    return {
+      attempted: true,
+      status: 'failed',
+      error: String(error.message || error)
+    };
+  }
 }
