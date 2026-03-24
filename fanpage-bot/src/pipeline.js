@@ -111,6 +111,12 @@ export async function processWebhookBody(body, options = {}) {
     let handoffPath = null;
 
     const telegramNotifyResult = await maybeNotifyTelegram(record, options);
+    console.log('TELEGRAM NOTIFY RESULT', JSON.stringify({
+      message_id: normalizedMessage.message_id || null,
+      decision: record?.delivery?.decision || null,
+      result: telegramNotifyResult || null
+    }));
+
     if (telegramNotifyResult?.status === 'failed') {
       console.error('fanpage-bot telegram notify failed', telegramNotifyResult);
     }
