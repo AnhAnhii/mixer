@@ -1,0 +1,13 @@
+{
+  "name": "fanpage-bot",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "smoke": "node src/cli-smoke.js",
+    "handoffs": "node src/list-handoffs.js",
+    "handoff:resolve": "node src/resolve-handoff.js",
+    "metrics": "node src/report-metrics.js",
+    "replay": "node src/replay-webhook.js"
+  }
+}
