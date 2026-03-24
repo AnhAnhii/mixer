@@ -56,6 +56,7 @@ function buildTelegramSummary(record) {
   const draft = guarded.reply_text || '(không có draft)';
   const decisionLine = summarizeDecision(delivery.decision, delivery.reason || sendResult.reason);
   const supportLine = summarizeSupportWindow(delivery);
+  const visionLine = summarizeVision(record?.vision);
   const missingInfo = formatList(guarded.missing_info);
   const flags = formatList(guarded.safety_flags);
   const policyRefs = formatList(guarded.policy_refs);
@@ -76,6 +77,10 @@ function buildTelegramSummary(record) {
 
   if (supportLine) {
     lines.push(`<b>Khung giờ hỗ trợ</b>: ${escapeHtml(supportLine)}`);
+  }
+
+  if (visionLine) {
+    lines.push(`<b>Ảnh sản phẩm</b>: ${escapeHtml(visionLine)}`);
   }
 
   if (missingInfo) {
@@ -167,4 +172,13 @@ function truncate(text, max = 280) {
   const normalized = String(text).replace(/\s+/g, ' ').trim();
   if (normalized.length <= max) return normalized;
   return `${normalized.slice(0, max - 1)}…`;
+}
+
+
+function summarizeVision(vision) {
+  if (!vision) return null;
+  if (vision.used_vision && vision.summary) return vision.summary;
+  if (!vision.used_vision && vision.summary) return vision.summary;
+  if (Array.isArray(vision.items) && vision.items.length) return `Khách có gửi ${vision.items.length} ảnh, chưa đọc được mô tả chi tiết.`;
+  return null;
 }

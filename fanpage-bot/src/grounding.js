@@ -13,7 +13,7 @@ export function loadGroundingData() {
   return groundingCache;
 }
 
-export function buildGroundedInput(normalizedMessage, triage, recentMessages = []) {
+export function buildGroundedInput(normalizedMessage, triage, recentMessages = [], vision = null) {
   return {
     channel: normalizedMessage.source,
     page_id: normalizedMessage.page_id,
@@ -21,7 +21,13 @@ export function buildGroundedInput(normalizedMessage, triage, recentMessages = [
     message_id: normalizedMessage.message_id,
     timestamp: normalizedMessage.timestamp,
     latest_customer_message: normalizedMessage.text,
+    attachments: (normalizedMessage.attachments || []).map((attachment) => ({
+      type: attachment?.type || null,
+      url: attachment?.payload?.url || null,
+      mime_type: attachment?.payload?.mime_type || null
+    })),
     recent_messages: recentMessages,
+    vision: vision || null,
     triage: {
       case_type_hint: triage.case_type,
       risk_level_hint: triage.risk_level,

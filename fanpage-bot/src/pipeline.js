@@ -7,6 +7,7 @@ import { appendAuditLog, appendPendingHandoff, appendRawEventLog, buildPendingHa
 import { sendFacebookMessage } from './facebook-send.js';
 import { buildMessageKey, createMessageDeduper } from './idempotency.js';
 import { createThreadStateStore } from './thread-state.js';
+import { analyzeProductAttachments } from './vision.js';
 import { notifyTelegramDraft } from './telegram-notify.js';
 
 const DEFAULT_PIPELINE_VERSION = '0.1.0';
@@ -78,7 +79,9 @@ export async function processWebhookBody(body, options = {}) {
     }
 
     const triage = classifyMessage(normalizedMessage);
-    const groundedInput = buildGroundedInput(normalizedMessage, triage, options.recentMessages || []);
+    const vision = await analyzeProductAttachments(normalizedMessage, options);
+    logPipelineStage('VISION SUMMARY', summarizeVision(vision));
+    const groundedInput = buildGroundedInput(normalizedMessage, triage, options.recentMessages || [], vision);
     const { draft, meta } = await generateDraft(groundedInput);
     const guarded = applyPolicyGuard(normalizedMessage, triage, draft, {
       ...options,
@@ -91,6 +94,7 @@ export async function processWebhookBody(body, options = {}) {
       processing_meta: buildProcessingMeta(options, meta),
       normalized_message: normalizedMessage,
       triage,
+      vision,
       grounded_input: groundedInput,
       ai_meta: meta,
       ai_draft: draft,
@@ -364,4 +368,21 @@ async function maybeNotifyTelegram(record, options) {
       error: String(error.message || error)
     };
   }
+}
+
+
+function summarizeVision(vision) {
+  if (!vision) {
+    return { attempted: false, used_vision: false, summary: null };
+  }
+
+  return {
+    attempted: Boolean(vision.attempted),
+    used_vision: Boolean(vision.used_vision),
+    summary: vision.summary || null,
+    likely_product_type: vision.likely_product_type || null,
+    dominant_color: vision.dominant_color || null,
+    notable_details: Array.isArray(vision.notable_details) ? vision.notable_details.slice(0, 5) : [],
+    reason: vision.reason || null
+  };
 }
