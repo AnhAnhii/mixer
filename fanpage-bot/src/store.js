@@ -1,19 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveWritableDataPath } from './runtime-paths.js';
 
-export function appendAuditLog(record, targetPath = process.env.LOG_STORE_PATH || path.resolve(process.cwd(), 'data/logs/audit.jsonl')) {
+export function appendAuditLog(record, targetPath = process.env.LOG_STORE_PATH || resolveWritableDataPath('data/logs/audit.jsonl')) {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.appendFileSync(targetPath, JSON.stringify(record) + '\n', 'utf8');
   return targetPath;
 }
 
-export function appendRawEventLog(record, targetPath = process.env.RAW_EVENT_STORE_PATH || path.resolve(process.cwd(), 'data/logs/raw-events.jsonl')) {
+export function appendRawEventLog(record, targetPath = process.env.RAW_EVENT_STORE_PATH || resolveWritableDataPath('data/logs/raw-events.jsonl')) {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.appendFileSync(targetPath, JSON.stringify(record) + '\n', 'utf8');
   return targetPath;
 }
 
-export function appendPendingHandoff(record, targetPath = process.env.HANDOFF_STORE_PATH || path.resolve(process.cwd(), 'data/logs/pending-handoffs.jsonl')) {
+export function appendPendingHandoff(record, targetPath = process.env.HANDOFF_STORE_PATH || resolveWritableDataPath('data/logs/pending-handoffs.jsonl')) {
   const dedupeKey = buildPendingHandoffKey(record);
   const dedupePath = `${targetPath}.dedupe.json`;
   const dedupeState = loadPendingHandoffDedupeState(dedupePath);
@@ -40,7 +41,7 @@ export function appendPendingHandoff(record, targetPath = process.env.HANDOFF_ST
   return targetPath;
 }
 
-export function appendHandoffResolution(record, targetPath = process.env.HANDOFF_RESOLUTION_STORE_PATH || path.resolve(process.cwd(), 'data/logs/handoff-resolutions.jsonl')) {
+export function appendHandoffResolution(record, targetPath = process.env.HANDOFF_RESOLUTION_STORE_PATH || resolveWritableDataPath('data/logs/handoff-resolutions.jsonl')) {
   const resolutionRecord = {
     resolved_at: new Date().toISOString(),
     status: 'resolved',
@@ -75,11 +76,11 @@ export function buildPendingHandoffRecord({ normalizedMessage, triage, guarded, 
   };
 }
 
-export function readPendingHandoffs(targetPath = process.env.HANDOFF_STORE_PATH || path.resolve(process.cwd(), 'data/logs/pending-handoffs.jsonl')) {
+export function readPendingHandoffs(targetPath = process.env.HANDOFF_STORE_PATH || resolveWritableDataPath('data/logs/pending-handoffs.jsonl')) {
   return readJsonl(targetPath);
 }
 
-export function readHandoffResolutions(targetPath = process.env.HANDOFF_RESOLUTION_STORE_PATH || path.resolve(process.cwd(), 'data/logs/handoff-resolutions.jsonl')) {
+export function readHandoffResolutions(targetPath = process.env.HANDOFF_RESOLUTION_STORE_PATH || resolveWritableDataPath('data/logs/handoff-resolutions.jsonl')) {
   return readJsonl(targetPath);
 }
 
