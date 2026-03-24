@@ -23,6 +23,7 @@ export async function notifyTelegramDraft(record, options = {}) {
     body: JSON.stringify({
       chat_id: chatId,
       text: message,
+      parse_mode: 'HTML',
       disable_web_page_preview: true
     })
   });
@@ -51,30 +52,91 @@ function buildTelegramSummary(record) {
   const guarded = record?.guarded_draft || {};
   const delivery = record?.delivery || {};
   const sendResult = record?.send_result || {};
+  const text = normalized.text || '(trống)';
+  const draft = guarded.reply_text || '(không có draft)';
+  const decisionLine = summarizeDecision(delivery.decision, delivery.reason || sendResult.reason);
+  const supportLine = summarizeSupportWindow(delivery);
+  const missingInfo = formatList(guarded.missing_info);
+  const flags = formatList(guarded.safety_flags);
+  const policyRefs = formatList(guarded.policy_refs);
 
   const lines = [
-    '📩 Fanpage draft update',
-    `Khách nhắn: ${truncate(normalized.text) || '(trống)'}`,
-    `Case: ${triage.case_type || 'n/a'}`,
-    `Risk: ${triage.risk_level || 'n/a'}`,
-    `Decision: ${delivery.decision || 'n/a'}`,
-    `Reason: ${delivery.reason || sendResult.reason || 'n/a'}`,
-    `Draft: ${truncate(guarded.reply_text, 500) || '(không có)'}`
+    '<b>📩 Fanpage draft update</b>',
+    '',
+    '<b>Khách nhắn</b>',
+    escapeHtml(truncate(text, 600)),
+    '',
+    '<b>Bot dự kiến trả lời</b>',
+    escapeHtml(truncate(draft, 900)),
+    '',
+    `<b>Case</b>: <code>${escapeHtml(triage.case_type || 'n/a')}</code>`,
+    `<b>Risk</b>: <code>${escapeHtml(triage.risk_level || 'n/a')}</code>`,
+    `<b>Quyết định</b>: ${escapeHtml(decisionLine)}`
   ];
 
-  if (Array.isArray(guarded.missing_info) && guarded.missing_info.length) {
-    lines.push(`Missing: ${guarded.missing_info.join(', ')}`);
+  if (supportLine) {
+    lines.push(`<b>Khung giờ hỗ trợ</b>: ${escapeHtml(supportLine)}`);
   }
 
-  if (Array.isArray(guarded.safety_flags) && guarded.safety_flags.length) {
-    lines.push(`Flags: ${guarded.safety_flags.join(', ')}`);
+  if (missingInfo) {
+    lines.push(`<b>Còn thiếu</b>: ${escapeHtml(missingInfo)}`);
+  }
+
+  if (flags) {
+    lines.push(`<b>Cờ an toàn</b>: ${escapeHtml(flags)}`);
+  }
+
+  if (policyRefs) {
+    lines.push(`<b>Policy refs</b>: ${escapeHtml(policyRefs)}`);
   }
 
   if (normalized.message_id) {
-    lines.push(`MID: ${normalized.message_id}`);
+    lines.push(`<b>MID</b>: <code>${escapeHtml(normalized.message_id)}</code>`);
   }
 
   return lines.join('\n');
+}
+
+function summarizeDecision(decision, reason) {
+  const map = {
+    draft_only: 'draft_only — chờ Saram duyệt/gửi tay',
+    handoff: 'handoff — nên để người xử lý',
+    would_auto_send: 'would_auto_send — đủ điều kiện nhưng đang shadow mode',
+    auto_send: 'auto_send — đã cho phép gửi thật',
+    ignore: 'ignore — bỏ qua event không cần xử lý'
+  };
+
+  const base = map[decision] || (decision || 'n/a');
+  if (!reason || reason === decision) {
+    return base;
+  }
+
+  return `${base} (${reason})`;
+}
+
+function summarizeSupportWindow(delivery) {
+  if (delivery?.within_support_hours == null) {
+    return null;
+  }
+
+  return delivery.within_support_hours
+    ? 'đang trong giờ hỗ trợ'
+    : 'ngoài giờ hỗ trợ';
+}
+
+function formatList(value) {
+  if (!Array.isArray(value) || !value.length) {
+    return null;
+  }
+
+  return value.map((item) => String(item).trim()).filter(Boolean).join(', ');
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function readBool(explicitValue, envValue, defaultValue) {
