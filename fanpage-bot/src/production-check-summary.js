@@ -79,8 +79,47 @@ function buildProductionCheckSummary(records, meta) {
       }
     },
     {
+      key: 'pricing_detail_acknowledgement',
+      label: 'C. Pricing detail acknowledgement',
+      expectedCaseType: 'pricing_or_promotion',
+      expectedDecisions: ['handoff', 'draft_only'],
+      rejectDecisions: ['would_auto_send', 'auto_send'],
+      rejectCaseTypes: ['unknown', 'shipping_eta_general', 'shipping_carrier'],
+      selectors: [
+        /áo\s+.*size\s*[smlx0-9]/i,
+        /mẫu\s*[:\-]/i,
+        /link\s*(sản\s*phẩm|sp)?\s*[:\-]/i
+      ],
+      matcher: (record, text) => {
+        const resolvedSlots = resolvedSlotNames(record);
+        return activeIssueBefore(record) === 'pricing_or_promotion'
+          && (
+            resolvedSlots.has('product_name')
+            || resolvedSlots.has('size')
+            || resolvedSlots.has('size_or_variant')
+            || textIncludesAny(text, [/(?:mẫu|áo|quần|set|váy|đầm|sản\s*phẩm)\s*[:\-]?\s*.+/i, /size\s*[xsml0-9]/i, /link\s*[:\-]?\s*https?:\/\//i])
+          );
+      },
+      extraChecks: (record) => {
+        const notes = [];
+        const reply = readReplyText(record);
+        const missingInfo = missingInfoAfter(record);
+        const resolvedSlots = resolvedSlotNames(record);
+        if (/tên mẫu cụ thể|ảnh\/link sản phẩm/i.test(reply)) {
+          notes.push('pricing_followup_reasked_product_detail');
+        }
+        if (missingInfo.includes('product_name') && !resolvedSlots.has('product_name')) {
+          notes.push('product_name_still_missing_after_customer_detail');
+        }
+        if (!/đã nhận thông tin mẫu|kiểm tra lại giá\/ưu đãi|phản hồi mình sớm nhất/i.test(reply)) {
+          notes.push('pricing_acknowledgement_wording_not_observed');
+        }
+        return notes;
+      }
+    },
+    {
       key: 'order_status_followup_continuity',
-      label: 'C. Order status follow-up continuity',
+      label: 'D. Order status follow-up continuity',
       expectedCaseType: 'order_status_request',
       expectedDecisions: ['handoff', 'draft_only'],
       rejectDecisions: ['would_auto_send', 'auto_send'],
@@ -111,8 +150,35 @@ function buildProductionCheckSummary(records, meta) {
       }
     },
     {
+      key: 'shipping_to_order_followup',
+      label: 'E. Shipping → order follow-up escalation',
+      expectedCaseType: 'order_status_request',
+      expectedDecisions: ['handoff', 'draft_only'],
+      rejectDecisions: ['would_auto_send', 'auto_send'],
+      rejectCaseTypes: ['shipping_eta_general', 'shipping_carrier', 'unknown'],
+      selectors: [
+        /đơn\s*(mình|em|anh|chị).*(bao lâu|mấy ngày|khi nào nhận|đến đâu|tới đâu)/i,
+        /đơn\s*này.*(bao lâu|mấy ngày|khi nào nhận|đến đâu|tới đâu)/i,
+        /kiểm\s*tra\s*đơn/i
+      ],
+      matcher: (record, text) => isOrderSpecificShippingFollowup(text)
+        || (isShippingCase(activeIssueBefore(record)) && triageCase(record) === 'order_status_request')
+        || (isShippingCase(activeIssueBefore(record)) && activeIssueAfter(record) === 'order_status_request'),
+      extraChecks: (record) => {
+        const notes = [];
+        if (isShippingCase(activeIssueBefore(record)) && activeIssueAfter(record) !== 'order_status_request') {
+          notes.push('shipping_thread_did_not_escalate_to_order_status');
+        }
+        const missingInfo = missingInfoAfter(record);
+        if (!missingInfo.includes('order_code')) {
+          notes.push('order_code_not_requested_after_shipping_to_order_followup');
+        }
+        return notes;
+      }
+    },
+    {
       key: 'complaint_negative_feedback',
-      label: 'D. Complaint / negative feedback',
+      label: 'F. Complaint / negative feedback',
       expectedCaseType: 'complaint_or_negative_feedback',
       expectedDecisions: ['handoff', 'draft_only'],
       rejectDecisions: ['would_auto_send', 'auto_send'],
@@ -361,6 +427,7 @@ function buildCompactSample(record) {
     reply_text: readReplyText(record) || null,
     active_issue_before: activeIssueBefore(record) || null,
     active_issue_after: activeIssueAfter(record) || null,
+    missing_info_after: missingInfoAfter(record),
     asked_slots_after: record?.thread_memory_after?.asked_slots || []
   };
 }
@@ -404,6 +471,36 @@ function readReplyText(record) {
     || record?.ai_draft?.reply?.reply_text
     || ''
   );
+}
+
+function missingInfoAfter(record) {
+  const missing = record?.guarded_draft?.missing_info
+    || record?.guarded_draft?.reply?.missing_info
+    || record?.triage?.missing_info
+    || [];
+  return Array.isArray(missing) ? missing.filter(Boolean) : [];
+}
+
+function resolvedSlotNames(record) {
+  return new Set(((record?.thread_memory_after?.asked_slots) || [])
+    .filter((item) => item?.status === 'resolved' && item?.slot)
+    .map((item) => item.slot));
+}
+
+function isShippingCase(caseType) {
+  return caseType === 'shipping_eta_general' || caseType === 'shipping_carrier';
+}
+
+function isOrderSpecificShippingFollowup(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  const hasOrderReference = /(đơn\s*(mình|em|anh|chị|của mình|của em|của anh|của chị)|đơn này|đơn đó|đơn kia|đơn rồi|đơn đang)/.test(normalized);
+  const hasStatusOrEtaQuestion = /(bao lâu|mấy ngày|khi nào nhận|khi nào tới|đến chưa|tới đâu|đến đâu|đang ở đâu|bao giờ nhận|bao giờ tới|kiểm tra đơn)/.test(normalized);
+
+  return hasOrderReference && hasStatusOrEtaQuestion;
 }
 
 function textIncludesAny(text, patterns) {
