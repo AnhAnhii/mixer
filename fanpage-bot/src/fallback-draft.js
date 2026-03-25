@@ -212,6 +212,20 @@ function buildPricingPromotionDraft({ latestCustomerMessage, threadMemory, sales
   const referencedProductDeictically = mentionsUnspecifiedProduct(latestCustomerMessage);
   const hasStrongBuyerIntent = String(salesAssist?.buyer_intent_hint || '') === 'present'
     || String(salesAssist?.lead_strength_hint || '') === 'high';
+  const missingProductReference = missingInfo.includes('product_name');
+
+  if (!missingProductReference) {
+    return draft(
+      'Dạ bên em đã nhận thông tin mẫu anh/chị quan tâm rồi ạ. Để bên em kiểm tra lại giá/ưu đãi hiện có và phản hồi mình sớm nhất nha.',
+      'handoff',
+      0.86,
+      true,
+      [],
+      'pricing_or_promotion_waiting_manual_grounded_check',
+      ['case:pricing_or_promotion'],
+      ['pricing_unverified', 'promotion_unverified']
+    );
+  }
 
   const replyText = alreadyAskedForProduct
     ? 'Dạ để em kiểm tra đúng giá/ưu đãi hiện có cho mình, anh/chị gửi giúp em tên mẫu cụ thể hoặc ảnh/link sản phẩm nha. Nếu mình chốt luôn thì nhắn thêm size/màu đang cần, bên em sẽ kiểm tra đúng hơn cho mình ạ.'
