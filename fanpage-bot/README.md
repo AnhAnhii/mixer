@@ -115,16 +115,20 @@ cd fanpage-bot
 npm run continuity:check
 ```
 
-This is the fastest repeatable check after any continuity-related fix. It seeds a minimal thread state, replays follow-up messages through the real pipeline, and returns a tight pass/fail summary for the two behaviors that most easily regress:
+This is the fastest repeatable check after any continuity-related fix. It seeds minimal thread state, replays follow-up messages through the real pipeline, and returns a tight pass/fail summary for the risky continuity behaviors that most easily regress:
+- pricing detail acknowledgement
+- stock follow-up continuity
 - order-status follow-up continuity
 - complaint follow-up continuity
 
 What it validates:
 - follow-up stays on the original risky case instead of falling back to `unknown`
 - delivery stays non-auto (`handoff` / `draft_only`)
-- the bot acknowledges newly provided identifier info instead of asking for it again
-- thread memory clears `pending_customer_reply` once the requested identifier arrives
+- the bot acknowledges newly provided detail/identifier info instead of asking for it again
+- thread memory clears `pending_customer_reply` once the requested info arrives
 - expected slot resolution is visible in `thread_memory_after`
+
+Use `npm run production:check` for the audit/log-oriented production readback lanes, especially shipping ETA and shipping -> order escalation. `continuity:check` is the fast local regression helper for stateful follow-up behavior before/alongside that production readback.
 
 Artifacts are isolated under `data/tmp/continuity-check/` so this check does not pollute normal logs/state.
 
