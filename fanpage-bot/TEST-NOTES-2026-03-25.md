@@ -23,7 +23,7 @@ Smoke/replay sanity check for the new reasoning-first reply-brain bundle in `fan
   - `shipping_eta_general` stays low-risk + auto-reply-eligible in case memory
   - `order_status_request` stays handoff in case memory
   - `complaint_or_negative_feedback` stays handoff in case memory
-  - shipping ETA policy bundle exists and still carries ambiguity notes
+  - shipping ETA policy bundle exists and keeps one canonical ETA wording
   - tone guide keeps the reasoning-first rule
   - pattern bank still forbids script-first misuse
 

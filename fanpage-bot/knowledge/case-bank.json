@@ -84,8 +84,8 @@
       "reasoning_memory": {
         "what_a_good_agent_realizes": [
           "This is answerable only as an estimate; it is not a promise.",
-          "There is source ambiguity in ETA data, so phrasing should stay soft and region-aware.",
-          "If location is missing and needed for precision, asking a short follow-up is better than bluffing."
+          "The shipping ETA wording is now canonical, so the answer should stay consistent with the approved structure.",
+          "If location is missing and the customer wants precision, asking a short follow-up is better than bluffing."
         ],
         "preferred_strategy": "give_estimate_then_offer_more_precise_help_if_location_known",
         "missing_info_to_request": ["delivery_region_if_customer_wants_precise_eta"],
@@ -94,7 +94,7 @@
         "unsafe_behaviors": [
           "giving an exact delivery date",
           "answering an order-status complaint as if it were a simple FAQ",
-          "using the conflicting ETA sources as if there were no uncertainty"
+          "drifting away from the canonical ETA wording/structure without grounded reason"
         ],
         "escalation_signals": [
           "customer sounds frustrated about an existing order",

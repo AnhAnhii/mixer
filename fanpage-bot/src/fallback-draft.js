@@ -228,7 +228,7 @@ function summarizeShippingEta(policyEntries) {
     return '2-3 ngày với đơn nội thành Hà Nội, 3-5 ngày với ngoại thành Hà Nội, và 4-7 ngày với các tỉnh/thành khác';
   }
 
-  const preferredFact = etaPolicy.facts.find((fact) => fact.fact_id === 'eta_grounded_v1') || etaPolicy.facts[0];
+  const preferredFact = etaPolicy.facts.find((fact) => fact.fact_id === 'eta_canonical_v1') || etaPolicy.facts[0];
   return cleanupStatement(preferredFact.statement)
     .replace(/^/u, '')
     .replace(/\.$/, '');
