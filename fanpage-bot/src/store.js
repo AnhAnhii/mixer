@@ -151,6 +151,7 @@ function trimPendingHandoffDedupeState(state, maxKeys) {
 }
 
 function persistPendingHandoffDedupeState(filePath, state) {
+  filePath = normalizeWritableTargetPath(filePath, 'data/logs/pending-handoffs.jsonl.dedupe.json');
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(state, null, 2), 'utf8');
 }
@@ -188,4 +189,16 @@ function buildResolutionLookupKey(record) {
   }
 
   return null;
+}
+
+function normalizeWritableTargetPath(targetPath, fallbackRelativePath) {
+  if (!targetPath) {
+    return resolveWritableDataPath(fallbackRelativePath);
+  }
+
+  if (targetPath === '/var/task' || targetPath.startsWith('/var/task/')) {
+    return resolveWritableDataPath(fallbackRelativePath);
+  }
+
+  return targetPath;
 }
