@@ -1,0 +1,248 @@
+{
+  "version": "v1-skeleton",
+  "brain_role": "product_sales_knowledge",
+  "brand": "Mixer",
+  "channel": "facebook_fanpage_inbox",
+  "status": "skeleton_only_no_real_product_data_loaded",
+  "north_star": "Canonical product, variant, pricing, inventory, sizing, material, and promotion knowledge for reasoning-first sales support.",
+  "usage_rules": [
+    "Do not treat this file as populated truth until real data is loaded.",
+    "Do not infer inventory, price, promotion, material, or size advice when fields are empty or null.",
+    "If a fact is stale, missing, or source confidence is low, ask a focused follow-up or handoff instead of bluffing.",
+    "Keep policy facts in policy-bank.json; keep selling/commercial facts here.",
+    "Prefer fewer, larger syncs from a canonical source over one-off manual edits."
+  ],
+  "source_of_truth_plan": {
+    "recommended_sources": [
+      {
+        "source_type": "database_export",
+        "covers": ["products", "variants", "pricing", "inventory"],
+        "priority": 1
+      },
+      {
+        "source_type": "google_sheet_or_ops_sheet",
+        "covers": ["material", "fit", "size_guide", "product_faq", "alternatives"],
+        "priority": 2
+      },
+      {
+        "source_type": "voucher_or_promo_export",
+        "covers": ["promotions"],
+        "priority": 1
+      }
+    ],
+    "freshness_requirements": {
+      "inventory_should_include_last_updated_at": true,
+      "pricing_should_include_effective_from": true,
+      "promotions_should_include_start_end": true,
+      "stale_data_default_action": "draft_only_or_handoff"
+    }
+  },
+  "global_fields": {
+    "currency": "VND",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "size_system_default": "brand_defined",
+    "inventory_semantics": "available_to_sell",
+    "data_owner": "operations_or_merchandising"
+  },
+  "products": [
+    {
+      "product_id": "",
+      "product_slug": "",
+      "display_name": "",
+      "collection": "",
+      "category": "",
+      "status": "draft",
+      "active": false,
+      "visible_in_sales": false,
+      "canonical_url": "",
+      "image_urls": [],
+      "tags": [],
+      "selling_points": [],
+      "material_summary": {
+        "primary_material": "",
+        "composition": [],
+        "texture_notes": [],
+        "thickness_level": null,
+        "stretch_level": null,
+        "breathability_level": null,
+        "lining": null,
+        "confidence": "unknown",
+        "source": "",
+        "last_updated_at": null
+      },
+      "fit_summary": {
+        "fit_type": "",
+        "silhouette_notes": [],
+        "fit_vs_standard": "",
+        "gender_positioning": "",
+        "styling_use_cases": [],
+        "confidence": "unknown",
+        "source": "",
+        "last_updated_at": null
+      },
+      "size_guide": {
+        "size_system": "",
+        "sizes": [],
+        "body_measurement_guide": [],
+        "garment_measurement_guide": [],
+        "height_weight_rules": [],
+        "fit_notes": [],
+        "between_two_sizes_rule": "",
+        "confidence": "unknown",
+        "source": "",
+        "last_updated_at": null
+      },
+      "care_guide": {
+        "washing": [],
+        "drying": [],
+        "ironing": [],
+        "special_notes": [],
+        "confidence": "unknown",
+        "source": "",
+        "last_updated_at": null
+      },
+      "faq": [
+        {
+          "faq_id": "",
+          "question": "",
+          "answer_fact": "",
+          "tags": [],
+          "confidence": "unknown",
+          "source": "",
+          "last_updated_at": null
+        }
+      ],
+      "comparison_notes": [
+        {
+          "target_product_id": "",
+          "difference_summary": "",
+          "use_when": ""
+        }
+      ],
+      "alternatives": [
+        {
+          "target_product_id": "",
+          "reason": "",
+          "priority": 0
+        }
+      ],
+      "commercial": {
+        "price_list": [
+          {
+            "price_type": "current",
+            "amount": null,
+            "currency": "VND",
+            "effective_from": null,
+            "effective_to": null,
+            "source": "",
+            "last_updated_at": null
+          }
+        ],
+        "promotion_flags": [],
+        "bundle_candidates": [],
+        "upsell_notes": []
+      },
+      "variants": [
+        {
+          "variant_id": "",
+          "sku": "",
+          "barcode": "",
+          "label": "",
+          "color": "",
+          "size": "",
+          "attributes": {},
+          "inventory": {
+            "available": null,
+            "reserved": null,
+            "low_stock_threshold": null,
+            "status": "unknown",
+            "last_updated_at": null,
+            "source": ""
+          },
+          "pricing": {
+            "current_price": null,
+            "compare_at_price": null,
+            "currency": "VND",
+            "effective_from": null,
+            "effective_to": null,
+            "source": "",
+            "last_updated_at": null
+          },
+          "visibility": {
+            "active": false,
+            "allow_sale": false
+          }
+        }
+      ],
+      "ops_meta": {
+        "source_refs": [],
+        "owner": "",
+        "last_full_review_at": null,
+        "stale_after_minutes": 1440,
+        "notes_for_bot": []
+      }
+    }
+  ],
+  "promotions": [
+    {
+      "promo_id": "",
+      "title": "",
+      "status": "inactive",
+      "applies_to": {
+        "scope": "all_products_or_specific_products_or_specific_variants",
+        "product_ids": [],
+        "variant_ids": [],
+        "collections": []
+      },
+      "voucher_code": "",
+      "discount_type": "fixed_or_percentage",
+      "discount_value": null,
+      "min_order_value": null,
+      "stacking_rule": "",
+      "start_at": null,
+      "end_at": null,
+      "source": "",
+      "last_updated_at": null,
+      "customer_facing_notes": []
+    }
+  ],
+  "order_capture_rules": {
+    "minimum_fields_to_create_order": [
+      "customer_name",
+      "customer_phone",
+      "shipping_address",
+      "product_or_variant_identifier",
+      "quantity"
+    ],
+    "recommended_fields_to_confirm_before_submit": [
+      "size",
+      "color",
+      "payment_method"
+    ],
+    "if_missing_variant_exactness": "ask_follow_up_before_confirming_order",
+    "if_inventory_unknown": "handoff_or_check_inventory_first"
+  },
+  "sales_reasoning_hints": {
+    "safe_when_present": [
+      "current_price with timestamp",
+      "variant inventory with timestamp",
+      "size guide with confidence",
+      "material and fit notes from verified source"
+    ],
+    "unsafe_without_data": [
+      "claiming in-stock status",
+      "giving exact price after promo without active promo data",
+      "recommending size confidently without size guide or customer measurements",
+      "claiming product feel/material traits without verified notes"
+    ]
+  },
+  "ingestion_checklist": [
+    "Load real product IDs and variant IDs from canonical source",
+    "Map each sellable variant to SKU, color, and size",
+    "Load current pricing with effective dates",
+    "Load available inventory with last_updated_at",
+    "Load active promotions/vouchers with validity windows",
+    "Load verified material/fit/size guidance from merch or product team",
+    "Add product FAQ only when answers are grounded and reviewable"
+  ]
+}

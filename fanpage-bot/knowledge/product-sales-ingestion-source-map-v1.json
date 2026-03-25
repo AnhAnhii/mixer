@@ -1,0 +1,579 @@
+{
+  "version": "v1",
+  "purpose": "Practical source mapping contract for loading real product-sales knowledge into the fanpage bot canonical schema.",
+  "canonical_target": "fanpage-bot/knowledge/product-sales-knowledge-v1.json",
+  "schema_reference": "fanpage-bot/knowledge/product-sales-knowledge-skeleton-v1.json",
+  "merge_strategy": {
+    "identity_and_status": [
+      "commercial_master",
+      "manual_override_reviewed"
+    ],
+    "pricing_inventory_promo": [
+      "live_api_or_latest_export",
+      "same_day_admin_export",
+      "manual_override_with_expiry"
+    ],
+    "advisory_fields": [
+      "merch_curated",
+      "structured_product_export",
+      "manual_override_reviewed",
+      "free_text_seed_needs_review"
+    ]
+  },
+  "source_domains": [
+    {
+      "domain": "commercial_master",
+      "priority": "P0",
+      "expected_source_types": [
+        "database_export",
+        "admin_csv_export",
+        "internal_api"
+      ],
+      "covers": [
+        "products",
+        "variants",
+        "status",
+        "pricing",
+        "inventory"
+      ],
+      "required_keys": [
+        "product_id_or_source_product_key",
+        "variant_id_or_sku",
+        "display_name",
+        "active_status",
+        "last_updated_at"
+      ],
+      "canonical_mappings": [
+        {
+          "canonical_path": "products[].product_id",
+          "from": [
+            "product_id",
+            "id",
+            "product_code"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "products[].product_slug",
+          "from": [
+            "slug",
+            "handle"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].display_name",
+          "from": [
+            "name",
+            "display_name",
+            "title"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "products[].category",
+          "from": [
+            "category",
+            "product_type"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].collection",
+          "from": [
+            "collection",
+            "collection_name"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].status",
+          "from": [
+            "status",
+            "published_status",
+            "is_active"
+          ],
+          "required": true,
+          "normalization": "map_to_draft_active_archived_hidden"
+        },
+        {
+          "canonical_path": "products[].active",
+          "from": [
+            "is_active",
+            "enabled"
+          ],
+          "required": true,
+          "normalization": "boolean"
+        },
+        {
+          "canonical_path": "products[].visible_in_sales",
+          "from": [
+            "visible_in_sales",
+            "published",
+            "is_visible"
+          ],
+          "required": false,
+          "default": true
+        },
+        {
+          "canonical_path": "products[].canonical_url",
+          "from": [
+            "url",
+            "product_url",
+            "permalink"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].image_urls",
+          "from": [
+            "image_urls",
+            "images"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].variants[].variant_id",
+          "from": [
+            "variant_id",
+            "id"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "products[].variants[].sku",
+          "from": [
+            "sku",
+            "variant_sku"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].variants[].color",
+          "from": [
+            "color",
+            "option_color"
+          ],
+          "required": false,
+          "normalization": "color_label"
+        },
+        {
+          "canonical_path": "products[].variants[].size",
+          "from": [
+            "size",
+            "option_size"
+          ],
+          "required": false,
+          "normalization": "size_label"
+        }
+      ]
+    },
+    {
+      "domain": "pricing",
+      "priority": "P0",
+      "expected_source_types": [
+        "database_export",
+        "admin_csv_export",
+        "internal_api"
+      ],
+      "covers": [
+        "current_price",
+        "compare_at_price",
+        "effective_dates"
+      ],
+      "required_keys": [
+        "variant_id_or_sku_or_product_id",
+        "current_price",
+        "last_updated_at"
+      ],
+      "canonical_mappings": [
+        {
+          "canonical_path": "products[].variants[].pricing.current_price",
+          "from": [
+            "price",
+            "current_price",
+            "sale_price"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "products[].variants[].pricing.compare_at_price",
+          "from": [
+            "compare_at_price",
+            "list_price",
+            "original_price"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].variants[].pricing.currency",
+          "from": [
+            "currency"
+          ],
+          "required": false,
+          "default": "VND"
+        },
+        {
+          "canonical_path": "products[].variants[].pricing.effective_from",
+          "from": [
+            "effective_from",
+            "starts_at"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].variants[].pricing.effective_to",
+          "from": [
+            "effective_to",
+            "ends_at"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].variants[].pricing.source",
+          "from": [
+            "source"
+          ],
+          "required": true,
+          "default": "pricing_export"
+        },
+        {
+          "canonical_path": "products[].variants[].pricing.last_updated_at",
+          "from": [
+            "last_updated_at",
+            "synced_at",
+            "updated_at"
+          ],
+          "required": true
+        }
+      ]
+    },
+    {
+      "domain": "inventory",
+      "priority": "P0",
+      "expected_source_types": [
+        "database_export",
+        "stock_csv_export",
+        "inventory_api"
+      ],
+      "covers": [
+        "available",
+        "reserved",
+        "stock_status"
+      ],
+      "required_keys": [
+        "variant_id_or_sku",
+        "available_or_on_hand",
+        "last_updated_at"
+      ],
+      "canonical_mappings": [
+        {
+          "canonical_path": "products[].variants[].inventory.available",
+          "from": [
+            "available",
+            "available_to_sell",
+            "sellable_stock",
+            "on_hand"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "products[].variants[].inventory.reserved",
+          "from": [
+            "reserved",
+            "allocated"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].variants[].inventory.status",
+          "from": [
+            "status",
+            "stock_status"
+          ],
+          "required": false,
+          "normalization": "derive_in_stock_low_stock_out_of_stock_unknown"
+        },
+        {
+          "canonical_path": "products[].variants[].inventory.last_updated_at",
+          "from": [
+            "last_updated_at",
+            "updated_at",
+            "snapshot_at"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "products[].variants[].inventory.source",
+          "from": [
+            "source"
+          ],
+          "required": true,
+          "default": "inventory_export"
+        }
+      ]
+    },
+    {
+      "domain": "promotions",
+      "priority": "P0",
+      "expected_source_types": [
+        "voucher_export",
+        "promo_sheet",
+        "internal_api"
+      ],
+      "covers": [
+        "voucher_codes",
+        "discounts",
+        "scope",
+        "active_windows"
+      ],
+      "required_keys": [
+        "promo_id_or_code",
+        "discount_type",
+        "discount_value",
+        "start_at",
+        "end_at_or_null",
+        "last_updated_at"
+      ],
+      "canonical_mappings": [
+        {
+          "canonical_path": "promotions[].promo_id",
+          "from": [
+            "promo_id",
+            "id",
+            "code"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "promotions[].title",
+          "from": [
+            "title",
+            "name"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "promotions[].voucher_code",
+          "from": [
+            "voucher_code",
+            "code"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "promotions[].discount_type",
+          "from": [
+            "discount_type",
+            "type"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "promotions[].discount_value",
+          "from": [
+            "discount_value",
+            "value"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "promotions[].min_order_value",
+          "from": [
+            "min_order_value",
+            "minimum_order"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "promotions[].start_at",
+          "from": [
+            "start_at",
+            "starts_at"
+          ],
+          "required": true
+        },
+        {
+          "canonical_path": "promotions[].end_at",
+          "from": [
+            "end_at",
+            "ends_at"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "promotions[].source",
+          "from": [
+            "source"
+          ],
+          "required": true,
+          "default": "promo_export"
+        },
+        {
+          "canonical_path": "promotions[].last_updated_at",
+          "from": [
+            "last_updated_at",
+            "synced_at",
+            "updated_at"
+          ],
+          "required": true
+        }
+      ]
+    },
+    {
+      "domain": "merch_enrichment",
+      "priority": "P1",
+      "expected_source_types": [
+        "google_sheet",
+        "csv_export",
+        "reviewed_manual_json"
+      ],
+      "covers": [
+        "material_summary",
+        "fit_summary",
+        "size_guide",
+        "care_guide",
+        "faq",
+        "comparison_notes",
+        "alternatives",
+        "bundle_candidates",
+        "upsell_notes"
+      ],
+      "required_keys": [
+        "product_id_or_sku_or_product_slug",
+        "source",
+        "last_updated_at"
+      ],
+      "canonical_mappings": [
+        {
+          "canonical_path": "products[].material_summary.primary_material",
+          "from": [
+            "primary_material",
+            "material"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].material_summary.composition",
+          "from": [
+            "composition"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].material_summary.texture_notes",
+          "from": [
+            "texture_notes",
+            "material_notes"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].fit_summary.fit_type",
+          "from": [
+            "fit_type",
+            "fit"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].fit_summary.fit_vs_standard",
+          "from": [
+            "fit_vs_standard"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].fit_summary.styling_use_cases",
+          "from": [
+            "styling_use_cases",
+            "use_cases"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].size_guide.sizes",
+          "from": [
+            "sizes"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].size_guide.height_weight_rules",
+          "from": [
+            "height_weight_rules",
+            "size_rules"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].size_guide.between_two_sizes_rule",
+          "from": [
+            "between_two_sizes_rule"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].care_guide.washing",
+          "from": [
+            "washing"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].faq",
+          "from": [
+            "faq"
+          ],
+          "required": false
+        },
+        {
+          "canonical_path": "products[].alternatives",
+          "from": [
+            "alternatives"
+          ],
+          "required": false
+        }
+      ]
+    }
+  ],
+  "normalization_rules": {
+    "size": {
+      "examples": {
+        "Extra Large": "XL",
+        "X-Large": "XL",
+        "2XL": "2XL"
+      }
+    },
+    "status": {
+      "published": "active",
+      "enabled": "active",
+      "inactive": "hidden",
+      "archived": "archived"
+    },
+    "inventory_status_derivation": {
+      "available <= 0": "out_of_stock",
+      "available > 0 && available <= low_stock_threshold": "low_stock",
+      "available > low_stock_threshold": "in_stock",
+      "missing_available": "unknown"
+    }
+  },
+  "freshness_contract": {
+    "inventory": {
+      "stale_after_minutes": 120,
+      "action_if_stale": "draft_only_or_handoff"
+    },
+    "pricing": {
+      "stale_after_minutes": 1440,
+      "action_if_stale": "verify_before_claim"
+    },
+    "promotions": {
+      "stale_after_minutes": 360,
+      "action_if_stale": "verify_before_claim"
+    },
+    "advisory_fields": {
+      "stale_after_minutes": 10080,
+      "action_if_stale": "use_cautiously_with_confidence_check"
+    }
+  }
+}

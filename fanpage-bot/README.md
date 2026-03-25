@@ -5,8 +5,10 @@ Webhook-first MVP service for Facebook Fanpage auto-reply in safe draft/shadow m
 ## Current scope
 - Normalize Messenger webhook payloads
 - Rule-based triage hints
-- Build grounded AI input payload
+- Build grounded AI input payload with selected knowledge-bank context (`policy-bank`, `case-bank`, `tone-guide`, `response-pattern-bank`) plus legacy grounding reference
+- Attach runtime-safe `sales_assist` hints (buyer intent / consult priority / guardrails) without turning them into product facts
 - AI draft wrapper with safe fallback when no credentials are present
+- Reasoning-first draft contract (`understanding`, `decision`, `reply`, `ops_meta`) while preserving legacy top-level fields for pipeline compatibility
 - Policy guard
 - Delivery decision in draft/shadow mode or live send mode
 - Facebook Send API adapter (with optional `mark_seen` before reply)
@@ -59,6 +61,10 @@ cd fanpage-bot
 npm run smoke
 ```
 
+AI draft contract now includes both:
+- reasoning-first fields: `understanding`, `decision`, `reply`, `ops_meta`
+- legacy compatibility fields still mirrored at top level: `reply_text`, `action`, `confidence`, `needs_human`, `missing_info`, `reason`, `policy_refs`, `safety_flags`
+
 Smoke output now includes:
 - `shadowOutputs`: what would happen in safe shadow mode
 - `liveOutputs`: mocked send flow proving `auto_send -> Send API adapter -> audit log`
@@ -68,11 +74,14 @@ Smoke output now includes:
 - `cooldownOutputs`: proves a second low-risk message in the same thread gets downgraded during cooldown instead of auto-sending again immediately
 - `offHoursOutputs`: proves low-risk FAQs get downgraded to `draft_only` outside support hours instead of being auto-sent
 - `complaintShippingOutputs`: proves complaint-like messages mentioning shipping still get classified as handoff, not FAQ auto-reply
+- `pricingOutputs`: proves pricing/promo asks now enter a dedicated conservative runtime path (`pricing_or_promotion`) and stay draft-only without grounded product/commercial data
 - `shortAmbiguousOutputs`: proves overly short low-context questions like `ship?` do not auto-send
 - `multiIntentOutputs`: proves one message asking multiple FAQ intents at once gets held back for safer draft/handoff handling
 - `disallowedPageOutputs`: proves events from a non-allowlisted page get audited as `ignore` instead of entering the reply pipeline
 - `passiveEventOutputs`: proves Messenger passive events like `delivery`, `read`, and `echo` are now audit-logged explicitly as ignored instead of being dropped silently
 - `signatureChecks`: proves `X-Hub-Signature-256` verification passes with a valid raw body/signature, fails on mismatch, and reports `raw_body_unavailable` when only parsed JSON is available
+- `reasoningBundleChecks`: parses the new reasoning-first knowledge bundle (`reply-brain-schema`, policy/case/tone/pattern banks) and verifies core contract slices for shipping ETA, order-status handoff, complaint handling, pricing guardrails, and pattern/tone guardrails without breaking the main webhook smoke flow
+- `draftContractChecks`: verifies representative AI draft outputs still expose both the new reasoning-first shape and the legacy flat fields that the guard/delivery pipeline already depends on, plus runtime `sales_assist_meta`
 
 ## Inspect pending human handoffs
 ```bash
@@ -100,38 +109,35 @@ npm run metrics -- data/logs/audit.jsonl 200
 
 This summarizes the audit JSONL into quick rollout metrics: inbound count, unique threads, case mix, decisions, send outcomes, duplicate ignores, top safety flags, and rollout version slices (`policy_version`, `prompt_version`, `ai_mode`, `ai_model`).
 
-## Replay a real webhook payload or raw event sample from file
+## Replay a real webhook payload from file
 ```bash
 cd fanpage-bot
 npm run replay -- ../tmp/facebook-webhook-sample.json
 npm run replay -- ../tmp/facebook-webhook-sample.json 5
-npm run replay -- ../data/logs/raw-events.jsonl 10
-npm run replay -- ../data/logs/raw-events.jsonl 5 --mid <facebook_mid>
-npm run replay -- ../data/logs/raw-events.jsonl 10 --psid <sender_psid>
 ```
 
-`npm run replay` now accepts:
-- full Facebook webhook payload JSON
-- `raw-events.jsonl` produced by the pipeline
-- one raw-event-log record JSON (`{ raw_event: ... }`)
-- one bare Messenger event JSON (`{ sender, recipient, message/postback/... }`)
+This runs the real pipeline against a saved webhook JSON payload, then prints a compact summary plus the newest processed outputs. Useful for comparing local behavior against real Facebook events without editing the smoke fixture.
 
-The output includes a compact processing summary plus an `event_shape_summary` block so production samples can be audited for new event shapes before changing normalization/policy code.
+## Build a replayable webhook payload from raw event JSONL
+```bash
+cd fanpage-bot
+npm run replay:extract -- ../mixer/data/logs/raw-events.jsonl ../tmp/replay/extracted-webhook.json 20
+npm run replay -- ../tmp/replay/extracted-webhook.json
+```
 
-By default replay writes audit/raw/dedupe/thread-state artifacts into an isolated `.tmp/replay-runs/<timestamp>/` folder so local replay does not pollute the bot's normal runtime logs/state. You can override those paths with `REPLAY_*` env vars if needed.
+This is the fast path when you only have append-only raw event logs instead of a full saved webhook body. It reconstructs a minimal `object=page` webhook payload grouped by `page_id`, then replays it through the same pipeline.
 
 ## Notes
 - Production safety still comes from flags. Keep `AUTO_REPLY_ENABLED=false` and `AUTO_REPLY_SHADOW_MODE=true` until Saram is ready.
 - `AUTO_REPLY_ALLOWED_CASES` lets you roll out live sending per case without changing code; anything outside this allowlist falls back to draft/handoff.
 - Messenger `postback` events are now explicitly ignored and audited as `postback_ignored`, so button/menu traffic does not contaminate the text-reply pipeline.
 - Messenger passive/non-reply events like `delivery`, `read`, and `echo` are also audit-logged as ignored, which keeps the webhook trail complete without feeding those events into reply generation.
-- If AI credentials are missing, the pipeline still runs using deterministic fallback drafts.
+- If AI credentials are missing, the pipeline still runs using deterministic fallback drafts built from the new knowledge banks instead of only hardcoded reply strings.
+- Pricing/promo asks now map into `pricing_or_promotion` at runtime. The default response is intentionally conservative: collect the exact product need and avoid claiming current price/promo until grounded data exists.
+- `src/grounding.js` now selects case-relevant slices from `knowledge/policy-bank.json`, `case-bank.json`, `tone-guide.json`, and `response-pattern-bank.json`, while still attaching the older legacy grounding blob for reference/backward compatibility.
+- The grounding bundle also carries `sales_assist` hints (`buyer_intent_hint`, `lead_strength_hint`, `signals`, `recommended_sales_motion`) so future consult/chốt-đơn flows can prioritize the right threads without hallucinating catalog facts.
 - If `FB_APP_SECRET` is set, webhook POSTs are verified with `X-Hub-Signature-256` before entering the pipeline. This requires access to the raw request body (`req.rawBody` or an unparsed string/buffer body); if the deploy target only exposes parsed JSON, verification fails closed with `raw_body_unavailable`.
 
 ## Current deploy wiring
 - `mixer/api/webhook/facebook.ts` now delegates directly to `fanpage-bot/src/webhook.js`.
 - This keeps the real Vercel-style endpoint thin while `fanpage-bot/` stays the single pipeline source of truth.
-
-## Sales-assist planning artifacts
-- `mixer/docs/sales-assist-reasoning-layer-v1.md`: practical design note for buyer-intent recognition, need probing, close guidance, and anti-hallucination guards.
-- `mixer/fanpage-bot/knowledge/sales-layer-v1-skeleton.json`: starter knowledge contract for a future sales reasoning layer without forcing immediate pipeline changes.

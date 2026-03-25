@@ -28,6 +28,10 @@ export function classifyMessage(normalizedMessage) {
     return buildResult('stock_or_product_availability', 'medium', true, 0.78, ['product_name', 'size_or_variant'], 'matched_stock_check_rule', ['stock', 'handoff']);
   }
 
+  if (/giá bao nhiêu|bao nhiêu tiền|giá sao|giá ntn|giá thế nào|bao tiền|giá áo|giá quần|giá item|giá mẫu|giá sản phẩm|sale không|khuyến mãi|voucher|mã giảm giá|giảm giá|freeship|ưu đãi/.test(text)) {
+    return buildResult('pricing_or_promotion', 'medium', false, 0.84, ['product_name'], 'matched_pricing_or_promotion_rule', ['pricing', 'promotion', 'buyer_intent']);
+  }
+
   if (/đơn vị vận chuyển|ship hãng nào|gửi qua hãng nào|vận chuyển bên nào|ship đơn vị nào|giao qua đơn vị nào|bên vận chuyển nào|ship bên nào/.test(text)) {
     return buildResult('shipping_carrier', 'low', false, 0.92, [], 'matched_shipping_carrier_rule', ['faq', 'shipping']);
   }

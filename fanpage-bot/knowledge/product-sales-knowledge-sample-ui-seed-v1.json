@@ -1,0 +1,210 @@
+{
+  "version": "v1-sample-ui-seed",
+  "brain_role": "product_sales_knowledge",
+  "brand": "Mixer",
+  "channel": "facebook_fanpage_inbox",
+  "status": "sample_only_do_not_use_for_real_customer_claims",
+  "north_star": "Canonical product-sales knowledge seed built strictly from internal UI sample data for schema/bootstrap testing only.",
+  "usage_rules": [
+    "This file is generated from mixer/data/sampleData.ts and is not real Mixer catalog truth.",
+    "Do not use this file to claim real stock, price, promotion, size advice, or product attributes to customers.",
+    "Use this artifact only to validate schema shape, joins, and downstream pipeline integration.",
+    "Replace with a real product-sales-knowledge-v1.json once canonical exports are available."
+  ],
+  "source_manifest": {
+    "source_type": "workspace_ui_sample_data",
+    "source_path": "mixer/data/sampleData.ts",
+    "source_confidence": "demo_only",
+    "built_at": "2026-03-25T11:00:00Z",
+    "notes": [
+      "Product names, prices, and stock came from sample UI seed data.",
+      "No real SKU, barcode, product URL, image URL, material, fit, size guide, or promo source was available in workspace during this bootstrap step.",
+      "Variant IDs and product IDs were stabilized as deterministic sample IDs derived from product order + option labels, not from production systems."
+    ]
+  },
+  "global_fields": {
+    "currency": "VND",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "size_system_default": "brand_defined",
+    "inventory_semantics": "available_to_sell_sample_only",
+    "data_owner": "bootstrap_seed_only"
+  },
+  "products": [
+    {
+      "product_id": "sample-product-001",
+      "product_slug": "ao-thun-cotton-basic",
+      "display_name": "Áo Thun Cotton Basic",
+      "collection": "",
+      "category": "ao-thun",
+      "status": "draft",
+      "active": false,
+      "visible_in_sales": false,
+      "canonical_url": "",
+      "image_urls": [],
+      "tags": ["sample", "ui-seed", "demo-only"],
+      "selling_points": [],
+      "material_summary": {"primary_material": "", "composition": [], "texture_notes": [], "thickness_level": null, "stretch_level": null, "breathability_level": null, "lining": null, "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "fit_summary": {"fit_type": "", "silhouette_notes": [], "fit_vs_standard": "", "gender_positioning": "", "styling_use_cases": [], "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "size_guide": {"size_system": "brand_defined", "sizes": ["S", "M", "L"], "body_measurement_guide": [], "garment_measurement_guide": [], "height_weight_rules": [], "fit_notes": [], "between_two_sizes_rule": "", "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "care_guide": {"washing": [], "drying": [], "ironing": [], "special_notes": [], "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "faq": [],
+      "comparison_notes": [],
+      "alternatives": [],
+      "commercial": {
+        "price_list": [
+          {"price_type": "current", "amount": 250000, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null},
+          {"price_type": "cost_sample", "amount": 120000, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}
+        ],
+        "promotion_flags": [],
+        "bundle_candidates": [],
+        "upsell_notes": []
+      },
+      "variants": [
+        {"variant_id": "sample-001-trang-s", "sku": "", "barcode": "", "label": "Trắng / S", "color": "Trắng", "size": "S", "attributes": {}, "inventory": {"available": 50, "reserved": null, "low_stock_threshold": 10, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 250000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-001-trang-m", "sku": "", "barcode": "", "label": "Trắng / M", "color": "Trắng", "size": "M", "attributes": {}, "inventory": {"available": 45, "reserved": null, "low_stock_threshold": 10, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 250000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-001-trang-l", "sku": "", "barcode": "", "label": "Trắng / L", "color": "Trắng", "size": "L", "attributes": {}, "inventory": {"available": 3, "reserved": null, "low_stock_threshold": 5, "status": "low_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 250000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-001-den-s", "sku": "", "barcode": "", "label": "Đen / S", "color": "Đen", "size": "S", "attributes": {}, "inventory": {"available": 48, "reserved": null, "low_stock_threshold": 10, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 250000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-001-den-m", "sku": "", "barcode": "", "label": "Đen / M", "color": "Đen", "size": "M", "attributes": {}, "inventory": {"available": 52, "reserved": null, "low_stock_threshold": 10, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 250000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-001-den-l", "sku": "", "barcode": "", "label": "Đen / L", "color": "Đen", "size": "L", "attributes": {}, "inventory": {"available": 25, "reserved": null, "low_stock_threshold": 5, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 250000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}}
+      ],
+      "ops_meta": {"source_refs": ["mixer/data/sampleData.ts"], "owner": "bootstrap_seed_only", "last_full_review_at": null, "stale_after_minutes": 1440, "notes_for_bot": ["sample/demo product only", "never claim as real stock or real price"]}
+    },
+    {
+      "product_id": "sample-product-002",
+      "product_slug": "quan-jeans-slim-fit",
+      "display_name": "Quần Jeans Slim-fit",
+      "collection": "",
+      "category": "quan-jeans",
+      "status": "draft",
+      "active": false,
+      "visible_in_sales": false,
+      "canonical_url": "",
+      "image_urls": [],
+      "tags": ["sample", "ui-seed", "demo-only"],
+      "selling_points": [],
+      "material_summary": {"primary_material": "", "composition": [], "texture_notes": [], "thickness_level": null, "stretch_level": null, "breathability_level": null, "lining": null, "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "fit_summary": {"fit_type": "", "silhouette_notes": [], "fit_vs_standard": "", "gender_positioning": "", "styling_use_cases": [], "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "size_guide": {"size_system": "brand_defined", "sizes": ["29", "30", "31", "32"], "body_measurement_guide": [], "garment_measurement_guide": [], "height_weight_rules": [], "fit_notes": [], "between_two_sizes_rule": "", "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "care_guide": {"washing": [], "drying": [], "ironing": [], "special_notes": [], "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "faq": [],
+      "comparison_notes": [],
+      "alternatives": [],
+      "commercial": {"price_list": [{"price_type": "current", "amount": 550000, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, {"price_type": "cost_sample", "amount": 300000, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}], "promotion_flags": [], "bundle_candidates": [], "upsell_notes": []},
+      "variants": [
+        {"variant_id": "sample-002-xanh-nhat-29", "sku": "", "barcode": "", "label": "Xanh nhạt / 29", "color": "Xanh nhạt", "size": "29", "attributes": {}, "inventory": {"available": 20, "reserved": null, "low_stock_threshold": 5, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 550000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-002-xanh-nhat-30", "sku": "", "barcode": "", "label": "Xanh nhạt / 30", "color": "Xanh nhạt", "size": "30", "attributes": {}, "inventory": {"available": 25, "reserved": null, "low_stock_threshold": 5, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 550000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-002-xanh-nhat-31", "sku": "", "barcode": "", "label": "Xanh nhạt / 31", "color": "Xanh nhạt", "size": "31", "attributes": {}, "inventory": {"available": 15, "reserved": null, "low_stock_threshold": 5, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 550000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-002-den-30", "sku": "", "barcode": "", "label": "Đen / 30", "color": "Đen", "size": "30", "attributes": {}, "inventory": {"available": 22, "reserved": null, "low_stock_threshold": 5, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 550000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-002-den-32", "sku": "", "barcode": "", "label": "Đen / 32", "color": "Đen", "size": "32", "attributes": {}, "inventory": {"available": 0, "reserved": null, "low_stock_threshold": 5, "status": "out_of_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 550000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}}
+      ],
+      "ops_meta": {"source_refs": ["mixer/data/sampleData.ts"], "owner": "bootstrap_seed_only", "last_full_review_at": null, "stale_after_minutes": 1440, "notes_for_bot": ["sample/demo product only", "never claim as real stock or real price"]}
+    },
+    {
+      "product_id": "sample-product-003",
+      "product_slug": "ao-so-mi-oxford",
+      "display_name": "Áo Sơ Mi Oxford",
+      "collection": "",
+      "category": "ao-so-mi",
+      "status": "draft",
+      "active": false,
+      "visible_in_sales": false,
+      "canonical_url": "",
+      "image_urls": [],
+      "tags": ["sample", "ui-seed", "demo-only"],
+      "selling_points": [],
+      "material_summary": {"primary_material": "", "composition": [], "texture_notes": [], "thickness_level": null, "stretch_level": null, "breathability_level": null, "lining": null, "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "fit_summary": {"fit_type": "", "silhouette_notes": [], "fit_vs_standard": "", "gender_positioning": "", "styling_use_cases": [], "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "size_guide": {"size_system": "brand_defined", "sizes": ["M", "L"], "body_measurement_guide": [], "garment_measurement_guide": [], "height_weight_rules": [], "fit_notes": [], "between_two_sizes_rule": "", "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "care_guide": {"washing": [], "drying": [], "ironing": [], "special_notes": [], "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "faq": [],
+      "comparison_notes": [],
+      "alternatives": [],
+      "commercial": {"price_list": [{"price_type": "current", "amount": 450000, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, {"price_type": "cost_sample", "amount": 250000, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}], "promotion_flags": [], "bundle_candidates": [], "upsell_notes": []},
+      "variants": [
+        {"variant_id": "sample-003-trang-m", "sku": "", "barcode": "", "label": "Trắng / M", "color": "Trắng", "size": "M", "attributes": {}, "inventory": {"available": 30, "reserved": null, "low_stock_threshold": 8, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 450000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-003-trang-l", "sku": "", "barcode": "", "label": "Trắng / L", "color": "Trắng", "size": "L", "attributes": {}, "inventory": {"available": 20, "reserved": null, "low_stock_threshold": 8, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 450000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-003-xanh-da-troi-m", "sku": "", "barcode": "", "label": "Xanh da trời / M", "color": "Xanh da trời", "size": "M", "attributes": {}, "inventory": {"available": 35, "reserved": null, "low_stock_threshold": 8, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 450000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-003-xanh-da-troi-l", "sku": "", "barcode": "", "label": "Xanh da trời / L", "color": "Xanh da trời", "size": "L", "attributes": {}, "inventory": {"available": 22, "reserved": null, "low_stock_threshold": 8, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 450000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}}
+      ],
+      "ops_meta": {"source_refs": ["mixer/data/sampleData.ts"], "owner": "bootstrap_seed_only", "last_full_review_at": null, "stale_after_minutes": 1440, "notes_for_bot": ["sample/demo product only", "never claim as real stock or real price"]}
+    },
+    {
+      "product_id": "sample-product-004",
+      "product_slug": "ao-hoodie-ni-bong",
+      "display_name": "Áo Hoodie Nỉ Bông",
+      "collection": "",
+      "category": "hoodie",
+      "status": "draft",
+      "active": false,
+      "visible_in_sales": false,
+      "canonical_url": "",
+      "image_urls": [],
+      "tags": ["sample", "ui-seed", "demo-only"],
+      "selling_points": [],
+      "material_summary": {"primary_material": "", "composition": [], "texture_notes": [], "thickness_level": null, "stretch_level": null, "breathability_level": null, "lining": null, "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "fit_summary": {"fit_type": "", "silhouette_notes": [], "fit_vs_standard": "", "gender_positioning": "", "styling_use_cases": [], "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "size_guide": {"size_system": "brand_defined", "sizes": ["S", "M", "L"], "body_measurement_guide": [], "garment_measurement_guide": [], "height_weight_rules": [], "fit_notes": [], "between_two_sizes_rule": "", "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "care_guide": {"washing": [], "drying": [], "ironing": [], "special_notes": [], "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "faq": [],
+      "comparison_notes": [],
+      "alternatives": [],
+      "commercial": {"price_list": [{"price_type": "current", "amount": 650000, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, {"price_type": "cost_sample", "amount": 350000, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}], "promotion_flags": [], "bundle_candidates": [], "upsell_notes": []},
+      "variants": [
+        {"variant_id": "sample-004-xam-s", "sku": "", "barcode": "", "label": "Xám / S", "color": "Xám", "size": "S", "attributes": {}, "inventory": {"available": 15, "reserved": null, "low_stock_threshold": 5, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 650000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-004-xam-m", "sku": "", "barcode": "", "label": "Xám / M", "color": "Xám", "size": "M", "attributes": {}, "inventory": {"available": 12, "reserved": null, "low_stock_threshold": 5, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 650000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-004-xam-l", "sku": "", "barcode": "", "label": "Xám / L", "color": "Xám", "size": "L", "attributes": {}, "inventory": {"available": 8, "reserved": null, "low_stock_threshold": 5, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 650000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}}
+      ],
+      "ops_meta": {"source_refs": ["mixer/data/sampleData.ts"], "owner": "bootstrap_seed_only", "last_full_review_at": null, "stale_after_minutes": 1440, "notes_for_bot": ["sample/demo product only", "never claim as real stock or real price"]}
+    },
+    {
+      "product_id": "sample-product-005",
+      "product_slug": "quan-short-kaki",
+      "display_name": "Quần Short Kaki",
+      "collection": "",
+      "category": "quan-short",
+      "status": "draft",
+      "active": false,
+      "visible_in_sales": false,
+      "canonical_url": "",
+      "image_urls": [],
+      "tags": ["sample", "ui-seed", "demo-only"],
+      "selling_points": [],
+      "material_summary": {"primary_material": "", "composition": [], "texture_notes": [], "thickness_level": null, "stretch_level": null, "breathability_level": null, "lining": null, "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "fit_summary": {"fit_type": "", "silhouette_notes": [], "fit_vs_standard": "", "gender_positioning": "", "styling_use_cases": [], "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "size_guide": {"size_system": "brand_defined", "sizes": ["28", "30", "32"], "body_measurement_guide": [], "garment_measurement_guide": [], "height_weight_rules": [], "fit_notes": [], "between_two_sizes_rule": "", "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "care_guide": {"washing": [], "drying": [], "ironing": [], "special_notes": [], "confidence": "unknown", "source": "missing_real_source", "last_updated_at": null},
+      "faq": [],
+      "comparison_notes": [],
+      "alternatives": [],
+      "commercial": {"price_list": [{"price_type": "current", "amount": 320000, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, {"price_type": "cost_sample", "amount": 150000, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}], "promotion_flags": [], "bundle_candidates": [], "upsell_notes": []},
+      "variants": [
+        {"variant_id": "sample-005-be-28", "sku": "", "barcode": "", "label": "Be / 28", "color": "Be", "size": "28", "attributes": {}, "inventory": {"available": 40, "reserved": null, "low_stock_threshold": 10, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 320000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-005-be-30", "sku": "", "barcode": "", "label": "Be / 30", "color": "Be", "size": "30", "attributes": {}, "inventory": {"available": 30, "reserved": null, "low_stock_threshold": 10, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 320000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}},
+        {"variant_id": "sample-005-be-32", "sku": "", "barcode": "", "label": "Be / 32", "color": "Be", "size": "32", "attributes": {}, "inventory": {"available": 25, "reserved": null, "low_stock_threshold": 10, "status": "in_stock", "last_updated_at": null, "source": "mixer/data/sampleData.ts"}, "pricing": {"current_price": 320000, "compare_at_price": null, "currency": "VND", "effective_from": null, "effective_to": null, "source": "mixer/data/sampleData.ts", "last_updated_at": null}, "visibility": {"active": false, "allow_sale": false}}
+      ],
+      "ops_meta": {"source_refs": ["mixer/data/sampleData.ts"], "owner": "bootstrap_seed_only", "last_full_review_at": null, "stale_after_minutes": 1440, "notes_for_bot": ["sample/demo product only", "never claim as real stock or real price"]}
+    }
+  ],
+  "promotions": [],
+  "order_capture_rules": {
+    "minimum_fields_to_create_order": ["customer_name", "customer_phone", "shipping_address", "product_or_variant_identifier", "quantity"],
+    "recommended_fields_to_confirm_before_submit": ["size", "color", "payment_method"],
+    "if_missing_variant_exactness": "ask_follow_up_before_confirming_order",
+    "if_inventory_unknown": "handoff_or_check_inventory_first"
+  },
+  "sales_reasoning_hints": {
+    "safe_when_present": [
+      "sample schema join validation",
+      "sample variant matrix coverage",
+      "inventory status derivation logic",
+      "placeholder size option extraction"
+    ],
+    "unsafe_without_data": [
+      "claiming real Mixer stock",
+      "claiming real Mixer price",
+      "recommending size confidently",
+      "claiming material/fit/product feel",
+      "claiming promo availability"
+    ]
+  }
+}

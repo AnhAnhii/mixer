@@ -1,0 +1,185 @@
+{
+  "version": "v1",
+  "objective": "Operational checklist for loading real Mixer product-sales data into the fanpage bot knowledge layer.",
+  "phases": [
+    {
+      "phase": "P0",
+      "goal": "Unlock grounded answers for product identity, price, stock, promo, and basic size guidance.",
+      "tasks": [
+        {
+          "id": "P0-01",
+          "title": "Identify real source for product + variant master",
+          "owner": "ops_or_engineering",
+          "inputs_needed": [
+            "DB export or admin export with products and variants"
+          ],
+          "definition_of_done": [
+            "Every sellable variant maps to a canonical product_id and variant_id",
+            "No sample/demo catalog is used in production knowledge"
+          ]
+        },
+        {
+          "id": "P0-02",
+          "title": "Normalize product + variant identities into canonical schema",
+          "owner": "engineering",
+          "inputs_needed": [
+            "product export",
+            "variant export",
+            "source map contract"
+          ],
+          "definition_of_done": [
+            "Canonical product records exist with display_name, status, category",
+            "Canonical variant records exist with sku/color/size where available"
+          ]
+        },
+        {
+          "id": "P0-03",
+          "title": "Load current pricing with timestamps",
+          "owner": "engineering_or_ops",
+          "inputs_needed": [
+            "pricing export or API"
+          ],
+          "definition_of_done": [
+            "Each price record has current_price, source, last_updated_at",
+            "Stale pricing is detectable from metadata"
+          ]
+        },
+        {
+          "id": "P0-04",
+          "title": "Load inventory snapshot/live feed with timestamps",
+          "owner": "engineering_or_ops",
+          "inputs_needed": [
+            "inventory export or API"
+          ],
+          "definition_of_done": [
+            "Each inventory record has available and last_updated_at",
+            "Inventory status can be derived as in_stock/low_stock/out_of_stock/unknown"
+          ]
+        },
+        {
+          "id": "P0-05",
+          "title": "Load active promotions/vouchers",
+          "owner": "ops_or_marketing_ops",
+          "inputs_needed": [
+            "voucher export or promo sheet"
+          ],
+          "definition_of_done": [
+            "Promo records include active window, scope, discount fields, source, last_updated_at",
+            "Bot can distinguish active vs expired promos"
+          ]
+        },
+        {
+          "id": "P0-06",
+          "title": "Create size guide foundation for top-selling SKUs or collections",
+          "owner": "merch_or_cs_lead",
+          "inputs_needed": [
+            "size chart sheet/export",
+            "reviewed fit notes"
+          ],
+          "definition_of_done": [
+            "At least top SKUs or top collections have size rules with source/confidence/timestamp",
+            "Bot has enough grounding to avoid guessing size"
+          ]
+        },
+        {
+          "id": "P0-07",
+          "title": "Publish first canonical product-sales knowledge build",
+          "owner": "engineering",
+          "inputs_needed": [
+            "normalized product/variant/pricing/inventory/promo/size data"
+          ],
+          "definition_of_done": [
+            "fanpage-bot/knowledge/product-sales-knowledge-v1.json exists or equivalent generated artifact exists",
+            "Validation passes with no hard-fail issues"
+          ]
+        },
+        {
+          "id": "P0-08",
+          "title": "Replay buyer-intent test prompts against grounded knowledge",
+          "owner": "engineering_or_ai_ops",
+          "inputs_needed": [
+            "10-20 real or representative inbox questions"
+          ],
+          "definition_of_done": [
+            "Bot can safely answer or correctly hedge for price/stock/size/promo questions",
+            "Known stale or missing facts trigger verify/handoff behavior instead of bluffing"
+          ]
+        }
+      ]
+    },
+    {
+      "phase": "P1",
+      "goal": "Upgrade from basic fact answering to stronger consultative selling.",
+      "tasks": [
+        {
+          "id": "P1-01",
+          "title": "Load material summaries and fit summaries",
+          "owner": "merch",
+          "definition_of_done": [
+            "Products or product lines have verified material + fit notes with confidence and timestamps"
+          ]
+        },
+        {
+          "id": "P1-02",
+          "title": "Load care guide and grounded product FAQ",
+          "owner": "merch_or_cs_lead",
+          "definition_of_done": [
+            "Customer-facing product FAQs are grounded in reviewed facts, not ad-hoc chat memory"
+          ]
+        },
+        {
+          "id": "P1-03",
+          "title": "Load alternatives, comparison notes, and bundle candidates",
+          "owner": "merch_or_sales_lead",
+          "definition_of_done": [
+            "Bot can suggest nearby alternatives when a variant is unavailable or not a fit"
+          ]
+        },
+        {
+          "id": "P1-04",
+          "title": "Create payment/order ops knowledge companion file",
+          "owner": "ops",
+          "definition_of_done": [
+            "Order capture and payment rules are canonicalized outside UI-only logic"
+          ]
+        },
+        {
+          "id": "P1-05",
+          "title": "Define repeatable ingestion cadence and owners",
+          "owner": "ops_and_engineering",
+          "definition_of_done": [
+            "There is a clear daily or per-shift sync rhythm for live-sensitive fields",
+            "Each source has a named owner or owning team"
+          ]
+        }
+      ]
+    }
+  ],
+  "validation_gates": {
+    "hard_fail": [
+      "Missing product_id or variant_id on records that must join canonically",
+      "Pricing/inventory/promo records missing last_updated_at",
+      "Conflicting SKU-to-variant mappings unresolved",
+      "Invalid effective date ranges"
+    ],
+    "warnings": [
+      "Active products without canonical_url or image_urls",
+      "Size guide notes without explicit confidence",
+      "Material/fit notes copied from free-text without review"
+    ]
+  },
+  "freshness_watch": {
+    "inventory_minutes": 120,
+    "pricing_minutes": 1440,
+    "promotions_minutes": 360,
+    "advisory_minutes": 10080
+  },
+  "publish_gate": {
+    "must_have": [
+      "source metadata present",
+      "last_updated_at present for live-sensitive facts",
+      "canonical IDs resolved",
+      "stale handling understood by downstream bot logic"
+    ]
+  }
+}

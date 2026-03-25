@@ -7,8 +7,6 @@ import { appendAuditLog, appendPendingHandoff, appendRawEventLog, buildPendingHa
 import { sendFacebookMessage } from './facebook-send.js';
 import { buildMessageKey, createMessageDeduper } from './idempotency.js';
 import { createThreadStateStore } from './thread-state.js';
-import { analyzeProductAttachments } from './vision.js';
-import { notifyTelegramDraft } from './telegram-notify.js';
 
 const DEFAULT_PIPELINE_VERSION = '0.1.0';
 
@@ -21,12 +19,9 @@ export async function processWebhookBody(body, options = {}) {
 
   for (const { normalized: normalizedMessage, raw: rawEvent } of eventPairs) {
     const rawLogPath = appendRawEventLog(rawEvent, options.rawEventLogPath);
-    logPipelineStage('RAW FACEBOOK EVENT', summarizeRawEvent(rawEvent));
-    logPipelineStage('NORMALIZED MESSAGE', summarizeNormalizedMessage(normalizedMessage));
 
     if (normalizedMessage.event_type !== 'message') {
       const ignoreRecord = buildIgnoredEventRecord(normalizedMessage, options);
-      logPipelineStage('PIPELINE DECISION', summarizeDecision(ignoreRecord, normalizedMessage));
       const logPath = appendAuditLog(ignoreRecord, options.logPath);
       outputs.push({ ...ignoreRecord, log_path: logPath, raw_log_path: rawLogPath, handoff_path: null });
       continue;
@@ -72,37 +67,62 @@ export async function processWebhookBody(body, options = {}) {
         }
       };
 
-      logPipelineStage('PIPELINE DECISION', summarizeDecision(duplicateRecord, normalizedMessage));
       const logPath = appendAuditLog(duplicateRecord, options.logPath);
       outputs.push({ ...duplicateRecord, log_path: logPath, raw_log_path: rawLogPath, handoff_path: null });
       continue;
     }
 
     const triage = classifyMessage(normalizedMessage);
-    const vision = await analyzeProductAttachments(normalizedMessage, options);
-    logPipelineStage('VISION SUMMARY', summarizeVision(vision));
-    const groundedInput = buildGroundedInput(normalizedMessage, triage, options.recentMessages || [], vision);
-    const { draft, meta } = await generateDraft(groundedInput);
+    const triageHint = buildTriageHint(normalizedMessage, triage);
+    const threadMemoryBefore = threadStateStore.getMemory(normalizedMessage.thread_key);
+    const groundedInput = buildGroundedInput(normalizedMessage, triage, options.recentMessages || [], {
+      threadMemory: threadMemoryBefore
+    });
+    const groundingBundle = buildGroundingBundle(groundedInput, triageHint, threadMemoryBefore);
+    const reasoningInput = buildReasoningInput(normalizedMessage, triageHint, groundingBundle);
+    const { draft, meta } = await generateDraft(reasoningInput);
     const guarded = applyPolicyGuard(normalizedMessage, triage, draft, {
       ...options,
       threadStateStore
     });
     const sendResult = await maybeDeliverMessage(normalizedMessage, guarded, options);
 
+    threadStateStore.updateMemory(normalizedMessage.thread_key, {
+      normalizedMessage,
+      triage,
+      guarded,
+      delivery: guarded.delivery,
+      draft,
+      sentiment: draft?.understanding?.sentiment || null
+    });
+    const threadMemoryAfter = threadStateStore.getMemory(normalizedMessage.thread_key);
+
     const record = {
       logged_at: new Date().toISOString(),
       processing_meta: buildProcessingMeta(options, meta),
+      pipeline_flow: [
+        'normalize',
+        'triage_hint',
+        'grounding_bundle',
+        'ai_reasoning_draft',
+        'guard',
+        'audit_handoff_send'
+      ],
       normalized_message: normalizedMessage,
+      triage_hint: triageHint,
       triage,
-      vision,
+      thread_memory_before: threadMemoryBefore,
+      thread_memory_after: threadMemoryAfter,
+      grounding_bundle: groundingBundle,
       grounded_input: groundedInput,
+      ai_reasoning_input: reasoningInput,
       ai_meta: meta,
+      ai_reasoning_draft: draft,
       ai_draft: draft,
       ...guarded,
       send_result: sendResult
     };
 
-    logPipelineStage('PIPELINE DECISION', summarizeDecision(record, normalizedMessage));
     const logPath = appendAuditLog(record, options.logPath);
     if (dedupeKey) {
       deduper.mark(dedupeKey, {
@@ -113,17 +133,6 @@ export async function processWebhookBody(body, options = {}) {
     }
 
     let handoffPath = null;
-
-    const telegramNotifyResult = await maybeNotifyTelegram(record, options);
-    console.log('TELEGRAM NOTIFY RESULT', JSON.stringify({
-      message_id: normalizedMessage.message_id || null,
-      decision: record?.delivery?.decision || null,
-      result: telegramNotifyResult || null
-    }));
-
-    if (telegramNotifyResult?.status === 'failed') {
-      console.error('fanpage-bot telegram notify failed', telegramNotifyResult);
-    }
 
     if (sendResult.status === 'sent') {
       threadStateStore.markAutoSend(normalizedMessage.thread_key, {
@@ -145,10 +154,59 @@ export async function processWebhookBody(body, options = {}) {
       handoffPath = appendPendingHandoff(pendingRecord, options.handoffPath);
     }
 
-    outputs.push({ ...record, log_path: logPath, raw_log_path: rawLogPath, handoff_path: handoffPath, telegram_notify_result: telegramNotifyResult });
+    outputs.push({ ...record, log_path: logPath, raw_log_path: rawLogPath, handoff_path: handoffPath });
   }
 
   return outputs;
+}
+
+function buildTriageHint(normalizedMessage, triage) {
+  return {
+    case_type: triage.case_type,
+    risk_level: triage.risk_level,
+    needs_human: triage.needs_human,
+    auto_reply_allowed: triage.auto_reply_allowed,
+    confidence: triage.confidence,
+    missing_info: triage.missing_info,
+    reason: triage.reason,
+    suggested_tags: triage.suggested_tags,
+    customer_message: normalizedMessage.text || '',
+    attachments_count: (normalizedMessage.attachments || []).length
+  };
+}
+
+function buildGroundingBundle(groundedInput, triageHint, threadMemory = null) {
+  return {
+    channel: groundedInput.channel,
+    customer_context: {
+      page_id: groundedInput.page_id,
+      psid: groundedInput.psid,
+      message_id: groundedInput.message_id,
+      timestamp: groundedInput.timestamp,
+      latest_customer_message: groundedInput.latest_customer_message,
+      recent_messages: groundedInput.recent_messages,
+      thread_memory: threadMemory
+    },
+    triage_hint: triageHint,
+    grounding: groundedInput.grounding
+  };
+}
+
+function buildReasoningInput(normalizedMessage, triageHint, groundingBundle) {
+  return {
+    channel: normalizedMessage.source,
+    message: {
+      page_id: normalizedMessage.page_id,
+      thread_key: normalizedMessage.thread_key,
+      message_id: normalizedMessage.message_id,
+      sender_psid: normalizedMessage.sender_psid,
+      timestamp: normalizedMessage.timestamp,
+      text: normalizedMessage.text,
+      attachments_count: (normalizedMessage.attachments || []).length
+    },
+    triage_hint: triageHint,
+    grounding_bundle: groundingBundle
+  };
 }
 
 function shouldQueuePendingHandoff(record) {
@@ -284,105 +342,7 @@ function buildProcessingMeta(options = {}, aiMeta = {}) {
       options.groundedDataVersion ||
       process.env.FANPAGE_BOT_GROUNDED_DATA_VERSION ||
       'mixer-grounded-ai-data-v1',
-    ai_mode: aiMeta?.source || 'n/a',
+    ai_mode: aiMeta?.source || aiMeta?.provider || 'n/a',
     ai_model: aiMeta?.model || process.env.OPENAI_MODEL || null
-  };
-}
-
-
-function logPipelineStage(label, payload) {
-  try {
-    console.log(label, JSON.stringify(payload));
-  } catch {
-    console.log(label, payload);
-  }
-}
-
-function summarizeRawEvent(rawEvent) {
-  return {
-    object: rawEvent?.object || null,
-    page_id: rawEvent?.entry?.[0]?.id || rawEvent?.page_id || null,
-    event_type: detectRawEventType(rawEvent),
-    sender_psid: rawEvent?.entry?.[0]?.messaging?.[0]?.sender?.id || null,
-    recipient_psid: rawEvent?.entry?.[0]?.messaging?.[0]?.recipient?.id || null,
-    message_mid: rawEvent?.entry?.[0]?.messaging?.[0]?.message?.mid || null,
-    text_preview: truncateText(rawEvent?.entry?.[0]?.messaging?.[0]?.message?.text || null)
-  };
-}
-
-function summarizeNormalizedMessage(normalizedMessage) {
-  return {
-    event_type: normalizedMessage?.event_type || null,
-    page_id: normalizedMessage?.page_id || null,
-    thread_key: normalizedMessage?.thread_key || null,
-    sender_psid: normalizedMessage?.sender_psid || null,
-    message_id: normalizedMessage?.message_id || null,
-    text_preview: truncateText(normalizedMessage?.text || null),
-    has_attachments: Array.isArray(normalizedMessage?.attachments) && normalizedMessage.attachments.length > 0
-  };
-}
-
-function summarizeDecision(record, normalizedMessage) {
-  return {
-    event_type: normalizedMessage?.event_type || null,
-    message_id: normalizedMessage?.message_id || null,
-    page_id: normalizedMessage?.page_id || null,
-    text_preview: truncateText(normalizedMessage?.text || null),
-    case_type: record?.triage?.case_type || null,
-    risk_level: record?.triage?.risk_level || null,
-    decision: record?.delivery?.decision || null,
-    reason: record?.delivery?.reason || record?.send_result?.reason || null,
-    send_status: record?.send_result?.status || null
-  };
-}
-
-function detectRawEventType(rawEvent) {
-  const messaging = rawEvent?.entry?.[0]?.messaging?.[0];
-  if (!messaging) return null;
-  if (messaging.message?.is_echo) return 'echo';
-  if (messaging.message) return 'message';
-  if (messaging.postback) return 'postback';
-  if (messaging.delivery) return 'delivery';
-  if (messaging.read) return 'read';
-  if (messaging.optin) return 'optin';
-  if (messaging.referral) return 'referral';
-  if (messaging.account_linking) return 'account_linking';
-  return 'unknown';
-}
-
-function truncateText(text, maxLength = 120) {
-  if (!text) return null;
-  const normalized = String(text).replace(/\s+/g, ' ').trim();
-  if (normalized.length <= maxLength) return normalized;
-  return `${normalized.slice(0, maxLength - 1)}…`;
-}
-
-
-async function maybeNotifyTelegram(record, options) {
-  try {
-    return await notifyTelegramDraft(record, options);
-  } catch (error) {
-    return {
-      attempted: true,
-      status: 'failed',
-      error: String(error.message || error)
-    };
-  }
-}
-
-
-function summarizeVision(vision) {
-  if (!vision) {
-    return { attempted: false, used_vision: false, summary: null };
-  }
-
-  return {
-    attempted: Boolean(vision.attempted),
-    used_vision: Boolean(vision.used_vision),
-    summary: vision.summary || null,
-    likely_product_type: vision.likely_product_type || null,
-    dominant_color: vision.dominant_color || null,
-    notable_details: Array.isArray(vision.notable_details) ? vision.notable_details.slice(0, 5) : [],
-    reason: vision.reason || null
   };
 }

@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { processWebhookBody } from './pipeline.js';
 import { verifyFacebookWebhookSignature } from './webhook.js';
+import { normalizeDraftContract, generateDraft } from './ai-draft.js';
+import { createThreadStateStore } from './thread-state.js';
 
 const tmpDir = path.resolve(process.cwd(), 'data/tmp');
 fs.mkdirSync(tmpDir, { recursive: true });
@@ -135,6 +137,26 @@ const carrierBody = {
           message: {
             mid: 'mid.local.6',
             text: 'shop ship đơn vị nào vậy'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const pricingBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-14' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp,
+          message: {
+            mid: 'mid.local.11',
+            text: 'áo này giá bao nhiêu, có sale không shop?'
           }
         }
       ]
@@ -391,6 +413,17 @@ const carrierOutputs = await processWebhookBody(carrierBody, {
 });
 
 resetDedupeStore();
+const pricingOutputs = await processWebhookBody(pricingBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for ungrounded pricing/promo request');
+  }
+});
+
+resetDedupeStore();
 const shortAmbiguousOutputs = await processWebhookBody(shortAmbiguousBody, {
   autoReplyEnabled: true,
   shadowMode: false,
@@ -447,8 +480,11 @@ const passiveEventOutputs = await processWebhookBody(passiveEventsBody, {
 });
 
 const signatureChecks = runSignatureChecks();
+const reasoningBundleChecks = runReasoningBundleChecks(pricingOutputs);
+const draftContractChecks = await runDraftContractChecks({ shadowOutputs, liveOutputs, complaintOutputs, pricingOutputs });
+const threadMemoryChecks = runThreadMemoryChecks();
 
-console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks }, null, 2));
+console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks }, null, 2));
 
 function resetDedupeStore() {
   if (fs.existsSync(dedupeStorePath)) {
@@ -526,6 +562,165 @@ function createMarkSeenFetchMock() {
   };
 }
 
+async function runDraftContractChecks({ shadowOutputs, liveOutputs, complaintOutputs, pricingOutputs }) {
+  const samples = [
+    shadowOutputs?.[0]?.ai_draft,
+    liveOutputs?.[0]?.ai_draft,
+    complaintOutputs?.[0]?.ai_draft,
+    pricingOutputs?.[0]?.ai_draft
+  ].filter(Boolean);
+
+  const malformedNormalized = normalizeDraftContract({
+    understanding: { intent: 'totally_new_case', missing_info: 'order_code' },
+    decision: { action: 'SEND_NOW', reason: '' },
+    reply: { reply_text: '' },
+    ops_meta: { needs_human: 'false', confidence: '82%', policy_refs: 'policy:shipping_eta_general', safety_flags: ['negative_sentiment'] }
+  }, {
+    triage_hint: { case_type: 'shipping_eta_general', missing_info: [] }
+  });
+
+  const generatedMalformed = await generateDraft({
+    message: { text: 'shop ship mấy ngày vậy' },
+    triage_hint: { case_type: 'shipping_eta_general', needs_human: false, missing_info: [], reason: 'matched_shipping_eta_rule' },
+    grounding_bundle: { grounding: {} }
+  }, {
+    mockOpenAIResponse: {
+      output_text: JSON.stringify({
+        understanding: { intent: 'new_case_from_model', sentiment: 'neutral', missing_info: 'tracking_code' },
+        decision: { action: 'AUTO_SEND', strategy: 'freeform' },
+        reply: { reply_text: '' },
+        ops_meta: { needs_human: false, confidence: '150%', policy_refs: ['policy:shipping_eta_general'], safety_flags: ['negative_sentiment'] }
+      })
+    }
+  });
+
+  return {
+    samples_checked: samples.length,
+    all_have_reasoning_first_shape: samples.every(hasReasoningFirstShape),
+    all_keep_legacy_fields: samples.every(hasLegacyCompatibilityShape),
+    sample_actions: samples.map((draft) => draft.decision?.action || draft.action || null),
+    sample_intents: samples.map((draft) => draft.understanding?.intent || null),
+    malformed_normalized: {
+      action: malformedNormalized.action,
+      intent: malformedNormalized.understanding?.intent,
+      missing_info: malformedNormalized.missing_info,
+      confidence: malformedNormalized.confidence,
+      issues: malformedNormalized.contract_meta?.issues || []
+    },
+    malformed_generate_draft: {
+      action: generatedMalformed.draft?.action,
+      reply_text_present: Boolean(generatedMalformed.draft?.reply_text),
+      confidence: generatedMalformed.draft?.confidence,
+      needs_human: generatedMalformed.draft?.needs_human,
+      validation_issues: generatedMalformed.meta?.validation?.issues || []
+    },
+    sales_assist_meta_present: samples.every((draft) => draft?.sales_assist_meta && Array.isArray(draft.sales_assist_meta.signals))
+  };
+}
+
+function hasReasoningFirstShape(draft) {
+  return Boolean(
+    draft
+    && draft.understanding
+    && typeof draft.understanding.intent === 'string'
+    && Array.isArray(draft.understanding.missing_info)
+    && draft.decision
+    && typeof draft.decision.action === 'string'
+    && typeof draft.decision.reason === 'string'
+    && draft.reply
+    && typeof draft.reply.reply_text === 'string'
+    && draft.ops_meta
+    && typeof draft.ops_meta.needs_human === 'boolean'
+    && typeof draft.ops_meta.confidence === 'number'
+    && Array.isArray(draft.ops_meta.policy_refs)
+    && Array.isArray(draft.ops_meta.safety_flags)
+  );
+}
+
+function hasLegacyCompatibilityShape(draft) {
+  return Boolean(
+    draft
+    && typeof draft.reply_text === 'string'
+    && typeof draft.action === 'string'
+    && typeof draft.needs_human === 'boolean'
+    && typeof draft.confidence === 'number'
+    && Array.isArray(draft.missing_info)
+    && Array.isArray(draft.policy_refs)
+    && Array.isArray(draft.safety_flags)
+  );
+}
+
+function runThreadMemoryChecks() {
+  const store = createThreadStateStore({
+    threadStatePath: path.join(tmpDir, 'thread-state.logic.smoke.json')
+  });
+  const threadKey = 'facebook:test-page:test-user';
+
+  store.updateMemory(threadKey, {
+    normalizedMessage: {
+      thread_key: threadKey,
+      message_id: 'mid.thread.1',
+      text: 'shop kiểm tra đơn giúp mình',
+      timestamp: inHoursTimestamp
+    },
+    triage: {
+      case_type: 'order_status_request',
+      missing_info: ['order_code', 'receiver_phone'],
+      reason: 'matched_order_status_rule',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: ['order_code', 'receiver_phone'],
+        reason: 'need_order_identifiers'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
+
+  const afterAsk = store.getMemory(threadKey);
+
+  store.updateMemory(threadKey, {
+    normalizedMessage: {
+      thread_key: threadKey,
+      message_id: 'mid.thread.2',
+      text: 'mã đơn của mình là DH123456, sđt 0912 345 678',
+      timestamp: inHoursTimestamp + 1000
+    },
+    triage: {
+      case_type: 'unknown',
+      missing_info: [],
+      reason: 'customer_provided_requested_info',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: [],
+        reason: 'ready_for_manual_lookup'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
+
+  const afterReply = store.getMemory(threadKey);
+
+  return {
+    after_ask: {
+      pending_customer_reply: afterAsk.pending_customer_reply,
+      asked_slots: afterAsk.asked_slots
+    },
+    after_reply: {
+      pending_customer_reply: afterReply.pending_customer_reply,
+      asked_slots: afterReply.asked_slots,
+      resolved_slots: afterReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => item.slot)
+    }
+  };
+}
+
 function runSignatureChecks() {
   const rawBody = JSON.stringify(sampleBody);
   const appSecret = 'test-app-secret';
@@ -561,4 +756,84 @@ function runSignatureChecks() {
       { appSecret }
     )
   };
+}
+
+function runReasoningBundleChecks(pricingOutputs = []) {
+  const knowledgeDir = path.resolve(process.cwd(), 'knowledge');
+  const schema = readJson(path.join(knowledgeDir, 'reply-brain-schema-v1.json'));
+  const policyBank = readJson(path.join(knowledgeDir, 'policy-bank.json'));
+  const caseBank = readJson(path.join(knowledgeDir, 'case-bank.json'));
+  const toneGuide = readJson(path.join(knowledgeDir, 'tone-guide.json'));
+  const responsePatternBank = readJson(path.join(knowledgeDir, 'response-pattern-bank.json'));
+
+  return {
+    files_present: {
+      schema: fs.existsSync(path.join(knowledgeDir, 'reply-brain-schema-v1.json')),
+      policy_bank: fs.existsSync(path.join(knowledgeDir, 'policy-bank.json')),
+      case_bank: fs.existsSync(path.join(knowledgeDir, 'case-bank.json')),
+      tone_guide: fs.existsSync(path.join(knowledgeDir, 'tone-guide.json')),
+      response_pattern_bank: fs.existsSync(path.join(knowledgeDir, 'response-pattern-bank.json'))
+    },
+    schema_contract: {
+      version: schema.version,
+      policy_store: schema.memory_system?.policy_memory?.primary_store || null,
+      case_store: schema.memory_system?.case_memory?.primary_store || null,
+      language_store: schema.memory_system?.language_memory?.primary_store || null
+    },
+    bundle_versions: {
+      policy_bank: policyBank.version,
+      case_bank: caseBank.version,
+      tone_guide: toneGuide.version,
+      response_pattern_bank: responsePatternBank.version
+    },
+    workflow_guardrails: {
+      shipping_eta_case: summarizeCase(caseBank, 'shipping_eta_general'),
+      order_status_case: summarizeCase(caseBank, 'order_status_request'),
+      complaint_case: summarizeCase(caseBank, 'complaint_or_negative_feedback'),
+      pricing_case: summarizeCase(caseBank, 'pricing_or_promotion'),
+      shipping_eta_policy: summarizePolicy(policyBank, 'shipping_eta_general'),
+      tone_reasoning_first_rule: toneGuide.voice_principles?.reasoning_first_rule || null,
+      pattern_forbidden_uses_count: responsePatternBank.usage_contract?.forbidden_uses?.length || 0
+    },
+    sales_runtime_hook: {
+      pricing_case_seen: pricingOutputs?.[0]?.triage?.case_type === 'pricing_or_promotion',
+      pricing_decision: pricingOutputs?.[0]?.delivery?.decision || null,
+      buyer_intent_hint: pricingOutputs?.[0]?.grounding_bundle?.grounding?.sales_assist?.buyer_intent_hint || null,
+      lead_strength_hint: pricingOutputs?.[0]?.grounding_bundle?.grounding?.sales_assist?.lead_strength_hint || null,
+      product_grounding_status: pricingOutputs?.[0]?.grounding_bundle?.grounding?.sales_assist?.product_grounding_status || null,
+      pricing_guardrails_count: pricingOutputs?.[0]?.grounding_bundle?.grounding?.sales_assist?.guardrails?.length || 0
+    }
+  };
+}
+
+function summarizeCase(caseBank, caseId) {
+  const entry = caseBank.cases?.find((item) => item.case_id === caseId);
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    case_id: entry.case_id,
+    decision_default: entry.decision_default,
+    auto_reply_allowed: entry.auto_reply_allowed,
+    risk_level: entry.risk_level
+  };
+}
+
+function summarizePolicy(policyBank, policyId) {
+  const entry = policyBank.policies?.find((item) => item.policy_id === policyId);
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    policy_id: entry.policy_id,
+    allowed_case_types: entry.allowed_case_types || [],
+    fact_count: entry.facts?.length || 0,
+    has_conflict_notes: Boolean(entry.conflict_notes?.length)
+  };
+}
+
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }

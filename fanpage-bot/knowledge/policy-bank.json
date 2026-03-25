@@ -1,0 +1,286 @@
+{
+  "version": "v1",
+  "brain_role": "policy_memory",
+  "brand": "Mixer",
+  "channel": "facebook_fanpage_inbox",
+  "north_star": "Store confirmed business facts, constraints, and uncertainty notes for reasoning-first customer support.",
+  "source_priority": [
+    {
+      "source": "scripts/mixer-grounded-ai-data-v1.json",
+      "priority": 1,
+      "why": "newer grounded data intended for AI-facing grounding"
+    },
+    {
+      "source": "scripts/mixer-knowledge-base-v0.json",
+      "priority": 2,
+      "why": "older summarized knowledge base; useful as fallback/reference"
+    },
+    {
+      "source": "scripts/mixer-inbox-case-schema.md",
+      "priority": 3,
+      "why": "operational triage schema, not canonical policy source"
+    },
+    {
+      "source": "scripts/mixer-reply-brain-design-v1.md",
+      "priority": 4,
+      "why": "design philosophy and reasoning constraints"
+    }
+  ],
+  "policies": [
+    {
+      "policy_id": "support_hours",
+      "title": "Giờ hỗ trợ khách hàng",
+      "category": "operations",
+      "summary": "Khung giờ hỗ trợ chuẩn là 08:00-23:00 hằng ngày.",
+      "facts": [
+        {
+          "fact_id": "support_hours_window",
+          "statement": "Bên em hỗ trợ khách hàng từ 08:00 đến 23:00 hằng ngày.",
+          "confidence": "high",
+          "sources": [
+            "scripts/mixer-grounded-ai-data-v1.json",
+            "scripts/mixer-knowledge-base-v0.json",
+            "scripts/mixer-inbox-case-schema.md"
+          ]
+        }
+      ],
+      "allowed_case_types": [
+        "support_hours"
+      ],
+      "safe_reply_scope": [
+        "state support window",
+        "politely set expectation if customer asks outside support hours"
+      ],
+      "unsafe_reply_scope": [
+        "promise instant response outside support window",
+        "invent holiday exceptions"
+      ]
+    },
+    {
+      "policy_id": "shipping_carrier",
+      "title": "Đơn vị vận chuyển",
+      "category": "shipping",
+      "summary": "Đơn vị vận chuyển hiện được ghi nhận là Viettel Post.",
+      "facts": [
+        {
+          "fact_id": "carrier_primary",
+          "statement": "Đơn vị vận chuyển hiện tại là Viettel Post.",
+          "confidence": "high",
+          "sources": [
+            "scripts/mixer-grounded-ai-data-v1.json",
+            "scripts/mixer-knowledge-base-v0.json",
+            "scripts/mixer-inbox-case-schema.md"
+          ]
+        }
+      ],
+      "allowed_case_types": [
+        "shipping_carrier"
+      ],
+      "safe_reply_scope": [
+        "state carrier used by shop"
+      ],
+      "unsafe_reply_scope": [
+        "promise customer can freely choose another carrier",
+        "infer carrier for a specific order without tracking data"
+      ]
+    },
+    {
+      "policy_id": "shipping_eta_general",
+      "title": "Thời gian giao hàng chung",
+      "category": "shipping",
+      "summary": "Có hai biến thể dữ liệu ETA đang tồn tại; brain phải dùng source-precedence và tránh nói quá chắc khi chưa rõ khu vực.",
+      "facts": [
+        {
+          "fact_id": "eta_grounded_v1",
+          "statement": "2-3 ngày với đơn nội thành Hà Nội; 3-5 ngày với đơn ngoại thành Hà Nội; 4-7 ngày với đơn các tỉnh/thành khác ngoài Hà Nội; không tính thứ 7/chủ nhật.",
+          "confidence": "medium",
+          "sources": [
+            "scripts/mixer-grounded-ai-data-v1.json"
+          ],
+          "usage_note": "Ưu tiên khi cần grounding theo bản mới hơn. Chỉ nên dùng khi phrasing rõ là mốc dự kiến chung, không phải cam kết cứng."
+        },
+        {
+          "fact_id": "eta_knowledge_v0",
+          "statement": "Miền Bắc khoảng 2-5 ngày; miền Trung và miền Nam khoảng 5-7 ngày.",
+          "confidence": "medium",
+          "sources": [
+            "scripts/mixer-knowledge-base-v0.json",
+            "scripts/mixer-inbox-case-schema.md"
+          ],
+          "usage_note": "Đây là bản vùng miền cũ hơn, hữu ích làm reference/fallback nếu team vẫn đang vận hành theo cách nói này."
+        },
+        {
+          "fact_id": "eta_delay_followup",
+          "statement": "Nếu quá thời gian dự kiến mà chưa nhận được hàng, khách có thể inbox hoặc gọi hotline 0559131315.",
+          "confidence": "medium",
+          "sources": [
+            "scripts/mixer-grounded-ai-data-v1.json"
+          ]
+        }
+      ],
+      "allowed_case_types": [
+        "shipping_eta_general"
+      ],
+      "reasoning_notes": [
+        "Nếu khách chỉ hỏi chung, có thể trả lời bằng ETA dự kiến và giữ ngôn ngữ mềm như 'thường', 'dự kiến'.",
+        "Nếu khách không nói rõ khu vực, có thể nêu theo khu vực đang có trong source hoặc hỏi thêm nơi nhận để nói sát hơn.",
+        "Không biến ETA chung thành lời hứa cho đơn cụ thể."
+      ],
+      "conflict_notes": [
+        "Nguồn v0 và grounded-v1 chưa hoàn toàn khớp nhau. Nên ưu tiên grounded-v1 nhưng giữ cờ ambiguity để đội vận hành rà soát sau."
+      ],
+      "unsafe_reply_scope": [
+        "promise exact delivery date for a specific order without tracking data",
+        "state outdated ETA as definitive truth without noting it is estimated"
+      ]
+    },
+    {
+      "policy_id": "return_policy_general",
+      "title": "Chính sách đổi trả chung",
+      "category": "returns",
+      "summary": "Shop hỗ trợ đổi/trả trong 3 ngày kể từ ngày giao hàng thành công.",
+      "facts": [
+        {
+          "fact_id": "return_window_general",
+          "statement": "Bên em hỗ trợ đổi/trả trong vòng 3 ngày kể từ ngày giao hàng thành công.",
+          "confidence": "high",
+          "sources": [
+            "scripts/mixer-grounded-ai-data-v1.json",
+            "scripts/mixer-knowledge-base-v0.json",
+            "scripts/mixer-inbox-case-schema.md"
+          ]
+        }
+      ],
+      "allowed_case_types": [
+        "return_policy_general"
+      ],
+      "safe_reply_scope": [
+        "explain return/exchange window in general terms"
+      ],
+      "unsafe_reply_scope": [
+        "approve a specific return without case details",
+        "promise exception beyond 3 days"
+      ]
+    },
+    {
+      "policy_id": "defective_product_support",
+      "title": "Hỗ trợ khi sản phẩm lỗi",
+      "category": "returns_and_quality",
+      "summary": "Nếu sản phẩm lỗi, shop hỗ trợ đổi trong 3 ngày và có hỗ trợ phí ship 2 đầu theo nguồn hiện có.",
+      "facts": [
+        {
+          "fact_id": "defect_window",
+          "statement": "Nếu sản phẩm lỗi, bên em hỗ trợ đổi trong vòng 3 ngày từ ngày nhận/giao hàng thành công.",
+          "confidence": "high",
+          "sources": [
+            "scripts/mixer-grounded-ai-data-v1.json",
+            "scripts/mixer-knowledge-base-v0.json",
+            "scripts/mixer-inbox-case-schema.md"
+          ]
+        },
+        {
+          "fact_id": "defect_shipping_support",
+          "statement": "Bên em hỗ trợ phí ship 2 đầu với trường hợp lỗi sản phẩm được xác nhận.",
+          "confidence": "high",
+          "sources": [
+            "scripts/mixer-knowledge-base-v0.json"
+          ]
+        },
+        {
+          "fact_id": "defect_exchange_flow",
+          "statement": "Shop mang hàng mới đến đổi tận nhà và bưu tá thu lại hàng cũ; khách cần gói lại hàng vào túi/hộp; nếu mất túi/hộp thì dùng túi/hộp khác bọc lại.",
+          "confidence": "medium",
+          "sources": [
+            "scripts/mixer-grounded-ai-data-v1.json"
+          ]
+        },
+        {
+          "fact_id": "defect_exchange_eta",
+          "statement": "Dự kiến 4-6 ngày sau khách nhận được hàng mới.",
+          "confidence": "medium",
+          "sources": [
+            "scripts/mixer-grounded-ai-data-v1.json"
+          ]
+        },
+        {
+          "fact_id": "defect_address_change",
+          "statement": "Nếu cần thay đổi thông tin nhận hàng thì khách báo shop.",
+          "confidence": "medium",
+          "sources": [
+            "scripts/mixer-grounded-ai-data-v1.json"
+          ]
+        }
+      ],
+      "allowed_case_types": [
+        "defective_product_policy_general",
+        "exchange_return_specific",
+        "defective_product_claim"
+      ],
+      "reasoning_notes": [
+        "Với hỏi chính sách chung, có thể giải thích ngắn gọn trong phạm vi đã xác nhận.",
+        "Với claim cụ thể theo đơn/sản phẩm, nên xin lỗi nhẹ, thu thập thông tin/chứng cứ và ưu tiên handoff."
+      ],
+      "unsafe_reply_scope": [
+        "declare a defect claim approved before review",
+        "promise compensation beyond confirmed shipping support",
+        "close the case automatically without evidence or order context"
+      ]
+    },
+    {
+      "policy_id": "order_lookup_requirements",
+      "title": "Thông tin cần để kiểm tra đơn hoặc xử lý case cụ thể",
+      "category": "operations",
+      "summary": "Muốn kiểm tra đơn nhanh cần ít nhất mã đơn hoặc số điện thoại nhận hàng; có thể cần thêm tên người nhận.",
+      "facts": [
+        {
+          "fact_id": "lookup_identifiers",
+          "statement": "Cần xin mã đơn hoặc số điện thoại nhận hàng để kiểm tra đơn nhanh hơn; một số trường hợp có thể cần thêm tên người nhận.",
+          "confidence": "high",
+          "sources": [
+            "scripts/mixer-knowledge-base-v0.json",
+            "scripts/mixer-inbox-case-schema.md"
+          ]
+        }
+      ],
+      "allowed_case_types": [
+        "order_status_request",
+        "exchange_return_specific",
+        "complaint_or_negative_feedback",
+        "defective_product_claim"
+      ],
+      "safe_reply_scope": [
+        "ask for order code or receiver phone",
+        "explain that more info is needed to check accurately"
+      ],
+      "unsafe_reply_scope": [
+        "pretend to have checked the order without identifiers",
+        "ask for excessive sensitive data not needed for support"
+      ]
+    }
+  ],
+  "global_constraints": {
+    "hard_rules": [
+      "Không bịa chính sách ngoài dữ liệu đã xác nhận.",
+      "Không tự xác nhận tồn kho nếu chưa có dữ liệu tồn kho thật.",
+      "Không tự xác nhận trạng thái đơn nếu chưa có integration hoặc tra cứu thật.",
+      "Không tự hứa ngoại lệ chính sách, đền bù, hoàn tiền, giảm giá hoặc cam kết ngoài nguồn đã xác nhận.",
+      "Không tự xử lý trọn các case complaint, lỗi sản phẩm cụ thể, đổi trả cụ thể nếu cần judgement của người thật.",
+      "Không biến ETA chung thành cam kết cho đơn cụ thể.",
+      "Không gửi nội dung vi phạm cửa sổ nhắn tin hoặc rule an toàn của Meta/ hệ thống vận hành."
+    ],
+    "reasoning_defaults": [
+      "Nếu dữ liệu thật còn thiếu, ưu tiên hỏi đúng thông tin tối thiểu cần thiết thay vì suy đoán.",
+      "Nếu case chạm dữ liệu nội bộ hoặc rủi ro uy tín, nghiêng về draft_only/handoff.",
+      "Khi policy source conflict, dùng source_priority và nói theo hướng dự kiến mềm, không tuyệt đối hóa."
+    ]
+  },
+  "known_ambiguities": [
+    {
+      "ambiguity_id": "shipping_eta_conflict_v0_vs_v1",
+      "topic": "shipping_eta_general",
+      "description": "Dữ liệu ETA trong v0 và grounded-v1 không hoàn toàn khớp cấu trúc vùng/khoảng ngày.",
+      "impact": "Nếu bot chọn một bản như chân lý tuyệt đối, có thể trả lời lệch so với vận hành thực tế.",
+      "recommended_handling": "Ưu tiên grounded-v1, phrasing mềm là ETA dự kiến, và ghi note để xác minh lại với team vận hành sau."
+    }
+  ]
+}

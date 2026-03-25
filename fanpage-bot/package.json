@@ -8,6 +8,7 @@
     "handoffs": "node src/list-handoffs.js",
     "handoff:resolve": "node src/resolve-handoff.js",
     "metrics": "node src/report-metrics.js",
-    "replay": "node src/replay-webhook.js"
+    "replay": "node src/replay-webhook.js",
+    "replay:extract": "node src/extract-replay-payload.js"
   }
 }

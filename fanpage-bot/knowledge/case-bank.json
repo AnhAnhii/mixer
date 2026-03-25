@@ -1,0 +1,535 @@
+{
+  "version": "v1",
+  "brain_role": "case_memory",
+  "brand": "Mixer",
+  "north_star": "Describe how a strong customer-support brain should interpret, judge, and move each recurring inbox situation.",
+  "decision_legend": {
+    "auto_reply": "Can be auto-sent only when low-risk, grounded, clear, and all guards pass.",
+    "draft_only": "Bot may draft or ask focused follow-up, but should not auto-send as if fully resolved.",
+    "handoff": "Needs human ownership or explicit human review because risk, emotion, or missing real-world data is too high."
+  },
+  "cases": [
+    {
+      "case_id": "greeting_or_opening",
+      "case_group": "opening",
+      "customer_goal_interpretation": "Customer is opening the conversation or checking if the page is online.",
+      "risk_level": "low",
+      "common_sentiments": ["neutral", "positive"],
+      "decision_default": "auto_reply",
+      "auto_reply_allowed": true,
+      "signals": {
+        "typical_phrasings": ["shop ơi", "xin chào", "ad ơi còn online không", "hello", "hi"],
+        "anti_signals": ["contains an actual support issue after the greeting", "contains frustration or urgency"]
+      },
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "The customer has not stated the real need yet.",
+          "The best move is to welcome and invite the concrete question, not overshare policy."
+        ],
+        "preferred_strategy": "brief_welcome_then_invite_need",
+        "missing_info_to_request": [],
+        "safe_grounding_refs": ["support_hours"],
+        "unsafe_behaviors": [
+          "answering a question the customer has not asked",
+          "forcing a long intro that slows the conversation"
+        ]
+      },
+      "response_success_criteria": [
+        "Feels human and warm but short",
+        "Guides customer to state their need"
+      ]
+    },
+    {
+      "case_id": "support_hours",
+      "case_group": "general_policy",
+      "customer_goal_interpretation": "Customer wants to know when the shop is available to support.",
+      "risk_level": "low",
+      "common_sentiments": ["neutral", "confused"],
+      "decision_default": "auto_reply",
+      "auto_reply_allowed": true,
+      "signals": {
+        "typical_phrasings": ["mấy giờ shop làm việc", "bên mình hỗ trợ tới mấy giờ", "giờ hỗ trợ sao vậy"],
+        "anti_signals": ["customer is really asking for order progress and only mentions time indirectly"]
+      },
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "This is a factual FAQ case and should be answered directly.",
+          "If the customer asks outside support hours, expectation-setting is useful."
+        ],
+        "preferred_strategy": "direct_answer_with_light_offer_to_help",
+        "missing_info_to_request": [],
+        "safe_grounding_refs": ["support_hours"],
+        "unsafe_behaviors": [
+          "inventing exceptions for weekends or holidays",
+          "promising immediate response at any hour"
+        ]
+      },
+      "response_success_criteria": [
+        "States 08:00-23:00 clearly",
+        "Optionally invites the next question"
+      ]
+    },
+    {
+      "case_id": "shipping_eta_general",
+      "case_group": "general_policy",
+      "customer_goal_interpretation": "Customer wants a general delivery-time estimate, not a tracked status for a specific order.",
+      "risk_level": "low",
+      "common_sentiments": ["neutral", "curious", "confused"],
+      "decision_default": "auto_reply",
+      "auto_reply_allowed": true,
+      "signals": {
+        "typical_phrasings": ["ship Hà Nội bao lâu", "miền Nam mấy ngày nhận được", "giao hàng mất bao lâu"],
+        "anti_signals": ["mentions specific order already placed", "asks why their order is late", "message is too short/ambiguous like 'ship?'"]
+      },
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "This is answerable only as an estimate; it is not a promise.",
+          "There is source ambiguity in ETA data, so phrasing should stay soft and region-aware.",
+          "If location is missing and needed for precision, asking a short follow-up is better than bluffing."
+        ],
+        "preferred_strategy": "give_estimate_then_offer_more_precise_help_if_location_known",
+        "missing_info_to_request": ["delivery_region_if_customer_wants_precise_eta"],
+        "required_real_world_data": [],
+        "safe_grounding_refs": ["shipping_eta_general"],
+        "unsafe_behaviors": [
+          "giving an exact delivery date",
+          "answering an order-status complaint as if it were a simple FAQ",
+          "using the conflicting ETA sources as if there were no uncertainty"
+        ],
+        "escalation_signals": [
+          "customer sounds frustrated about an existing order",
+          "customer asks about a specific order code",
+          "customer combines ETA question with complaint"
+        ]
+      },
+      "response_success_criteria": [
+        "Uses tentative language like 'thường' or 'dự kiến'",
+        "Does not over-promise",
+        "Keeps answer short and usable"
+      ]
+    },
+    {
+      "case_id": "shipping_carrier",
+      "case_group": "general_policy",
+      "customer_goal_interpretation": "Customer wants to know which shipping carrier the shop uses.",
+      "risk_level": "low",
+      "common_sentiments": ["neutral"],
+      "decision_default": "auto_reply",
+      "auto_reply_allowed": true,
+      "signals": {
+        "typical_phrasings": ["ship đơn vị nào vậy", "bên mình gửi qua hãng nào", "giao qua Viettel hay GHTK"],
+        "anti_signals": ["asks carrier plus specific order status", "asks to change carrier for an order"]
+      },
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "This is a simple factual FAQ if it stays generic.",
+          "If the customer is trying to modify shipment choice for an active order, risk changes."
+        ],
+        "preferred_strategy": "direct_answer",
+        "missing_info_to_request": [],
+        "safe_grounding_refs": ["shipping_carrier"],
+        "unsafe_behaviors": [
+          "implying the customer can select any carrier",
+          "claiming a specific order went with that carrier without lookup"
+        ],
+        "escalation_signals": [
+          "customer asks to switch carrier",
+          "customer ties the question to a delayed order"
+        ]
+      },
+      "response_success_criteria": [
+        "States Viettel Post clearly",
+        "Does not imply order-specific confirmation"
+      ]
+    },
+    {
+      "case_id": "return_policy_general",
+      "case_group": "general_policy",
+      "customer_goal_interpretation": "Customer wants to understand whether the shop supports returns/exchanges in general.",
+      "risk_level": "low",
+      "common_sentiments": ["neutral", "cautious"],
+      "decision_default": "draft_only",
+      "auto_reply_allowed": false,
+      "signals": {
+        "typical_phrasings": ["shop có hỗ trợ đổi trả không", "đổi hàng trong mấy ngày", "chính sách đổi trả sao vậy"],
+        "anti_signals": ["mentions a specific received order", "mentions defect, wrong item, or already wants case handling now"]
+      },
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "The general window is answerable from policy.",
+          "But return/exchange topics easily slide into a live case, so extra care is needed if details appear."
+        ],
+        "preferred_strategy": "state_general_window_then_check_if_customer_has_specific_order_issue",
+        "missing_info_to_request": [],
+        "safe_grounding_refs": ["return_policy_general"],
+        "unsafe_behaviors": [
+          "approving a specific return automatically",
+          "promising exceptions outside the 3-day window"
+        ],
+        "escalation_signals": [
+          "customer already has order details",
+          "customer asks for approval or exception"
+        ]
+      },
+      "response_success_criteria": [
+        "Explains 3-day window accurately",
+        "Keeps room to handoff if the customer moves into a specific case"
+      ],
+      "notes": [
+        "Marked draft_only by design to stay conservative even though the policy itself is known, because return topics often become operational very quickly."
+      ]
+    },
+    {
+      "case_id": "defective_product_policy_general",
+      "case_group": "general_policy",
+      "customer_goal_interpretation": "Customer is asking the general policy for defective items, not yet making a concrete claim with evidence.",
+      "risk_level": "medium",
+      "common_sentiments": ["neutral", "concerned"],
+      "decision_default": "draft_only",
+      "auto_reply_allowed": false,
+      "signals": {
+        "typical_phrasings": ["nếu áo lỗi thì sao", "hàng lỗi có được đổi không", "sản phẩm lỗi shop xử lý thế nào"],
+        "anti_signals": ["customer says their item is actually defective now", "mentions photos, wrong item, torn, broken, missing accessory"]
+      },
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "General policy can be explained briefly, but the moment it becomes a real claim, human review is safer.",
+          "A good agent distinguishes policy explanation from claim approval."
+        ],
+        "preferred_strategy": "explain_general_policy_then_prepare_to_collect_case_details_if_real_claim",
+        "missing_info_to_request": ["order_code_if_customer_has_active_issue", "photo_or_video_if_real_defect_claim"],
+        "safe_grounding_refs": ["defective_product_support"],
+        "unsafe_behaviors": [
+          "confirming compensation or exchange approval before review",
+          "minimizing a real defect report by treating it as only FAQ"
+        ],
+        "escalation_signals": [
+          "customer says the received item is defective",
+          "customer is upset",
+          "customer requests urgent resolution"
+        ]
+      },
+      "response_success_criteria": [
+        "Explains window/support scope without sounding robotic",
+        "Does not over-resolve a live defect case"
+      ]
+    },
+    {
+      "case_id": "order_status_request",
+      "case_group": "post_order",
+      "customer_goal_interpretation": "Customer wants a real status update for a specific order already placed.",
+      "risk_level": "medium",
+      "common_sentiments": ["neutral", "impatient", "frustrated"],
+      "decision_default": "handoff",
+      "auto_reply_allowed": false,
+      "signals": {
+        "typical_phrasings": ["kiểm tra đơn giúp mình", "đơn của mình đi tới đâu rồi", "mã đơn này sao chưa thấy giao"],
+        "anti_signals": ["only asks general shipping ETA before buying"]
+      },
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "This case needs internal data; do not invent status.",
+          "If the customer is impatient, brief empathy helps before requesting identifiers.",
+          "The minimal next step is to collect order code or receiver phone."
+        ],
+        "preferred_strategy": "brief_empathy_then_request_lookup_identifier_then_handoff",
+        "missing_info_to_request": ["order_code", "receiver_phone", "receiver_name_if_needed"],
+        "required_real_world_data": ["internal_order_lookup"],
+        "safe_grounding_refs": ["order_lookup_requirements"],
+        "unsafe_behaviors": [
+          "inventing order progress",
+          "promising exact delivery timing without lookup",
+          "pretending the system has checked when it has not"
+        ],
+        "escalation_signals": [
+          "negative sentiment",
+          "mentions repeated delay",
+          "asks for accountability or complaint handling"
+        ]
+      },
+      "response_success_criteria": [
+        "Acknowledges the need quickly",
+        "Requests only the minimum identifiers needed",
+        "Does not fake certainty"
+      ]
+    },
+    {
+      "case_id": "order_modification_or_cancel",
+      "case_group": "post_order",
+      "customer_goal_interpretation": "Customer wants to modify, change size, edit details, or cancel a placed order.",
+      "risk_level": "high",
+      "common_sentiments": ["neutral", "urgent", "impatient"],
+      "decision_default": "handoff",
+      "auto_reply_allowed": false,
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "This is an operational action, not a simple information reply.",
+          "Even if the request sounds simple, fulfillment impact makes human ownership safer."
+        ],
+        "preferred_strategy": "acknowledge_request_collect_order_identifier_then_handoff",
+        "missing_info_to_request": ["order_code", "requested_change", "receiver_phone_if_needed"],
+        "required_real_world_data": ["order_management_access"],
+        "unsafe_behaviors": [
+          "confirming cancellation or modification without system action",
+          "promising a change was made"
+        ]
+      },
+      "response_success_criteria": [
+        "Signals the request is being checked, not already completed",
+        "Avoids false confirmation"
+      ]
+    },
+    {
+      "case_id": "exchange_return_specific",
+      "case_group": "post_order",
+      "customer_goal_interpretation": "Customer wants exchange/return handling for a specific order or item.",
+      "risk_level": "high",
+      "common_sentiments": ["neutral", "concerned", "frustrated"],
+      "decision_default": "handoff",
+      "auto_reply_allowed": false,
+      "signals": {
+        "typical_phrasings": ["mình muốn đổi size", "mình muốn trả hàng đơn này", "cho mình đổi mẫu này được không"],
+        "anti_signals": ["purely asks general policy with no specific order context"]
+      },
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "A live return/exchange case requires details and often judgement.",
+          "The helpful move is to gather the minimum required info and transition to human processing."
+        ],
+        "preferred_strategy": "acknowledge_then_collect_case_details_then_handoff",
+        "missing_info_to_request": ["order_code", "date_received", "reason_for_exchange_or_return", "desired_size_or_variant_if_applicable"],
+        "required_real_world_data": ["order_lookup", "returns_process_review"],
+        "safe_grounding_refs": ["return_policy_general", "order_lookup_requirements", "defective_product_support"],
+        "unsafe_behaviors": [
+          "approving the exchange/return instantly",
+          "skipping policy-window verification",
+          "arguing with the customer over eligibility"
+        ],
+        "escalation_signals": [
+          "customer asks for exception",
+          "window may be expired",
+          "customer is already upset"
+        ]
+      },
+      "response_success_criteria": [
+        "Shows ownership and clarity",
+        "Collects only useful details",
+        "Routes safely to human follow-up"
+      ]
+    },
+    {
+      "case_id": "defective_product_claim",
+      "case_group": "post_order",
+      "customer_goal_interpretation": "Customer is reporting a real defect, wrong item, missing item, torn/broken product, or similar concrete quality issue.",
+      "risk_level": "high",
+      "common_sentiments": ["concerned", "frustrated", "angry"],
+      "decision_default": "handoff",
+      "auto_reply_allowed": false,
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "The customer needs reassurance and a path to resolution, not a generic policy dump.",
+          "A good first move is light apology plus collection of evidence and identifiers."
+        ],
+        "preferred_strategy": "brief_apology_then_collect_order_and_evidence_then_handoff",
+        "missing_info_to_request": ["order_code", "issue_description", "photo_or_video", "date_received"],
+        "required_real_world_data": ["case_review", "order_lookup"],
+        "safe_grounding_refs": ["defective_product_support", "order_lookup_requirements"],
+        "unsafe_behaviors": [
+          "denying the issue without review",
+          "guaranteeing outcome before checking evidence",
+          "ignoring customer emotion"
+        ],
+        "escalation_signals": [
+          "angry tone",
+          "public-shaming threat",
+          "repeated unresolved issue"
+        ]
+      },
+      "response_success_criteria": [
+        "Customer feels heard",
+        "Next steps are concrete",
+        "No false promise is made"
+      ]
+    },
+    {
+      "case_id": "complaint_or_negative_feedback",
+      "case_group": "risk_and_reputation",
+      "customer_goal_interpretation": "Customer is venting dissatisfaction, complaining, or signaling reputational risk.",
+      "risk_level": "high",
+      "common_sentiments": ["frustrated", "angry"],
+      "decision_default": "handoff",
+      "auto_reply_allowed": false,
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "The emotional state is part of the problem; pure factual reply is not enough.",
+          "The immediate job is de-escalation, not debate.",
+          "Human takeover should happen fast if the complaint is substantive."
+        ],
+        "preferred_strategy": "validate_feeling_briefly_then_collect_anchor_info_or_handoff_fast",
+        "missing_info_to_request": ["order_code_if_order_related", "short_issue_summary_if_not_clear"],
+        "required_real_world_data": ["human_judgement"],
+        "safe_grounding_refs": ["order_lookup_requirements"],
+        "unsafe_behaviors": [
+          "arguing",
+          "blaming the customer",
+          "copy-pasting cheerful FAQ tone",
+          "promising compensation without authority"
+        ],
+        "escalation_signals": [
+          "mentions scam/fraud",
+          "uses aggressive language",
+          "threatens posting publicly",
+          "demands compensation or immediate accountability"
+        ]
+      },
+      "response_success_criteria": [
+        "Tone is calm and respectful",
+        "Does not inflame the situation",
+        "Gets the case to human handling quickly"
+      ]
+    },
+    {
+      "case_id": "stock_or_product_availability",
+      "case_group": "product_and_inventory",
+      "customer_goal_interpretation": "Customer wants to know if a product, size, or color is available.",
+      "risk_level": "medium",
+      "common_sentiments": ["neutral", "purchase_intent"],
+      "decision_default": "handoff",
+      "auto_reply_allowed": false,
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "Availability is highly actionable and easy to get wrong without live inventory.",
+          "It is better to say the shop needs to check than to push a confident but false answer."
+        ],
+        "preferred_strategy": "collect_product_and_variant_then_queue_inventory_check",
+        "missing_info_to_request": ["product_name", "size_or_variant", "color_if_relevant"],
+        "required_real_world_data": ["inventory_lookup"],
+        "unsafe_behaviors": [
+          "claiming in-stock without data",
+          "hard-selling an unavailable item",
+          "suggesting alternatives as if equivalent without context"
+        ],
+        "escalation_signals": [
+          "customer wants immediate reservation",
+          "customer asks across multiple variants at once"
+        ]
+      },
+      "response_success_criteria": [
+        "Collects exact variant info",
+        "Sets expectation that the shop will check"
+      ]
+    },
+    {
+      "case_id": "pricing_or_promotion",
+      "case_group": "commercial",
+      "customer_goal_interpretation": "Customer asks for price, discount, promotion, or voucher information.",
+      "risk_level": "medium",
+      "common_sentiments": ["neutral", "price_sensitive"],
+      "decision_default": "draft_only",
+      "auto_reply_allowed": false,
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "This is only safe if pricing/promo facts are actually grounded and current.",
+          "Without live promo data, a careful non-committal answer or human check is safer."
+        ],
+        "preferred_strategy": "answer_only_if_grounded_current_otherwise_check_first",
+        "missing_info_to_request": ["product_name_if_price_request_is_unspecified"],
+        "required_real_world_data": ["current_price_or_promo_data"],
+        "unsafe_behaviors": [
+          "inventing discounts",
+          "promising extra reduction",
+          "using outdated promotion info as current"
+        ]
+      },
+      "response_success_criteria": [
+        "Commercial info is accurate or clearly framed as pending check"
+      ]
+    },
+    {
+      "case_id": "payment_or_scam_concern",
+      "case_group": "risk_and_reputation",
+      "customer_goal_interpretation": "Customer is concerned about payment, legitimacy, fraud, or verification of the page/shop.",
+      "risk_level": "high",
+      "common_sentiments": ["concerned", "fearful", "angry"],
+      "decision_default": "handoff",
+      "auto_reply_allowed": false,
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "Trust/safety issues carry reputational and financial risk.",
+          "The reply must stay factual and careful; if data is incomplete, escalate."
+        ],
+        "preferred_strategy": "acknowledge_concern_then_handoff_to_verified_human_flow",
+        "missing_info_to_request": ["brief_context_of_concern_if_not_clear"],
+        "required_real_world_data": ["official_verification_guidance"],
+        "unsafe_behaviors": [
+          "making unverifiable claims about security",
+          "downplaying a scam concern casually"
+        ]
+      },
+      "response_success_criteria": [
+        "Customer concern is taken seriously",
+        "Risk is not amplified by careless wording"
+      ]
+    },
+    {
+      "case_id": "spam_or_irrelevant",
+      "case_group": "noise",
+      "customer_goal_interpretation": "The message is spam, irrelevant, or not a genuine customer-support request.",
+      "risk_level": "low",
+      "common_sentiments": ["unknown"],
+      "decision_default": "handoff",
+      "auto_reply_allowed": false,
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "Not every inbound deserves a reply.",
+          "Silence, ignore, or tagging spam is often better than engaging."
+        ],
+        "preferred_strategy": "ignore_or_tag_spam",
+        "missing_info_to_request": [],
+        "unsafe_behaviors": [
+          "rewarding spam with engagement",
+          "sending unnecessary replies that clutter metrics"
+        ]
+      },
+      "response_success_criteria": [
+        "Noise is contained without wasting support bandwidth"
+      ]
+    },
+    {
+      "case_id": "unknown",
+      "case_group": "fallback",
+      "customer_goal_interpretation": "The message intent is unclear, mixed, attachment-heavy, or out of current reasoning coverage.",
+      "risk_level": "medium_to_high",
+      "common_sentiments": ["unknown"],
+      "decision_default": "handoff",
+      "auto_reply_allowed": false,
+      "reasoning_memory": {
+        "what_a_good_agent_realizes": [
+          "Unclear understanding is itself a risk.",
+          "The safest next move is a concise clarifying question or human review, depending on context."
+        ],
+        "preferred_strategy": "clarify_if_low_emotion_otherwise_handoff",
+        "missing_info_to_request": ["customer_need_clarification"],
+        "unsafe_behaviors": [
+          "hallucinating intent",
+          "forcing the message into the wrong FAQ bucket"
+        ]
+      },
+      "response_success_criteria": [
+        "Avoids fake understanding",
+        "Moves toward clarity safely"
+      ]
+    }
+  ],
+  "cross_case_reasoning_rules": [
+    "If the customer asks about a specific order, treat it differently from a general FAQ even when some keywords overlap.",
+    "If frustration/anger is present, emotional handling quality matters as much as factual correctness.",
+    "If required real-world data is unavailable, ask for the minimum identifier or handoff; never simulate certainty.",
+    "If a message contains multiple intents, avoid over-answering; resolve the main need first or split the response carefully.",
+    "Case memory should support judgement and continuity, not rigid template retrieval."
+  ],
+  "coverage_notes": [
+    "Current bank aligns with source files and existing classifier vocabulary, but keeps richer reasoning fields for future model-led drafting.",
+    "Some cases like pricing/promotion and payment/scam concern exist in schema/design docs but are not yet first-class in the current code classifier; they are included here as forward-compatible memory."
+  ]
+}

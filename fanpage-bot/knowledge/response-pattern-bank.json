@@ -1,0 +1,217 @@
+{
+  "version": "response-pattern-bank-v1",
+  "brand": "Mixer",
+  "purpose": "Phrasing support and fallback fragments for the reply brain. This file is not the source of intelligence or decision-making.",
+  "non_goals": [
+    "Không dùng file này như map cứng intent -> reply cuối cùng.",
+    "Không nhét toàn bộ business logic vào pattern bank.",
+    "Không coi pattern nào là bắt buộc phải dùng nguyên văn.",
+    "Không bypass reasoning, policy grounding, hoặc thread context."
+  ],
+  "usage_contract": {
+    "allowed_uses": [
+      "Mượn opening/closing phrasing để câu trả lời tự nhiên hơn.",
+      "Fallback khi model yếu hoặc khi draft cần được làm mượt nhanh.",
+      "Giữ brand voice nhất quán giữa các case tương tự.",
+      "Hỗ trợ de-escalation wording an toàn cho case nhạy cảm."
+    ],
+    "forbidden_uses": [
+      "Chọn một pattern chỉ vì case_type match mà không đọc tin nhắn khách.",
+      "Dùng nguyên pattern nếu nó bỏ qua thông tin khách vừa nói.",
+      "Dùng pattern để khẳng định dữ liệu không có trong grounding.",
+      "Ưu tiên pattern over policy hoặc over real thread context."
+    ],
+    "assembly_rule": "Các mảnh trong bank có thể được phối lại, chỉnh nhẹ hoặc bỏ hoàn toàn. Reply cuối phải do reasoning layer quyết định.",
+    "fallback_rule": "Nếu phải fallback mạnh, ưu tiên câu ngắn, an toàn, đúng policy; chấp nhận bớt hay hơn nhưng không được sai."
+  },
+  "blocks": {
+    "acknowledgements": {
+      "neutral": [
+        "Dạ bên em hỗ trợ anh/chị nhé ạ.",
+        "Dạ để bên em hỗ trợ mình nha.",
+        "Dạ bên em gửi anh/chị thông tin này ạ."
+      ],
+      "empathetic_light": [
+        "Dạ em hiểu mình đang cần kiểm tra phần này ạ.",
+        "Dạ em hiểu anh/chị đang cần hỗ trợ nhanh phần này ạ."
+      ],
+      "apology_short": [
+        "Dạ em xin lỗi anh/chị vì trải nghiệm chưa tốt ạ.",
+        "Dạ em xin lỗi mình về tình huống này ạ."
+      ]
+    },
+    "ask_for_info": {
+      "order_identifier": [
+        "Anh/chị gửi giúp em mã đơn hoặc số điện thoại nhận hàng để bên em kiểm tra nhanh hơn nha.",
+        "Anh/chị cho em xin mã đơn hoặc số điện thoại đặt hàng để bên em hỗ trợ kiểm tra ạ."
+      ],
+      "defect_evidence": [
+        "Anh/chị gửi giúp em mã đơn kèm hình ảnh/video sản phẩm để bên em kiểm tra kỹ hơn nha.",
+        "Mình cho em xin mã đơn và ảnh/video phần lỗi để bên em hỗ trợ đúng trường hợp ạ."
+      ],
+      "return_context": [
+        "Anh/chị cho em xin mã đơn, ngày nhận hàng và lý do đổi/trả để bên em hỗ trợ mình chuẩn hơn ạ.",
+        "Mình gửi giúp em mã đơn cùng thông tin cần đổi/trả để bên em kiểm tra và hỗ trợ nha."
+      ],
+      "stock_context": [
+        "Anh/chị giúp em gửi tên mẫu kèm size/màu mình cần để bên em kiểm tra lại chính xác hơn nha.",
+        "Mình cho em xin mẫu sản phẩm, size và màu cần kiểm tra để bên em hỗ trợ chuẩn hơn ạ."
+      ],
+      "issue_detail": [
+        "Anh/chị mô tả thêm giúp em tình huống cụ thể để bên em kiểm tra và hỗ trợ mình nhanh hơn nha.",
+        "Mình chia sẻ thêm giúp em chi tiết trường hợp này để bên em hỗ trợ đúng hơn ạ."
+      ]
+    },
+    "faq_answer_shapes": {
+      "shipping_eta": [
+        "Dạ thời gian giao hàng bên em thường khoảng {eta_summary} ạ.",
+        "Dạ bên em thường giao trong khoảng {eta_summary} nha anh/chị."
+      ],
+      "shipping_carrier": [
+        "Dạ hiện bên em gửi hàng qua {carrier} nha anh/chị.",
+        "Dạ đơn hàng bên em hiện đang được giao qua {carrier} ạ."
+      ],
+      "support_hours": [
+        "Dạ bên em hỗ trợ trong khung giờ {support_hours} hằng ngày ạ.",
+        "Dạ hiện bên em hỗ trợ từ {support_hours} nha anh/chị."
+      ],
+      "return_policy_general": [
+        "Dạ bên em hỗ trợ đổi/trả trong vòng {return_window} kể từ khi giao hàng thành công ạ.",
+        "Dạ hiện shop hỗ trợ đổi trả trong {return_window} từ lúc đơn giao thành công nha anh/chị."
+      ],
+      "defect_policy_general": [
+        "Dạ nếu sản phẩm lỗi, bên em hỗ trợ trong vòng {defect_window} từ ngày nhận hàng thành công và hỗ trợ {defect_shipping_support} ạ.",
+        "Dạ với hàng lỗi, bên em có hỗ trợ đổi trong {defect_window} từ lúc nhận hàng thành công, đồng thời hỗ trợ {defect_shipping_support} nha anh/chị."
+      ]
+    },
+    "handoff_safe_shapes": {
+      "order_status": [
+        "Dạ anh/chị gửi giúp em mã đơn hoặc số điện thoại nhận hàng để bên em kiểm tra và hỗ trợ mình nhanh hơn nha.",
+        "Dạ để kiểm tra đúng tình trạng đơn, anh/chị cho em xin mã đơn hoặc số điện thoại đặt hàng giúp em ạ."
+      ],
+      "complaint": [
+        "Dạ em xin lỗi anh/chị vì trải nghiệm chưa tốt ạ. Anh/chị chia sẻ thêm giúp em tình huống cụ thể hoặc mã đơn để bên em kiểm tra và hỗ trợ mình phù hợp hơn nha.",
+        "Dạ em xin lỗi mình về trải nghiệm này ạ. Mình gửi giúp em mã đơn hoặc thông tin cụ thể để bên em kiểm tra kỹ hơn nhé."
+      ],
+      "defect_claim": [
+        "Dạ em xin lỗi anh/chị về tình trạng sản phẩm ạ. Anh/chị gửi giúp em mã đơn kèm hình ảnh/video để bên em kiểm tra và hỗ trợ mình nhanh nhất nha.",
+        "Dạ em xin lỗi mình về trải nghiệm này ạ. Mình cho em xin mã đơn và ảnh/video sản phẩm để bên em xử lý đúng trường hợp nhé."
+      ],
+      "stock_unverified": [
+        "Dạ phần này bên em cần kiểm tra lại giúp mình mới báo chính xác được ạ.",
+        "Dạ để báo đúng cho anh/chị, bên em cần kiểm tra lại thông tin này giúp mình nha."
+      ],
+      "human_requested": [
+        "Dạ bên em đã ghi nhận nhu cầu hỗ trợ trực tiếp của anh/chị ạ.",
+        "Dạ bên em tiếp nhận để hỗ trợ mình trực tiếp nha."
+      ]
+    },
+    "de_escalation": {
+      "principles": [
+        "Xin lỗi ngắn, thật, không quá diễn.",
+        "Không cãi, không giải thích dài dòng khi khách đang nóng.",
+        "Nhanh chóng chuyển sang bước thu thập thông tin hoặc tiếp nhận xử lý."
+      ],
+      "fragments": [
+        "Dạ em xin lỗi anh/chị về trải nghiệm này ạ.",
+        "Bên em sẽ kiểm tra kỹ trường hợp này để hỗ trợ mình phù hợp hơn ạ.",
+        "Anh/chị gửi giúp em thông tin cụ thể để bên em xử lý nhanh hơn nha."
+      ]
+    },
+    "closings": {
+      "light": [
+        "nha anh/chị.",
+        "ạ.",
+        "để bên em hỗ trợ mình nhanh hơn nha."
+      ],
+      "next_step": [
+        "Mình gửi giúp em thông tin đó để bên em hỗ trợ tiếp nha.",
+        "Anh/chị gửi lại giúp em phần này để bên em kiểm tra tiếp ạ."
+      ]
+    }
+  },
+  "case_support": [
+    {
+      "case_type": "greeting_or_opening",
+      "recommended_blocks": ["acknowledgements.neutral", "closings.light"],
+      "notes": "Có thể thêm lời mời khách nêu nhu cầu, nhưng tránh mở quá dài."
+    },
+    {
+      "case_type": "shipping_eta_general",
+      "recommended_blocks": ["faq_answer_shapes.shipping_eta", "closings.light"],
+      "notes": "Nếu khách nêu địa phương cụ thể, phrasing nên reflect địa phương đó nếu grounding cho phép."
+    },
+    {
+      "case_type": "shipping_carrier",
+      "recommended_blocks": ["faq_answer_shapes.shipping_carrier"],
+      "notes": "Thường chỉ cần 1 câu."
+    },
+    {
+      "case_type": "support_hours",
+      "recommended_blocks": ["faq_answer_shapes.support_hours"],
+      "notes": "Trả lời trực tiếp, tránh đệm thừa."
+    },
+    {
+      "case_type": "return_policy_general",
+      "recommended_blocks": ["faq_answer_shapes.return_policy_general"],
+      "notes": "Nếu khách đang hỏi chung, không kéo sang flow claim cụ thể."
+    },
+    {
+      "case_type": "defective_product_policy_general",
+      "recommended_blocks": ["faq_answer_shapes.defect_policy_general"],
+      "notes": "Nếu khách chuyển sang đơn cụ thể, reasoning phải đổi chiến lược."
+    },
+    {
+      "case_type": "order_status_request",
+      "recommended_blocks": ["acknowledgements.empathetic_light", "ask_for_info.order_identifier", "handoff_safe_shapes.order_status"],
+      "notes": "Không dùng macro 'đợi chút' như mặc định nếu chưa có thông tin tối thiểu để kiểm tra thật."
+    },
+    {
+      "case_type": "exchange_return_specific",
+      "recommended_blocks": ["acknowledgements.empathetic_light", "ask_for_info.return_context"],
+      "notes": "Ưu tiên mềm mại, rõ bước tiếp theo."
+    },
+    {
+      "case_type": "defective_product_claim",
+      "recommended_blocks": ["acknowledgements.apology_short", "ask_for_info.defect_evidence", "handoff_safe_shapes.defect_claim"],
+      "notes": "Không được nghe như template vô cảm."
+    },
+    {
+      "case_type": "complaint_or_negative_feedback",
+      "recommended_blocks": ["acknowledgements.apology_short", "de_escalation.fragments", "ask_for_info.issue_detail", "handoff_safe_shapes.complaint"],
+      "notes": "Tránh ghép quá nhiều mảnh; 2 câu tốt hơn 4 câu."
+    },
+    {
+      "case_type": "stock_or_product_availability",
+      "recommended_blocks": ["handoff_safe_shapes.stock_unverified", "ask_for_info.stock_context"],
+      "notes": "Chỉ dùng answer trực tiếp nếu có inventory thật ở grounding."
+    }
+  ],
+  "anti_patterns": [
+    {
+      "name": "canned_macro_overuse",
+      "description": "Lúc nào cũng trả lời giống hệt nhau bất kể khách nói gì.",
+      "why_bad": "Làm bot nghe máy móc, bỏ qua context và giảm trust."
+    },
+    {
+      "name": "premature_certainty",
+      "description": "Dùng pattern khẳng định mạnh khi chưa có dữ liệu thật.",
+      "why_bad": "Dễ bịa trạng thái đơn, tồn kho, hoặc ngoại lệ policy."
+    },
+    {
+      "name": "over-softened_reply",
+      "description": "Nhồi quá nhiều 'ạ/nha/nhé' và xã giao làm câu loãng.",
+      "why_bad": "Nghe thiếu sắc nét, giảm cảm giác chuyên nghiệp."
+    },
+    {
+      "name": "tone_mismatch_under_stress",
+      "description": "Dùng phrasing quá vui/cute khi khách đang bực.",
+      "why_bad": "Làm leo thang khó chịu."
+    }
+  ],
+  "quality_bar": [
+    "Nếu bỏ case_type ra mà câu vẫn nghe hợp lý với tin nhắn thật của khách, pattern đang được dùng đúng cách.",
+    "Nếu reply chỉ là pattern nối pattern mà không có dấu hiệu đã hiểu case cụ thể, phải rewrite.",
+    "Pattern bank chỉ nên làm câu hay hơn và ổn định hơn, không làm câu kém thông minh đi."
+  ]
+}

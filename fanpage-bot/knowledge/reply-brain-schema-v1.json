@@ -1,0 +1,66 @@
+{
+  "version": "v1",
+  "north_star": "Rambu is a reasoning-first customer support brain, not a canned-script responder.",
+  "brain_layers": [
+    "perception",
+    "grounding",
+    "reasoning",
+    "response_composition",
+    "safety_guard"
+  ],
+  "memory_system": {
+    "policy_memory": {
+      "purpose": "Confirmed business facts and operational constraints",
+      "primary_store": "fanpage-bot/knowledge/policy-bank.json"
+    },
+    "case_memory": {
+      "purpose": "How to interpret and reason about recurring support situations",
+      "primary_store": "fanpage-bot/knowledge/case-bank.json"
+    },
+    "thread_memory": {
+      "purpose": "Per-conversation dynamic state and continuity",
+      "primary_store": "fanpage-bot/data/thread-memory/"
+    },
+    "language_memory": {
+      "purpose": "Useful phrasing guidance without becoming rigid scripts",
+      "primary_store": "fanpage-bot/knowledge/response-pattern-bank.json"
+    }
+  },
+  "input_contract": {
+    "customer_message": "string",
+    "recent_messages": "array",
+    "thread_memory": "object",
+    "policy_context": "array",
+    "case_hypotheses": "array",
+    "risk_hints": "array"
+  },
+  "reasoning_output": {
+    "understanding": {
+      "intent": "string",
+      "sentiment": "neutral|positive|confused|impatient|frustrated|angry",
+      "missing_info": "string[]"
+    },
+    "decision": {
+      "action": "draft_only|handoff|auto_reply",
+      "strategy": "string",
+      "reason": "string"
+    },
+    "reply": {
+      "reply_text": "string",
+      "tone_profile": "string"
+    },
+    "ops_meta": {
+      "needs_human": "boolean",
+      "confidence": "number",
+      "policy_refs": "string[]",
+      "safety_flags": "string[]"
+    }
+  },
+  "design_rules": [
+    "Do not treat response patterns as the source of intelligence.",
+    "Each case definition should encode reasoning guidance, not just canned replies.",
+    "If required real-world data is missing, ask or handoff instead of inventing.",
+    "Conversation continuity is mandatory for top-tier support behavior.",
+    "Natural replies should be generated per situation, grounded in policy and context."
+  ]
+}
