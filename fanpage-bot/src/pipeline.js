@@ -184,6 +184,21 @@ function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage
   const isComplaintContinuation = activeCaseType === 'complaint_or_negative_feedback'
     && (threadMemory?.pending_customer_reply || hasProvidedIdentifier || isGenericFollowup);
   const lowRiskFaqContinuationCase = detectLowRiskFaqContinuation(activeCaseType, latestText);
+  const escalatedThreadCase = detectEscalatedThreadCase(activeCaseType, latestText);
+
+  if (escalatedThreadCase) {
+    return {
+      ...triage,
+      case_type: escalatedThreadCase,
+      risk_level: escalatedThreadCase === 'order_status_request' ? 'medium' : (triage?.risk_level || 'medium'),
+      needs_human: true,
+      auto_reply_allowed: false,
+      confidence: Math.max(Number(triage?.confidence || 0), 0.82),
+      missing_info: ['order_code'],
+      reason: `cross_followup_from_${activeCaseType}_to_${escalatedThreadCase}`,
+      suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'cross_followup_escalation'])]
+    };
+  }
 
   if (activeCaseType === 'complaint_or_negative_feedback' && triage?.case_type === 'order_status_request' && hasProvidedIdentifier && isComplaintContinuation) {
     return {
@@ -268,6 +283,23 @@ function detectLowRiskFaqContinuation(activeCaseType, latestText) {
 
   if (activeCaseType === 'shipping_carrier' && /(ship|giao hàng|bao lâu|mấy ngày|khi nào nhận|hà nội|hn|nội thành|ngoại thành|tỉnh|ngoài hà nội)/.test(normalized)) {
     return 'shipping_eta_general';
+  }
+
+  return null;
+}
+
+function detectEscalatedThreadCase(activeCaseType, latestText) {
+  const normalized = String(latestText || '').trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (activeCaseType === 'shipping_eta_general' || activeCaseType === 'shipping_carrier') {
+    const hasOrderReference = /(đơn\s*(mình|em|anh|chị|của mình|của em|của anh|của chị)|đơn này|đơn đó|đơn kia|đơn rồi|đơn đang)/.test(normalized);
+    const hasOrderStatusAsk = /(bao lâu|mấy ngày|khi nào nhận|khi nào tới|đến chưa|tới đâu|đến đâu|đang ở đâu|bao giờ nhận|bao giờ tới|kiểm tra đơn)/.test(normalized);
+    if (hasOrderReference && hasOrderStatusAsk) {
+      return 'order_status_request';
+    }
   }
 
   return null;

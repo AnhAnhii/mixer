@@ -20,7 +20,7 @@ export function classifyMessage(normalizedMessage) {
     return buildResult('exchange_return_specific', 'high', true, 0.88, ['order_code', 'product_issue_detail'], 'matched_exchange_or_defect_rule', ['exchange', 'defect', 'handoff']);
   }
 
-  if (/mã đơn|kiểm tra đơn|đơn của mình|đơn đến đâu/.test(text)) {
+  if (/mã đơn|kiểm tra đơn|đơn của mình|đơn đến đâu/.test(text) || looksLikeOrderSpecificShippingQuestion(text)) {
     return buildResult('order_status_request', 'medium', true, 0.9, ['order_code'], 'matched_order_status_rule', ['order_status', 'handoff']);
   }
 
@@ -70,4 +70,16 @@ function buildResult(caseType, riskLevel, needsHuman, confidence, missingInfo, r
     reason,
     suggested_tags: suggestedTags
   };
+}
+
+function looksLikeOrderSpecificShippingQuestion(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  const hasOrderReference = /(đơn\s*(mình|em|anh|chị|của mình|của em|của anh|của chị)|đơn này|đơn đó|đơn kia|đơn rồi|đơn đang)/.test(normalized);
+  const hasStatusOrEtaQuestion = /(bao lâu|mấy ngày|khi nào nhận|khi nào tới|đến chưa|tới đâu|đến đâu|đang ở đâu|bao giờ nhận)/.test(normalized);
+
+  return hasOrderReference && hasStatusOrEtaQuestion;
 }
