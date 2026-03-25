@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveWritableDataPath } from './runtime-paths.js';
 
 const DEFAULT_MAX_THREADS = 5000;
 const DEFAULT_SENTIMENT_WINDOW = 6;
@@ -7,7 +8,7 @@ const DEFAULT_SENTIMENT_WINDOW = 6;
 export function createThreadStateStore(options = {}) {
   const storePath = options.threadStatePath
     || process.env.THREAD_STATE_STORE_PATH
-    || path.resolve(process.cwd(), 'data/logs/thread-state.json');
+    || resolveWritableDataPath('data/logs/thread-state.json');
   const maxThreads = Number(options.threadStateMaxThreads ?? process.env.THREAD_STATE_MAX_THREADS ?? DEFAULT_MAX_THREADS);
   const sentimentWindow = Number(options.threadSentimentWindow ?? process.env.THREAD_STATE_SENTIMENT_WINDOW ?? DEFAULT_SENTIMENT_WINDOW);
 

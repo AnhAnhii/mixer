@@ -79,7 +79,7 @@ export function readPendingHandoffs(targetPath = process.env.HANDOFF_STORE_PATH 
   return readJsonl(targetPath);
 }
 
-export function readHandoffResolutions(targetPath = process.env.HANDOFF_RESOLUTION_STORE_PATH || path.resolve(process.cwd(), 'data/logs/handoff-resolutions.jsonl')) {
+export function readHandoffResolutions(targetPath = process.env.HANDOFF_RESOLUTION_STORE_PATH || resolveWritableDataPath('data/logs/handoff-resolutions.jsonl')) {
   return readJsonl(targetPath);
 }
 

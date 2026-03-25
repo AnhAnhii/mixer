@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveWritableDataPath } from './runtime-paths.js';
 
 const DEFAULT_MAX_KEYS = 5000;
 
 export function createMessageDeduper(options = {}) {
-  const storePath = options.storePath || options.dedupeStorePath || process.env.DEDUPE_STORE_PATH || path.resolve(process.cwd(), 'data/logs/processed-message-ids.json');
+  const storePath = options.storePath || options.dedupeStorePath || process.env.DEDUPE_STORE_PATH || resolveWritableDataPath('data/logs/processed-message-ids.json');
   const maxKeys = Number(options.maxKeys || process.env.DEDUPE_MAX_KEYS || DEFAULT_MAX_KEYS);
   const state = loadState(storePath);
 
