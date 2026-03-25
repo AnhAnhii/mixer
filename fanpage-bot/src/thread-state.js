@@ -1,19 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveWritableDataPath } from './runtime-paths.js';
 
 const DEFAULT_MAX_THREADS = 5000;
 const DEFAULT_SENTIMENT_WINDOW = 6;
-const TRUSTED_CUSTOMER_FACT_SLOTS = new Set(['order_code', 'phone', 'receiver_phone']);
-
-function isTrustedCustomerFactSlot(slot) {
-  return TRUSTED_CUSTOMER_FACT_SLOTS.has(String(slot || '').trim());
-}
 
 export function createThreadStateStore(options = {}) {
   const storePath = options.threadStatePath
     || process.env.THREAD_STATE_STORE_PATH
-    || resolveWritableDataPath('data/logs/thread-state.json');
+    || path.resolve(process.cwd(), 'data/logs/thread-state.json');
   const maxThreads = Number(options.threadStateMaxThreads ?? process.env.THREAD_STATE_MAX_THREADS ?? DEFAULT_MAX_THREADS);
   const sentimentWindow = Number(options.threadSentimentWindow ?? process.env.THREAD_STATE_SENTIMENT_WINDOW ?? DEFAULT_SENTIMENT_WINDOW);
 
@@ -100,7 +94,6 @@ function buildNextThreadMemory(previousMemory, payload, sentimentWindow) {
   const draft = guarded.guarded_draft || payload.draft || {};
   const delivery = guarded.delivery || payload.delivery || {};
   const providedSlots = detectProvidedSlots(normalizedMessage, previousMemory, triage, draft);
-  const askedSlotProvidedValues = pickAskedSlotProvidedValues(previousMemory, triage, draft, providedSlots, { trustedOnly: false });
 
   const inferredSentiment = coerceSentiment(
     payload.sentiment,
@@ -114,15 +107,14 @@ function buildNextThreadMemory(previousMemory, payload, sentimentWindow) {
     .filter(Boolean)
     .slice(-Math.max(1, sentimentWindow));
 
-  const askedSlots = deriveAskedSlots(payload, previousMemory, askedSlotProvidedValues);
+  const askedSlots = deriveAskedSlots(payload, previousMemory, providedSlots);
   const promisedFollowUp = derivePromisedFollowUp(payload, previousMemory);
   const unresolvedAskedSlots = askedSlots.filter((item) => item.status !== 'resolved');
   const waitingForCustomer = unresolvedAskedSlots.length > 0;
   const deliveryDecision = typeof delivery.decision === 'string' ? delivery.decision : null;
 
-  const customerFacts = deriveCustomerFacts(payload, previousMemory, providedSlots);
   const previousCaseType = previousMemory.active_issue?.case_type || null;
-  const currentCaseType = resolveCurrentCaseType(triage.case_type, previousCaseType, unresolvedAskedSlots);
+  const currentCaseType = triage.case_type || previousCaseType || null;
   const caseChanged = currentCaseType && previousCaseType && currentCaseType !== previousCaseType;
 
   return {
@@ -134,7 +126,6 @@ function buildNextThreadMemory(previousMemory, payload, sentimentWindow) {
       summary: summarizeActiveIssue(currentCaseType, unresolvedAskedSlots, draft.reason || triage.reason)
     },
     asked_slots: askedSlots,
-    customer_facts: customerFacts,
     promised_follow_up: promisedFollowUp,
     current_customer_sentiment: inferredSentiment,
     sentiment_trend: {
@@ -163,13 +154,11 @@ function deriveAskedSlots(payload, previousMemory, providedSlots = {}) {
   const now = new Date().toISOString();
   const previousCaseType = previousMemory.active_issue?.case_type || null;
   const currentCaseType = triage.case_type || null;
-  const effectiveCaseType = currentCaseType && currentCaseType !== 'unknown' ? currentCaseType : previousCaseType;
   const caseChanged = currentCaseType && currentCaseType !== 'unknown' && previousCaseType && currentCaseType !== previousCaseType;
   const previousSlots = normalizeAskedSlots(previousMemory.asked_slots || []).filter((item) => !(caseChanged && item.status !== 'resolved'));
   const canRefreshRequests = ['handoff', 'draft_only', 'ask_for_info', 'would_auto_send', 'auto_send'].includes(action) || draft.needs_human;
 
   const slotMap = new Map(previousSlots.map((item) => [item.slot, { ...item }]));
-  const orderLookupSatisfied = isOrderLookupSatisfied(effectiveCaseType, providedSlots);
 
   for (const [slot, value] of Object.entries(providedSlots || {})) {
     if (!value) continue;
@@ -181,20 +170,6 @@ function deriveAskedSlots(payload, previousMemory, providedSlots = {}) {
       resolved_at: now,
       resolved_value_preview: truncateText(String(value), 40)
     });
-  }
-
-  if (orderLookupSatisfied) {
-    for (const slot of ['order_code', 'phone', 'receiver_phone']) {
-      const previous = slotMap.get(slot);
-      if (!previous) continue;
-      if (previous.status === 'resolved') continue;
-      slotMap.set(slot, {
-        ...previous,
-        status: 'resolved',
-        resolved_at: now,
-        resolved_value_preview: previous.resolved_value_preview || 'lookup_identifier_received'
-      });
-    }
   }
 
   if (canRefreshRequests) {
@@ -235,41 +210,6 @@ function deriveAskedSlots(payload, previousMemory, providedSlots = {}) {
   }
 
   return [...unresolved, ...resolved].slice(-8);
-}
-
-function deriveCustomerFacts(payload, previousMemory, providedSlots = {}) {
-  const normalizedMessage = payload.normalizedMessage || {};
-  const triage = payload.triage || {};
-  const draft = payload.guarded?.guarded_draft || payload.draft || {};
-  const previousFacts = normalizeCustomerFacts(previousMemory.customer_facts || []);
-  const factMap = new Map(previousFacts.map((item) => [buildFactKey(item.fact_type, item.value_preview), { ...item }]));
-  const now = new Date().toISOString();
-
-  for (const [slot, value] of Object.entries(providedSlots || {})) {
-    if (!value || !isTrustedCustomerFactSlot(slot)) continue;
-
-    const fact = buildCustomerFact({
-      factType: slot,
-      rawValue: value,
-      normalizedMessage,
-      triage,
-      draft,
-      now
-    });
-
-    const factKey = buildFactKey(fact.fact_type, fact.value_preview);
-    const previous = factMap.get(factKey);
-    factMap.set(factKey, {
-      ...previous,
-      ...fact,
-      first_seen_at: previous?.first_seen_at || fact.first_seen_at,
-      last_seen_at: fact.last_seen_at
-    });
-  }
-
-  return [...factMap.values()]
-    .sort((a, b) => (Date.parse(a.last_seen_at || 0) || 0) - (Date.parse(b.last_seen_at || 0) || 0))
-    .slice(-12);
 }
 
 function derivePromisedFollowUp(payload, previousMemory) {
@@ -320,14 +260,6 @@ function derivePromisedFollowUp(payload, previousMemory) {
   return merged.slice(-5);
 }
 
-function resolveCurrentCaseType(nextCaseType, previousCaseType, unresolvedAskedSlots = []) {
-  const normalizedNext = String(nextCaseType || '').trim();
-  if (!normalizedNext || normalizedNext === 'unknown') {
-    return unresolvedAskedSlots.length > 0 ? (previousCaseType || normalizedNext || null) : (normalizedNext || previousCaseType || null);
-  }
-  return normalizedNext;
-}
-
 function deriveIssueStatus(deliveryDecision, triage, previousMemory) {
   if (deliveryDecision === 'handoff') return 'handoff_recommended';
   if (deliveryDecision === 'auto_send' || deliveryDecision === 'would_auto_send') return 'replied';
@@ -349,7 +281,6 @@ function normalizeThreadMemorySnapshot(entry) {
   return {
     active_issue: memory.active_issue || null,
     asked_slots: normalizeAskedSlots(memory.asked_slots || []),
-    customer_facts: normalizeCustomerFacts(memory.customer_facts || []),
     promised_follow_up: normalizePromiseList(memory.promised_follow_up || []),
     current_customer_sentiment: coerceSentiment(memory.current_customer_sentiment, null, 'neutral'),
     sentiment_trend: {
@@ -385,23 +316,6 @@ function normalizeAskedSlots(items) {
   }).filter((item) => item.slot);
 }
 
-function isOrderLookupSatisfied(caseType, providedSlots = {}) {
-  return caseType === 'order_status_request' && Boolean(providedSlots.order_code || providedSlots.phone || providedSlots.receiver_phone);
-}
-
-function normalizeCustomerFacts(items) {
-  return normalizeArray(items).map((item) => ({
-    fact_type: item?.fact_type || null,
-    value_preview: item?.value_preview || null,
-    source_message_id: item?.source_message_id || null,
-    source_case_type: item?.source_case_type || null,
-    source_reason: item?.source_reason || null,
-    confidence: Number.isFinite(Number(item?.confidence)) ? Number(item.confidence) : null,
-    first_seen_at: item?.first_seen_at || null,
-    last_seen_at: item?.last_seen_at || null
-  })).filter((item) => item.fact_type && item.value_preview);
-}
-
 function normalizePromiseList(items) {
   return normalizeArray(items).map((item) => ({
     promise_id: item?.promise_id || null,
@@ -412,28 +326,13 @@ function normalizePromiseList(items) {
   })).filter((item) => item.promise_id || item.summary);
 }
 
-function pickAskedSlotProvidedValues(previousMemory, triage, draft, providedSlots = {}, options = {}) {
-  const relevantSlots = new Set([
-    ...normalizeAskedSlots(previousMemory?.asked_slots || []).map((item) => item.slot),
-    ...normalizeArray(draft?.missing_info || triage?.missing_info || [])
-  ]);
-  const trustedOnly = options.trustedOnly !== false;
-
-  return Object.fromEntries(
-    Object.entries(providedSlots || {}).filter(([slot, value]) => relevantSlots.has(slot) && value && (!trustedOnly || isTrustedCustomerFactSlot(slot)))
-  );
-}
-
-function detectProvidedSlots(normalizedMessage, previousMemory, triage, draft) {
+export function detectProvidedSlots(normalizedMessage, previousMemory, triage, draft) {
   const text = String(normalizedMessage?.text || '').trim();
   if (!text) {
     return {};
   }
 
   const slotsToCheck = new Set([
-    'order_code',
-    'phone',
-    'receiver_phone',
     ...normalizeAskedSlots(previousMemory?.asked_slots || []).map((item) => item.slot),
     ...normalizeArray(draft?.missing_info || triage?.missing_info || [])
   ]);
@@ -459,20 +358,8 @@ function extractSlotValue(slot, text) {
     case 'phone':
     case 'receiver_phone':
       return extractPhoneNumber(compactText);
-    case 'product_name': {
-      const productPatterns = [
-        /(?:mẫu|áo|quần|set|váy|đầm|item|sp|sản phẩm|product)(?:\s+này|\s+đó|\s+kia)?\s*(?:là|mã|tên)?\s*[:\-]?\s*([\p{L}\p{N}][\p{L}\p{N}\s\-_/]{2,60})/iu,
-        /(?:em lấy|mình lấy|cho mình|cho em|muốn lấy|chốt|đặt)(?:\s+mẫu)?\s+([\p{L}\p{N}][\p{L}\p{N}\s\-_/]{2,60})/iu
-      ];
-      for (const pattern of productPatterns) {
-        const match = compactText.match(pattern);
-        const value = sanitizeProductName(match?.[1]);
-        if (value && !looksLikeOnlyVariantInfo(value) && !looksLikePricingOrPromoFragment(value)) {
-          return value;
-        }
-      }
-      return null;
-    }
+    case 'product_name':
+      return extractProductName(compactText);
     case 'size':
     case 'size_or_variant':
     case 'desired_size_or_variant_if_applicable':
@@ -633,12 +520,6 @@ function looksLikeOnlyVariantInfo(value) {
   return /^(đen|trắng|xám|ghi|be|kem|nâu|xanh|đỏ|hồng|tím|vàng|xs|s|m|l|xl|xxl|xxxl|2xl|3xl|28|29|30|31|32|33|34|35|36)(\s|$)/.test(normalized);
 }
 
-function looksLikePricingOrPromoFragment(value) {
-  const normalized = String(value || '').toLowerCase().trim();
-  if (!normalized) return false;
-  return /(giá|bao nhiêu|bao tiền|sale|khuyến mãi|ưu đãi|voucher|mã giảm giá|freeship)/.test(normalized);
-}
-
 function coerceSentiment(...values) {
   const allowed = new Set(['positive', 'neutral', 'confused', 'impatient', 'frustrated', 'angry']);
   for (const value of values) {
@@ -647,40 +528,6 @@ function coerceSentiment(...values) {
     }
   }
   return 'neutral';
-}
-
-function buildCustomerFact({ factType, rawValue, normalizedMessage, triage, draft, now }) {
-  return {
-    fact_type: factType,
-    value_preview: truncateFactValue(rawValue),
-    source_message_id: normalizedMessage.message_id || null,
-    source_case_type: triage.case_type || null,
-    source_reason: draft.reason || triage.reason || null,
-    confidence: inferFactConfidence(factType, rawValue),
-    first_seen_at: now,
-    last_seen_at: now
-  };
-}
-
-function buildFactKey(factType, valuePreview) {
-  return `${factType || 'unknown'}:${String(valuePreview || '').trim().toLowerCase()}`;
-}
-
-function truncateFactValue(value) {
-  const compact = String(value || '').trim();
-  if (!compact) return null;
-  if (compact.length <= 48) return compact;
-  return `${compact.slice(0, 47).trimEnd()}…`;
-}
-
-function inferFactConfidence(factType, rawValue) {
-  if (!rawValue) return null;
-  if (factType === 'order_code') return 0.95;
-  if (factType === 'phone' || factType === 'receiver_phone') return 0.93;
-  if (factType === 'payment_method') return 0.9;
-  if (['size', 'size_or_variant', 'desired_size_or_variant_if_applicable', 'color', 'color_if_relevant'].includes(factType)) return 0.88;
-  if (['product_name', 'receiver_name', 'customer_name', 'requested_change'].includes(factType)) return 0.82;
-  return 0.8;
 }
 
 function deriveSentimentDirection(history) {

@@ -6,11 +6,10 @@ import { applyPolicyGuard } from './guard.js';
 import { appendAuditLog, appendPendingHandoff, appendRawEventLog, buildPendingHandoffRecord } from './store.js';
 import { sendFacebookMessage } from './facebook-send.js';
 import { buildMessageKey, createMessageDeduper } from './idempotency.js';
-import { createThreadStateStore } from './thread-state.js';
+import { createThreadStateStore, detectProvidedSlots } from './thread-state.js';
+import { LOW_RISK_CASES, HANDOFF_CASES } from './types.js';
 
 const DEFAULT_PIPELINE_VERSION = '0.1.0';
-const PIPELINE_DEBUG_MARKER = 'pipeline-checkpoints-v1';
-const DEBUG_ENV_NAME = 'FANPAGE_BOT_DEBUG';
 
 export async function processWebhookBody(body, options = {}) {
   const eventPairs = extractWebhookEventPairs(body);
@@ -74,16 +73,17 @@ export async function processWebhookBody(body, options = {}) {
       continue;
     }
 
+    const triage = classifyMessage(normalizedMessage);
     const threadMemoryBefore = threadStateStore.getMemory(normalizedMessage.thread_key);
-    const triage = recoverThreadAwareTriage(classifyMessage(normalizedMessage), threadMemoryBefore, normalizedMessage);
-    const triageHint = buildTriageHint(normalizedMessage, triage);
-    const groundedInput = buildGroundedInput(normalizedMessage, triage, options.recentMessages || [], {
+    const continuityAwareTriage = applyThreadContinuityTriage(normalizedMessage, triage, threadMemoryBefore);
+    const triageHint = buildTriageHint(normalizedMessage, continuityAwareTriage);
+    const groundedInput = buildGroundedInput(normalizedMessage, continuityAwareTriage, options.recentMessages || [], {
       threadMemory: threadMemoryBefore
     });
     const groundingBundle = buildGroundingBundle(groundedInput, triageHint, threadMemoryBefore);
     const reasoningInput = buildReasoningInput(normalizedMessage, triageHint, groundingBundle);
     const { draft, meta } = await generateDraft(reasoningInput);
-    const guarded = applyPolicyGuard(normalizedMessage, triage, draft, {
+    const guarded = applyPolicyGuard(normalizedMessage, continuityAwareTriage, draft, {
       ...options,
       threadStateStore
     });
@@ -91,7 +91,7 @@ export async function processWebhookBody(body, options = {}) {
 
     threadStateStore.updateMemory(normalizedMessage.thread_key, {
       normalizedMessage,
-      triage,
+      triage: continuityAwareTriage,
       guarded,
       delivery: guarded.delivery,
       draft,
@@ -112,8 +112,9 @@ export async function processWebhookBody(body, options = {}) {
       ],
       normalized_message: normalizedMessage,
       triage_hint: triageHint,
-      triage,
+      triage: continuityAwareTriage,
       thread_memory_before: threadMemoryBefore,
+      classifier_triage_raw: triage,
       thread_memory_after: threadMemoryAfter,
       grounding_bundle: groundingBundle,
       grounded_input: groundedInput,
@@ -139,7 +140,7 @@ export async function processWebhookBody(body, options = {}) {
     if (sendResult.status === 'sent') {
       threadStateStore.markAutoSend(normalizedMessage.thread_key, {
         sentAt: normalizeMessageTimestamp(normalizedMessage.timestamp),
-        caseType: triage.case_type,
+        caseType: continuityAwareTriage.case_type,
         messageId: normalizedMessage.message_id,
         replyText: guarded.guarded_draft.reply_text
       });
@@ -148,7 +149,7 @@ export async function processWebhookBody(body, options = {}) {
     if (shouldQueuePendingHandoff(record)) {
       const pendingRecord = buildPendingHandoffRecord({
         normalizedMessage,
-        triage,
+        triage: continuityAwareTriage,
         guarded,
         sendResult,
         processingMeta: record.processing_meta
@@ -159,58 +160,69 @@ export async function processWebhookBody(body, options = {}) {
     outputs.push({ ...record, log_path: logPath, raw_log_path: rawLogPath, handoff_path: handoffPath });
   }
 
-  logDebug('FANPAGE BOT PIPELINE CHECKPOINT', {
-    marker: PIPELINE_DEBUG_MARKER,
-    stage: 'PIPELINE_RETURN',
-    outputs: outputs.length
-  });
   return outputs;
 }
 
-function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage = null) {
-  if (triage?.case_type !== 'unknown') {
+function applyThreadContinuityTriage(normalizedMessage, triage, threadMemory = null) {
+  const activeCaseType = threadMemory?.active_issue?.case_type || null;
+  const unresolvedSlots = (threadMemory?.asked_slots || [])
+    .filter((item) => item?.status !== 'resolved' && item?.slot)
+    .map((item) => item.slot);
+  const providedSlots = detectProvidedSlots(normalizedMessage, threadMemory || {}, triage, {
+    missing_info: unresolvedSlots
+  });
+  const remainingMissingInfo = unresolvedSlots.filter((slot) => !providedSlots?.[slot]);
+
+  if (triage?.case_type !== 'unknown' || !activeCaseType) {
     return triage;
   }
 
-  const activeCaseType = threadMemory?.active_issue?.case_type;
-  const unresolvedAskedSlots = Array.isArray(threadMemory?.asked_slots)
-    ? threadMemory.asked_slots.filter((item) => item?.slot && item.status !== 'resolved').map((item) => item.slot)
-    : [];
-  const latestText = String(normalizedMessage?.text || '').trim();
-  const isGenericFollowup = detectGenericFollowup(latestText);
-  const isPricingContinuation = activeCaseType === 'pricing_or_promotion'
-    && (threadMemory?.pending_customer_reply || unresolvedAskedSlots.length > 0 || isGenericFollowup);
-
-  if (!threadMemory?.pending_customer_reply && !isPricingContinuation) {
-    return triage;
-  }
-
-  if (!activeCaseType || !unresolvedAskedSlots.length) {
+  if (!shouldInheritThreadContext(normalizedMessage, threadMemory, unresolvedSlots, providedSlots)) {
     return triage;
   }
 
   return {
     ...triage,
     case_type: activeCaseType,
-    risk_level: activeCaseType === 'pricing_or_promotion' ? 'medium' : (triage?.risk_level || 'medium'),
-    needs_human: false,
-    auto_reply_allowed: false,
-    confidence: Math.max(Number(triage?.confidence || 0), activeCaseType === 'pricing_or_promotion' ? 0.78 : 0.72),
-    missing_info: unresolvedAskedSlots,
-    reason: `followup_to_pending_${activeCaseType}`,
-    suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'slot_fill_expected'])]
+    risk_level: inferRiskLevelForCase(activeCaseType),
+    needs_human: HANDOFF_CASES.has(activeCaseType),
+    auto_reply_allowed: LOW_RISK_CASES.has(activeCaseType),
+    confidence: Math.max(Number(triage?.confidence || 0), 0.72),
+    missing_info: remainingMissingInfo,
+    reason: `thread_continuity_inherited_from_${activeCaseType}`,
+    suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_continuity'])]
   };
 }
 
-function detectGenericFollowup(text) {
-  const normalized = String(text || '').trim().toLowerCase();
-  if (!normalized) {
+function shouldInheritThreadContext(normalizedMessage, threadMemory, unresolvedSlots, providedSlots = {}) {
+  const text = String(normalizedMessage?.text || '').trim();
+  if (!text || !threadMemory?.active_issue?.case_type) {
     return false;
   }
 
-  return /^(dạ\s*)?(shop\s*)?(check|kiểm tra|coi|xem)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized)
-    || /^(dạ\s*)?(shop\s*)?(báo|tư vấn)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized)
-    || /^(dạ\s*)?(vậy|thế)(\s+(shop|bên mình|bên em))?(\s+(check|kiểm tra|báo|tư vấn))(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized);
+  const normalized = text.toLowerCase();
+  const hasOpenPromise = (threadMemory?.promised_follow_up || []).some((item) => item?.status === 'open');
+  const waitingForCustomer = Boolean(threadMemory?.pending_customer_reply) || unresolvedSlots.length > 0;
+  const providesRequestedInfo = Object.keys(providedSlots || {}).length > 0;
+  const isCompactFollowUp = text.length <= 40;
+  const looksLikeSlotOnlyReply = Boolean(
+    text.match(/^[a-z0-9\-_.]{5,32}$/iu)
+    || text.match(/^(?:\+?84|0)(?:[\s.-]*\d){8,10}$/u)
+    || text.match(/^(?:mã đơn|sđt|sdt|phone|điện thoại)\b/iu)
+  );
+  const looksLikeContinuation = /^(dạ|ạ|vâng|mình|em|anh|chị|đây|nè|nha|nhé|ok|oke|order|mã đơn|sđt|sdt|phone)\b/i.test(normalized);
+
+  return hasOpenPromise || waitingForCustomer || providesRequestedInfo || looksLikeSlotOnlyReply || (isCompactFollowUp && looksLikeContinuation);
+}
+
+function inferRiskLevelForCase(caseType) {
+  if (LOW_RISK_CASES.has(caseType)) {
+    return 'low';
+  }
+  if (caseType === 'pricing_or_promotion') {
+    return 'medium';
+  }
+  return 'high';
 }
 
 function buildTriageHint(normalizedMessage, triage) {
@@ -398,24 +410,4 @@ function buildProcessingMeta(options = {}, aiMeta = {}) {
     ai_mode: aiMeta?.source || aiMeta?.provider || 'n/a',
     ai_model: aiMeta?.model || process.env.OPENAI_MODEL || null
   };
-}
-
-function logDebug(message, payload) {
-  if (!isDebugEnabled()) {
-    return;
-  }
-
-  console.info(message, payload);
-}
-
-function isDebugEnabled() {
-  return parseBooleanEnv(process.env[DEBUG_ENV_NAME]);
-}
-
-function parseBooleanEnv(value) {
-  if (typeof value !== 'string') {
-    return false;
-  }
-
-  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
 }
