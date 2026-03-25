@@ -100,7 +100,7 @@ function buildNextThreadMemory(previousMemory, payload, sentimentWindow) {
   const draft = guarded.guarded_draft || payload.draft || {};
   const delivery = guarded.delivery || payload.delivery || {};
   const providedSlots = detectProvidedSlots(normalizedMessage, previousMemory, triage, draft);
-  const askedSlotProvidedValues = pickAskedSlotProvidedValues(previousMemory, triage, draft, providedSlots);
+  const askedSlotProvidedValues = pickAskedSlotProvidedValues(previousMemory, triage, draft, providedSlots, { trustedOnly: false });
 
   const inferredSentiment = coerceSentiment(
     payload.sentiment,
@@ -384,14 +384,15 @@ function normalizePromiseList(items) {
   })).filter((item) => item.promise_id || item.summary);
 }
 
-function pickAskedSlotProvidedValues(previousMemory, triage, draft, providedSlots = {}) {
+function pickAskedSlotProvidedValues(previousMemory, triage, draft, providedSlots = {}, options = {}) {
   const relevantSlots = new Set([
     ...normalizeAskedSlots(previousMemory?.asked_slots || []).map((item) => item.slot),
     ...normalizeArray(draft?.missing_info || triage?.missing_info || [])
   ]);
+  const trustedOnly = options.trustedOnly !== false;
 
   return Object.fromEntries(
-    Object.entries(providedSlots || {}).filter(([slot, value]) => relevantSlots.has(slot) && value && isTrustedCustomerFactSlot(slot))
+    Object.entries(providedSlots || {}).filter(([slot, value]) => relevantSlots.has(slot) && value && (!trustedOnly || isTrustedCustomerFactSlot(slot)))
   );
 }
 
