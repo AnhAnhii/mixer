@@ -6,7 +6,7 @@ import { applyPolicyGuard } from './guard.js';
 import { appendAuditLog, appendPendingHandoff, appendRawEventLog, buildPendingHandoffRecord } from './store.js';
 import { sendFacebookMessage } from './facebook-send.js';
 import { buildMessageKey, createMessageDeduper } from './idempotency.js';
-import { createThreadStateStore } from './thread-state.js';
+import { createThreadStateStore, detectProvidedSlots } from './thread-state.js';
 
 const DEFAULT_PIPELINE_VERSION = '0.1.0';
 const PIPELINE_DEBUG_MARKER = 'pipeline-checkpoints-v1';
@@ -168,24 +168,45 @@ export async function processWebhookBody(body, options = {}) {
 }
 
 function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage = null) {
-  if (triage?.case_type !== 'unknown') {
-    return triage;
-  }
-
   const activeCaseType = threadMemory?.active_issue?.case_type;
   const unresolvedAskedSlots = Array.isArray(threadMemory?.asked_slots)
     ? threadMemory.asked_slots.filter((item) => item?.slot && item.status !== 'resolved').map((item) => item.slot)
     : [];
   const latestText = String(normalizedMessage?.text || '').trim();
   const isGenericFollowup = detectGenericFollowup(latestText);
+  const providedSlots = detectProvidedSlots(normalizedMessage, threadMemory || {}, triage, {
+    missing_info: unresolvedAskedSlots
+  });
+  const remainingMissingInfo = unresolvedAskedSlots.filter((slot) => !providedSlots?.[slot]);
+  const hasProvidedIdentifier = Boolean(providedSlots.order_code || providedSlots.phone || providedSlots.receiver_phone);
   const isPricingContinuation = activeCaseType === 'pricing_or_promotion'
     && (threadMemory?.pending_customer_reply || unresolvedAskedSlots.length > 0 || isGenericFollowup);
+  const isComplaintContinuation = activeCaseType === 'complaint_or_negative_feedback'
+    && (threadMemory?.pending_customer_reply || hasProvidedIdentifier || isGenericFollowup);
 
-  if (!threadMemory?.pending_customer_reply && !isPricingContinuation) {
+  if (activeCaseType === 'complaint_or_negative_feedback' && triage?.case_type === 'order_status_request' && hasProvidedIdentifier && isComplaintContinuation) {
+    return {
+      ...triage,
+      case_type: activeCaseType,
+      risk_level: 'high',
+      needs_human: true,
+      auto_reply_allowed: false,
+      confidence: Math.max(Number(triage?.confidence || 0), 0.8),
+      missing_info: remainingMissingInfo,
+      reason: `followup_to_active_${activeCaseType}`,
+      suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'complaint_followup_continuity'])]
+    };
+  }
+
+  if (triage?.case_type !== 'unknown') {
     return triage;
   }
 
-  if (!activeCaseType || !unresolvedAskedSlots.length) {
+  if (!threadMemory?.pending_customer_reply && !isPricingContinuation && !isComplaintContinuation) {
+    return triage;
+  }
+
+  if (!activeCaseType || (!unresolvedAskedSlots.length && !isComplaintContinuation)) {
     return triage;
   }
 
@@ -193,12 +214,12 @@ function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage
     ...triage,
     case_type: activeCaseType,
     risk_level: activeCaseType === 'pricing_or_promotion' ? 'medium' : (triage?.risk_level || 'medium'),
-    needs_human: false,
+    needs_human: activeCaseType === 'pricing_or_promotion' ? false : true,
     auto_reply_allowed: false,
     confidence: Math.max(Number(triage?.confidence || 0), activeCaseType === 'pricing_or_promotion' ? 0.78 : 0.72),
-    missing_info: unresolvedAskedSlots,
-    reason: `followup_to_pending_${activeCaseType}`,
-    suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'slot_fill_expected'])]
+    missing_info: isComplaintContinuation ? remainingMissingInfo : unresolvedAskedSlots,
+    reason: isComplaintContinuation ? `followup_to_active_${activeCaseType}` : `followup_to_pending_${activeCaseType}`,
+    suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', ...(isComplaintContinuation ? ['complaint_followup_continuity'] : ['slot_fill_expected'])])]
   };
 }
 

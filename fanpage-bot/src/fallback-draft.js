@@ -11,6 +11,7 @@ export function buildFallbackDraft(input) {
   const recommendedBlocks = normalizeRecommendedBlocks(selected.response_patterns?.recommended_blocks || []);
   const missingInfo = normalizeStringArray(input?.missing_info || triage.missing_info_hint || triage.missing_info || []);
   const orderStatusFollowup = buildOrderStatusFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
+  const complaintFollowup = buildComplaintFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
 
   switch (caseType) {
     case 'greeting_or_opening':
@@ -119,16 +120,17 @@ export function buildFallbackDraft(input) {
       });
     case 'complaint_or_negative_feedback':
       return draft(
-        pickFirstString(recommendedBlocks, 'handoff_safe_shapes.complaint')
+        complaintFollowup.replyText
+          || pickFirstString(recommendedBlocks, 'handoff_safe_shapes.complaint')
           || pickFirstString(recommendedBlocks, 'de_escalation.fragments')
           || 'Dạ em xin lỗi anh/chị về trải nghiệm này ạ. Anh/chị chia sẻ thêm giúp em tình huống cụ thể hoặc mã đơn để bên em kiểm tra kỹ hơn nhé.',
         'handoff',
-        0.92,
+        complaintFollowup.identifierReceived ? 0.93 : 0.92,
         true,
-        missingInfo,
-        'negative_feedback_needs_human',
+        complaintFollowup.missingInfo,
+        complaintFollowup.identifierReceived ? 'complaint_identifier_received_waiting_manual_review' : 'negative_feedback_needs_human',
         buildPolicyRefs(policyEntries, caseType),
-        ['negative_sentiment', 'policy_risk']
+        ['negative_sentiment', 'policy_risk', ...(complaintFollowup.continuityApplied ? ['complaint_followup_continuity'] : [])]
       );
     default:
       return draft(
@@ -386,6 +388,30 @@ function mentionsUnspecifiedProduct(message) {
   const text = String(message || '').trim().toLowerCase();
   if (!text) return false;
   return /(áo này|quần này|item này|mẫu này|sp này|sản phẩm này|cái này|em này|bộ này|áo kia|quần kia|mẫu kia)/.test(text);
+}
+
+function buildComplaintFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {
+  const latestText = String(latestCustomerMessage || '').trim();
+  const pendingComplaint = threadMemory?.active_issue?.case_type === 'complaint_or_negative_feedback';
+  const unresolvedAskedSlots = normalizeStringArray(
+    (threadMemory?.asked_slots || []).filter((item) => item?.status !== 'resolved').map((item) => item?.slot)
+  );
+  const hasIdentifierInMessage = /(?:mã\s*đơn|madon|ma don|order\s*code|mã\s*vận\s*đơn|tracking\s*code)\s*[:#\-]?\s*[a-z0-9][a-z0-9\-_.]{4,}/iu.test(latestText)
+    || /^[a-z0-9\-_.]{5,32}$/iu.test(latestText)
+    || /(?:\+?84|0)(?:[\s.-]*\d){8,10}/u.test(latestText);
+  const continuityApplied = pendingComplaint && Boolean(latestText) && (threadMemory?.pending_customer_reply || hasIdentifierInMessage);
+  const missingInfo = continuityApplied && hasIdentifierInMessage
+    ? unresolvedAskedSlots.filter((slot) => !['order_code', 'phone', 'receiver_phone'].includes(slot))
+    : normalizeStringArray(triageMissingInfo.length ? triageMissingInfo : unresolvedAskedSlots);
+
+  return {
+    continuityApplied,
+    identifierReceived: continuityApplied && hasIdentifierInMessage,
+    missingInfo,
+    replyText: continuityApplied && hasIdentifierInMessage
+      ? 'Dạ em đã nhận thông tin đơn của anh/chị rồi ạ. Bên em xin lỗi về trải nghiệm này và sẽ kiểm tra kỹ để phản hồi mình sớm nhất nha.'
+      : null
+  };
 }
 
 function buildOrderStatusFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {

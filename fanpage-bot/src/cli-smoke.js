@@ -244,6 +244,26 @@ const orderStatusPhoneFollowupBody = {
   ]
 };
 
+const complaintOrderCodeFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-18' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (5 * 60 * 1000),
+          message: {
+            mid: 'mid.local.16',
+            text: 'mã đơn DH654321'
+          }
+        }
+      ]
+    }
+  ]
+};
+
 const shortAmbiguousBody = {
   object: 'page',
   entry: [
@@ -654,6 +674,44 @@ const orderStatusPhoneFollowupOutputs = await processWebhookBody(orderStatusPhon
 });
 
 resetDedupeStore();
+resetThreadState();
+const complaintFollowupStore = createThreadStateStore({ threadStatePath });
+complaintFollowupStore.updateMemory('facebook:105265398928721:test-psid-18', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-18',
+    message_id: 'mid.seed.complaint.1',
+    text: 'shop xử lý quá tệ, mình rất thất vọng',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'complaint_or_negative_feedback',
+    missing_info: ['order_code'],
+    reason: 'matched_negative_feedback_rule',
+    needs_human: true
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'handoff',
+      needs_human: true,
+      missing_info: ['order_code'],
+      reason: 'negative_feedback_needs_human',
+      reply_text: 'Dạ em xin lỗi anh/chị về trải nghiệm này ạ. Anh/chị gửi giúp em mã đơn để bên em kiểm tra kỹ hơn và hỗ trợ mình phù hợp hơn nha.'
+    },
+    delivery: { decision: 'handoff' }
+  }
+});
+const complaintOrderCodeFollowupOutputs = await processWebhookBody(complaintOrderCodeFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for complaint order-code follow-up');
+  }
+});
+
+resetDedupeStore();
 const shortAmbiguousOutputs = await processWebhookBody(shortAmbiguousBody, {
   autoReplyEnabled: true,
   shadowMode: false,
@@ -715,8 +773,9 @@ const draftContractChecks = await runDraftContractChecks({ shadowOutputs, liveOu
 const threadMemoryChecks = runThreadMemoryChecks();
 const pricingFollowupChecks = runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs });
 const orderStatusContinuityChecks = runOrderStatusContinuityChecks({ orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs });
+const complaintFollowupChecks = runComplaintFollowupChecks({ complaintOrderCodeFollowupOutputs });
 
-console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks }, null, 2));
+console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks }, null, 2));
 
 function resetDedupeStore() {
   if (fs.existsSync(dedupeStorePath)) {
@@ -906,6 +965,29 @@ function runOrderStatusContinuityChecks({ orderStatusGenericFollowupOutputs, ord
     phone_followup_missing_info_cleared: Array.isArray(phoneMissing) && phoneMissing.length === 0,
     phone_followup_thread_waiting_cleared: phoneMemory.pending_customer_reply === false,
     phone_followup_thread_resolved_slots: (phoneMemory.asked_slots || []).filter((item) => item.status === 'resolved').map((item) => item.slot)
+  };
+}
+
+function runComplaintFollowupChecks({ complaintOrderCodeFollowupOutputs }) {
+  const reply = complaintOrderCodeFollowupOutputs?.[0]?.guarded_draft?.reply_text
+    || complaintOrderCodeFollowupOutputs?.[0]?.ai_draft?.reply_text
+    || '';
+  const triage = complaintOrderCodeFollowupOutputs?.[0]?.triage?.case_type || null;
+  const flags = complaintOrderCodeFollowupOutputs?.[0]?.guarded_draft?.safety_flags || [];
+  const memory = complaintOrderCodeFollowupOutputs?.[0]?.thread_memory_after || {};
+
+  return {
+    followup_triage: triage,
+    followup_stays_complaint: triage === 'complaint_or_negative_feedback',
+    followup_reply: reply,
+    followup_acknowledges_identifier: /đã nhận.*thông tin đơn/i.test(reply),
+    followup_keeps_apology_tone: /xin lỗi/i.test(reply),
+    followup_avoids_reasking_identifier: !/mã đơn để bên em kiểm tra/i.test(reply),
+    followup_continuity_flagged: flags.includes('complaint_followup_continuity'),
+    followup_missing_info_cleared: Array.isArray(complaintOrderCodeFollowupOutputs?.[0]?.guarded_draft?.missing_info)
+      && complaintOrderCodeFollowupOutputs[0].guarded_draft.missing_info.length === 0,
+    followup_thread_waiting_cleared: memory.pending_customer_reply === false,
+    followup_thread_resolved_slots: (memory.asked_slots || []).filter((item) => item.status === 'resolved').map((item) => item.slot)
   };
 }
 

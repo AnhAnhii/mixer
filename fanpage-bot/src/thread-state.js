@@ -424,7 +424,7 @@ function pickAskedSlotProvidedValues(previousMemory, triage, draft, providedSlot
   );
 }
 
-function detectProvidedSlots(normalizedMessage, previousMemory, triage, draft) {
+export function detectProvidedSlots(normalizedMessage, previousMemory, triage, draft) {
   const text = String(normalizedMessage?.text || '').trim();
   if (!text) {
     return {};
