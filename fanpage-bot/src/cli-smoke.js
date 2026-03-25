@@ -164,6 +164,86 @@ const pricingBody = {
   ]
 };
 
+const pricingFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-14' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (60 * 1000),
+          message: {
+            mid: 'mid.local.12',
+            text: 'shop check giúp mình nha'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const pricingGenericFollowupAfterStateDriftBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-15' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (2 * 60 * 1000),
+          message: {
+            mid: 'mid.local.13',
+            text: 'check giúp mình nha'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const orderStatusGenericFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-16' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (3 * 60 * 1000),
+          message: {
+            mid: 'mid.local.14',
+            text: 'dạ'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const orderStatusPhoneFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-17' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (4 * 60 * 1000),
+          message: {
+            mid: 'mid.local.15',
+            text: 'sđt 0912 345 678'
+          }
+        }
+      ]
+    }
+  ]
+};
+
 const shortAmbiguousBody = {
   object: 'page',
   entry: [
@@ -413,13 +493,163 @@ const carrierOutputs = await processWebhookBody(carrierBody, {
 });
 
 resetDedupeStore();
+resetThreadState();
 const pricingOutputs = await processWebhookBody(pricingBody, {
   autoReplyEnabled: true,
   shadowMode: false,
   dedupeStorePath,
+  threadStatePath,
   pageAccessToken: 'test-page-token',
   fetchImpl: async () => {
     throw new Error('fetch should not be called for ungrounded pricing/promo request');
+  }
+});
+
+const pricingFollowupOutputs = await processWebhookBody(pricingFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for repeated ungrounded pricing/promo request');
+  }
+});
+
+resetDedupeStore();
+resetThreadState();
+const pricingDriftStore = createThreadStateStore({ threadStatePath });
+pricingDriftStore.updateMemory('facebook:105265398928721:test-psid-15', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-15',
+    message_id: 'mid.seed.pricing.1',
+    text: 'áo này giá bao nhiêu vậy shop',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'pricing_or_promotion',
+    missing_info: ['product_name'],
+    reason: 'matched_pricing_or_promotion_rule',
+    needs_human: false
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'draft_only',
+      needs_human: false,
+      missing_info: ['product_name'],
+      reason: 'pricing_or_promotion_needs_grounded_product_data',
+      reply_text: 'Dạ để em báo đúng giá/ưu đãi hiện có, anh/chị gửi giúp em tên mẫu hoặc ảnh/link sản phẩm mình đang xem nha. Nếu có size/màu mình quan tâm thì nhắn kèm giúp em luôn ạ.'
+    },
+    delivery: { decision: 'draft_only' }
+  }
+});
+pricingDriftStore.updateMemory('facebook:105265398928721:test-psid-15', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-15',
+    message_id: 'mid.seed.pricing.2',
+    text: 'ok shop',
+    timestamp: inHoursTimestamp + 1000
+  },
+  triage: {
+    case_type: 'unknown',
+    missing_info: [],
+    reason: 'customer_acknowledged',
+    needs_human: false
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'draft_only',
+      needs_human: false,
+      missing_info: [],
+      reason: 'acknowledged'
+    },
+    delivery: { decision: 'draft_only' }
+  }
+});
+const pricingGenericFollowupAfterStateDriftOutputs = await processWebhookBody(pricingGenericFollowupAfterStateDriftBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for vague pricing follow-up after state drift');
+  }
+});
+
+resetDedupeStore();
+resetThreadState();
+const orderStatusContinuityStore = createThreadStateStore({ threadStatePath });
+orderStatusContinuityStore.updateMemory('facebook:105265398928721:test-psid-16', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-16',
+    message_id: 'mid.seed.order.1',
+    text: 'kiểm tra đơn giúp mình',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'order_status_request',
+    missing_info: ['order_code', 'receiver_phone'],
+    reason: 'matched_order_status_rule',
+    needs_human: true
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'handoff',
+      needs_human: true,
+      missing_info: ['order_code', 'receiver_phone'],
+      reason: 'need_order_identifiers',
+      reply_text: 'Dạ anh/chị gửi giúp em mã đơn hoặc số điện thoại nhận hàng để bên em kiểm tra nhanh hơn nha.'
+    },
+    delivery: { decision: 'handoff' }
+  }
+});
+const orderStatusGenericFollowupOutputs = await processWebhookBody(orderStatusGenericFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for generic order-status follow-up');
+  }
+});
+
+resetDedupeStore();
+resetThreadState();
+const orderStatusPhoneStore = createThreadStateStore({ threadStatePath });
+orderStatusPhoneStore.updateMemory('facebook:105265398928721:test-psid-17', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-17',
+    message_id: 'mid.seed.order.2',
+    text: 'kiểm tra đơn giúp mình',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'order_status_request',
+    missing_info: ['order_code', 'receiver_phone'],
+    reason: 'matched_order_status_rule',
+    needs_human: true
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'handoff',
+      needs_human: true,
+      missing_info: ['order_code', 'receiver_phone'],
+      reason: 'need_order_identifiers',
+      reply_text: 'Dạ anh/chị gửi giúp em mã đơn hoặc số điện thoại nhận hàng để bên em kiểm tra nhanh hơn nha.'
+    },
+    delivery: { decision: 'handoff' }
+  }
+});
+const orderStatusPhoneFollowupOutputs = await processWebhookBody(orderStatusPhoneFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for order-status phone follow-up');
   }
 });
 
@@ -482,9 +712,11 @@ const passiveEventOutputs = await processWebhookBody(passiveEventsBody, {
 const signatureChecks = runSignatureChecks();
 const reasoningBundleChecks = runReasoningBundleChecks(pricingOutputs);
 const draftContractChecks = await runDraftContractChecks({ shadowOutputs, liveOutputs, complaintOutputs, pricingOutputs });
-const threadMemoryChecks = await runThreadMemoryChecks();
+const threadMemoryChecks = runThreadMemoryChecks();
+const pricingFollowupChecks = runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs });
+const orderStatusContinuityChecks = runOrderStatusContinuityChecks({ orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs });
 
-console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks }, null, 2));
+console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks }, null, 2));
 
 function resetDedupeStore() {
   if (fs.existsSync(dedupeStorePath)) {
@@ -650,7 +882,59 @@ function hasLegacyCompatibilityShape(draft) {
   );
 }
 
-async function runThreadMemoryChecks() {
+function runOrderStatusContinuityChecks({ orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs }) {
+  const genericReply = orderStatusGenericFollowupOutputs?.[0]?.guarded_draft?.reply_text
+    || orderStatusGenericFollowupOutputs?.[0]?.ai_draft?.reply_text
+    || '';
+  const genericTriage = orderStatusGenericFollowupOutputs?.[0]?.triage?.case_type || null;
+  const genericFlags = orderStatusGenericFollowupOutputs?.[0]?.guarded_draft?.safety_flags || [];
+  const phoneReply = orderStatusPhoneFollowupOutputs?.[0]?.guarded_draft?.reply_text
+    || orderStatusPhoneFollowupOutputs?.[0]?.ai_draft?.reply_text
+    || '';
+  const phoneMissing = orderStatusPhoneFollowupOutputs?.[0]?.guarded_draft?.missing_info || [];
+  const phoneMemory = orderStatusPhoneFollowupOutputs?.[0]?.thread_memory_after || {};
+
+  return {
+    generic_followup_triage: genericTriage,
+    generic_followup_reply: genericReply,
+    generic_followup_stays_order_status: genericTriage === 'order_status_request',
+    generic_followup_avoids_generic_unknown_fallback: !/chia sẻ thêm giúp em nội dung cần hỗ trợ/i.test(genericReply),
+    generic_followup_requests_lookup_identifier: /mã đơn|số điện thoại nhận hàng/i.test(genericReply),
+    generic_followup_continuity_flagged: genericFlags.includes('order_status_followup_continuity'),
+    phone_followup_reply: phoneReply,
+    phone_followup_acknowledges_identifier: /đã nhận.*số điện thoại/i.test(phoneReply),
+    phone_followup_missing_info_cleared: Array.isArray(phoneMissing) && phoneMissing.length === 0,
+    phone_followup_thread_waiting_cleared: phoneMemory.pending_customer_reply === false,
+    phone_followup_thread_resolved_slots: (phoneMemory.asked_slots || []).filter((item) => item.status === 'resolved').map((item) => item.slot)
+  };
+}
+
+function runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs }) {
+  const firstReply = pricingOutputs?.[0]?.guarded_draft?.reply_text || pricingOutputs?.[0]?.ai_draft?.reply_text || '';
+  const secondReply = pricingFollowupOutputs?.[0]?.guarded_draft?.reply_text || pricingFollowupOutputs?.[0]?.ai_draft?.reply_text || '';
+  const secondFlags = pricingFollowupOutputs?.[0]?.guarded_draft?.safety_flags || [];
+  const askedSlots = pricingFollowupOutputs?.[0]?.thread_memory_after?.asked_slots || [];
+  const driftReply = pricingGenericFollowupAfterStateDriftOutputs?.[0]?.guarded_draft?.reply_text
+    || pricingGenericFollowupAfterStateDriftOutputs?.[0]?.ai_draft?.reply_text
+    || '';
+  const driftTriage = pricingGenericFollowupAfterStateDriftOutputs?.[0]?.triage?.case_type || null;
+
+  return {
+    first_reply: firstReply,
+    second_reply: secondReply,
+    second_flags: secondFlags,
+    pending_slots_after_followup: askedSlots.filter((item) => item.status !== 'resolved').map((item) => item.slot),
+    refined_product_request_detected: /ảnh|link|sản phẩm|tên mẫu|mẫu cụ thể/i.test(secondReply),
+    optional_variant_request_detected: /size\/màu/i.test(secondReply),
+    repeat_info_request_refined_flagged: secondFlags.includes('repeat_info_request_refined'),
+    state_drift_followup_triage: driftTriage,
+    state_drift_followup_reply: driftReply,
+    state_drift_followup_stays_specific: /ảnh|link|sản phẩm|tên mẫu|mẫu cụ thể/i.test(driftReply) && /size\/màu/i.test(driftReply),
+    state_drift_followup_avoids_generic_fallback: !/chia sẻ thêm giúp em nội dung cần hỗ trợ/i.test(driftReply)
+  };
+}
+
+function runThreadMemoryChecks() {
   const store = createThreadStateStore({
     threadStatePath: path.join(tmpDir, 'thread-state.logic.smoke.json')
   });
@@ -707,6 +991,57 @@ async function runThreadMemoryChecks() {
   });
 
   const afterReply = store.getMemory(threadKey);
+
+  const phoneOnlyThreadKey = 'facebook:test-page:test-phone-only-user';
+  store.updateMemory(phoneOnlyThreadKey, {
+    normalizedMessage: {
+      thread_key: phoneOnlyThreadKey,
+      message_id: 'mid.phone.1',
+      text: 'kiểm tra đơn giúp mình',
+      timestamp: inHoursTimestamp
+    },
+    triage: {
+      case_type: 'order_status_request',
+      missing_info: ['order_code', 'receiver_phone'],
+      reason: 'matched_order_status_rule',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: ['order_code', 'receiver_phone'],
+        reason: 'need_order_identifiers'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
+
+  store.updateMemory(phoneOnlyThreadKey, {
+    normalizedMessage: {
+      thread_key: phoneOnlyThreadKey,
+      message_id: 'mid.phone.2',
+      text: 'sđt 0912 345 678',
+      timestamp: inHoursTimestamp + 1000
+    },
+    triage: {
+      case_type: 'unknown',
+      missing_info: [],
+      reason: 'customer_provided_phone_only',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: [],
+        reason: 'ready_for_manual_lookup'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
+
+  const afterPhoneOnlyReply = store.getMemory(phoneOnlyThreadKey);
 
   const salesThreadKey = 'facebook:test-page:test-sales-user';
   store.updateMemory(salesThreadKey, {
@@ -810,95 +1145,37 @@ async function runThreadMemoryChecks() {
 
   const afterCaseShift = store.getMemory(staleThreadKey);
 
-  resetDedupeStore();
-  const continuityThreadStatePath = path.join(tmpDir, 'thread-state.continuity.smoke.json');
-  if (fs.existsSync(continuityThreadStatePath)) {
-    fs.unlinkSync(continuityThreadStatePath);
-  }
-
-  const continuityAskBody = {
-    object: 'page',
-    entry: [
-      {
-        id: '105265398928721',
-        messaging: [
-          {
-            sender: { id: 'test-psid-continuity-1' },
-            recipient: { id: '105265398928721' },
-            timestamp: inHoursTimestamp,
-            message: {
-              mid: 'mid.continuity.1',
-              text: 'kiểm tra đơn giúp mình'
-            }
-          }
-        ]
-      }
-    ]
-  };
-
-  const continuityReplyBody = {
-    object: 'page',
-    entry: [
-      {
-        id: '105265398928721',
-        messaging: [
-          {
-            sender: { id: 'test-psid-continuity-1' },
-            recipient: { id: '105265398928721' },
-            timestamp: inHoursTimestamp + 1000,
-            message: {
-              mid: 'mid.continuity.2',
-              text: 'DH123456'
-            }
-          }
-        ]
-      }
-    ]
-  };
-
-  const continuityAskOutputs = await processWebhookBody(continuityAskBody, {
-    autoReplyEnabled: false,
-    shadowMode: true,
-    dedupeStorePath,
-    threadStatePath: continuityThreadStatePath
-  });
-
-  const continuityReplyOutputs = await processWebhookBody(continuityReplyBody, {
-    autoReplyEnabled: false,
-    shadowMode: true,
-    dedupeStorePath,
-    threadStatePath: continuityThreadStatePath
-  });
-
   return {
     after_ask: {
       pending_customer_reply: afterAsk.pending_customer_reply,
-      asked_slots: afterAsk.asked_slots
+      asked_slots: afterAsk.asked_slots,
+      customer_facts: afterAsk.customer_facts
     },
     after_reply: {
       pending_customer_reply: afterReply.pending_customer_reply,
       asked_slots: afterReply.asked_slots,
-      resolved_slots: afterReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => item.slot)
+      resolved_slots: afterReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => item.slot),
+      customer_facts: afterReply.customer_facts,
+      fact_types: afterReply.customer_facts.map((item) => item.fact_type)
+    },
+    phone_only_reply: {
+      pending_customer_reply: afterPhoneOnlyReply.pending_customer_reply,
+      asked_slots: afterPhoneOnlyReply.asked_slots,
+      resolved_slots: afterPhoneOnlyReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => item.slot),
+      customer_facts: afterPhoneOnlyReply.customer_facts,
+      fact_types: afterPhoneOnlyReply.customer_facts.map((item) => item.fact_type)
     },
     sales_follow_up: {
       pending_customer_reply: afterSalesReply.pending_customer_reply,
       asked_slots: afterSalesReply.asked_slots,
       resolved_slots: afterSalesReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => item.slot),
-      resolved_values: Object.fromEntries(afterSalesReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => [item.slot, item.resolved_value_preview]))
+      resolved_values: Object.fromEntries(afterSalesReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => [item.slot, item.resolved_value_preview])),
+      fact_types: afterSalesReply.customer_facts.map((item) => item.fact_type)
     },
     case_shift_cleanup: {
       pending_customer_reply: afterCaseShift.pending_customer_reply,
       asked_slots: afterCaseShift.asked_slots,
       active_issue: afterCaseShift.active_issue
-    },
-    continuity_follow_up: {
-      initial_case: continuityAskOutputs?.[0]?.triage?.case_type || null,
-      follow_up_raw_case: continuityReplyOutputs?.[0]?.classifier_triage_raw?.case_type || null,
-      follow_up_effective_case: continuityReplyOutputs?.[0]?.triage?.case_type || null,
-      follow_up_reason: continuityReplyOutputs?.[0]?.triage?.reason || null,
-      follow_up_missing_info: continuityReplyOutputs?.[0]?.triage?.missing_info || [],
-      follow_up_reply_preview: continuityReplyOutputs?.[0]?.guarded_draft?.reply_text || null,
-      follow_up_thread_memory_after: continuityReplyOutputs?.[0]?.thread_memory_after || null
     }
   };
 }
