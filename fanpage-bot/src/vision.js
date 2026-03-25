@@ -1,5 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
-
 export async function analyzeProductAttachments(normalizedMessage, options = {}) {
   const attachments = normalizedMessage?.attachments || [];
   const imageAttachments = attachments.filter((attachment) => attachment?.type === 'image' && attachment?.payload?.url);
@@ -30,6 +28,7 @@ export async function analyzeProductAttachments(normalizedMessage, options = {})
   }
 
   try {
+    const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey });
     const prompt = [
       'Bạn đang hỗ trợ phân tích ảnh sản phẩm khách gửi cho fanpage thời trang.',

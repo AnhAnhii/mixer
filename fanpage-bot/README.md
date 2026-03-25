@@ -100,14 +100,25 @@ npm run metrics -- data/logs/audit.jsonl 200
 
 This summarizes the audit JSONL into quick rollout metrics: inbound count, unique threads, case mix, decisions, send outcomes, duplicate ignores, top safety flags, and rollout version slices (`policy_version`, `prompt_version`, `ai_mode`, `ai_model`).
 
-## Replay a real webhook payload from file
+## Replay a real webhook payload or raw event sample from file
 ```bash
 cd fanpage-bot
 npm run replay -- ../tmp/facebook-webhook-sample.json
 npm run replay -- ../tmp/facebook-webhook-sample.json 5
+npm run replay -- ../data/logs/raw-events.jsonl 10
+npm run replay -- ../data/logs/raw-events.jsonl 5 --mid <facebook_mid>
+npm run replay -- ../data/logs/raw-events.jsonl 10 --psid <sender_psid>
 ```
 
-This runs the real pipeline against a saved webhook JSON payload, then prints a compact summary plus the newest processed outputs. Useful for comparing local behavior against real Facebook events without editing the smoke fixture.
+`npm run replay` now accepts:
+- full Facebook webhook payload JSON
+- `raw-events.jsonl` produced by the pipeline
+- one raw-event-log record JSON (`{ raw_event: ... }`)
+- one bare Messenger event JSON (`{ sender, recipient, message/postback/... }`)
+
+The output includes a compact processing summary plus an `event_shape_summary` block so production samples can be audited for new event shapes before changing normalization/policy code.
+
+By default replay writes audit/raw/dedupe/thread-state artifacts into an isolated `.tmp/replay-runs/<timestamp>/` folder so local replay does not pollute the bot's normal runtime logs/state. You can override those paths with `REPLAY_*` env vars if needed.
 
 ## Notes
 - Production safety still comes from flags. Keep `AUTO_REPLY_ENABLED=false` and `AUTO_REPLY_SHADOW_MODE=true` until Saram is ready.
