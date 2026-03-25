@@ -3,6 +3,7 @@ import { processWebhookBody } from './pipeline.js';
 import { resolveWritableDataPath } from './runtime-paths.js';
 
 const RUNTIME_DEBUG_MARKER = 'debug-bad10e1-plus';
+const DEBUG_ENV_NAME = 'FANPAGE_BOT_DEBUG';
 
 export async function handleFacebookWebhook(req, res) {
   if (req.method === 'GET') {
@@ -16,6 +17,10 @@ export async function handleFacebookWebhook(req, res) {
 
     if (!signatureCheck.ok) {
       const statusCode = signatureCheck.reason === 'raw_body_unavailable' ? 500 : 401;
+      console.warn('fanpage-bot webhook signature rejected', {
+        status_code: statusCode,
+        reason: signatureCheck.reason
+      });
       return res.status(statusCode).json({
         error: 'Invalid webhook signature',
         reason: signatureCheck.reason
@@ -23,7 +28,7 @@ export async function handleFacebookWebhook(req, res) {
     }
 
     try {
-      console.info('FANPAGE BOT RUNTIME DEBUG', {
+      logDebug('FANPAGE BOT RUNTIME DEBUG', {
         marker: RUNTIME_DEBUG_MARKER,
         cwd: process.cwd(),
         vercel: Boolean(process.env.VERCEL),
@@ -137,4 +142,24 @@ function handleVerification(req, res) {
   }
 
   return res.status(403).json({ error: 'Verification failed' });
+}
+
+function logDebug(message, payload) {
+  if (!isDebugEnabled()) {
+    return;
+  }
+
+  console.info(message, payload);
+}
+
+function isDebugEnabled() {
+  return parseBooleanEnv(process.env[DEBUG_ENV_NAME]);
+}
+
+function parseBooleanEnv(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
 }

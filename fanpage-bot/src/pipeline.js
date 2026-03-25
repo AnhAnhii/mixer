@@ -10,6 +10,7 @@ import { createThreadStateStore } from './thread-state.js';
 
 const DEFAULT_PIPELINE_VERSION = '0.1.0';
 const PIPELINE_DEBUG_MARKER = 'pipeline-checkpoints-v1';
+const DEBUG_ENV_NAME = 'FANPAGE_BOT_DEBUG';
 
 export async function processWebhookBody(body, options = {}) {
   const eventPairs = extractWebhookEventPairs(body);
@@ -158,7 +159,11 @@ export async function processWebhookBody(body, options = {}) {
     outputs.push({ ...record, log_path: logPath, raw_log_path: rawLogPath, handoff_path: handoffPath });
   }
 
-  console.info('FANPAGE BOT PIPELINE CHECKPOINT', { marker: PIPELINE_DEBUG_MARKER, stage: 'PIPELINE_RETURN', outputs: outputs.length });
+  logDebug('FANPAGE BOT PIPELINE CHECKPOINT', {
+    marker: PIPELINE_DEBUG_MARKER,
+    stage: 'PIPELINE_RETURN',
+    outputs: outputs.length
+  });
   return outputs;
 }
 
@@ -347,4 +352,24 @@ function buildProcessingMeta(options = {}, aiMeta = {}) {
     ai_mode: aiMeta?.source || aiMeta?.provider || 'n/a',
     ai_model: aiMeta?.model || process.env.OPENAI_MODEL || null
   };
+}
+
+function logDebug(message, payload) {
+  if (!isDebugEnabled()) {
+    return;
+  }
+
+  console.info(message, payload);
+}
+
+function isDebugEnabled() {
+  return parseBooleanEnv(process.env[DEBUG_ENV_NAME]);
+}
+
+function parseBooleanEnv(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
 }
