@@ -109,6 +109,26 @@ npm run metrics -- data/logs/audit.jsonl 200
 
 This summarizes the audit JSONL into quick rollout metrics: inbound count, unique threads, case mix, decisions, send outcomes, duplicate ignores, top safety flags, and rollout version slices (`policy_version`, `prompt_version`, `ai_mode`, `ai_model`).
 
+## Summarize the production validation cases from the runbook
+```bash
+cd fanpage-bot
+npm run production:check
+npm run production:check -- data/logs/audit.jsonl 200
+```
+
+This scans recent audit JSONL and outputs a compact pass/fail bundle for the current manual production round:
+- A. shipping ETA
+- B. pricing follow-up continuity
+- C. order-status follow-up continuity
+- D. complaint / negative feedback
+
+For each case it reports:
+- observed case types
+- observed delivery decisions
+- continuity thread count
+- one compact sample (customer text, reply, active issue before/after)
+- notes for likely fail signs such as `unknown`, FAQ auto-send on risky cases, or reply drift on canonical shipping ETA wording
+
 ## Replay a real webhook payload from file
 ```bash
 cd fanpage-bot

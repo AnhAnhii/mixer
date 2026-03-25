@@ -112,6 +112,7 @@ Mục tiêu: chạy nhanh một vòng validation production sau các commit cont
    - xác nhận `triage.case_type`
    - xác nhận `delivery.decision`
    - với continuity cases, xác nhận thread memory giữ `active_issue.case_type` đúng.
+   - có thể chạy nhanh `cd fanpage-bot && npm run production:check -- data/logs/audit.jsonl 200` để lấy bảng pass/fail ngắn + sample record cho đúng 4 case trong runbook này trước khi đọc log raw.
 5. Nếu một case fail, dừng rollout decision cho case đó và chốt rõ fail ở classifier, fallback draft, hay thread memory recovery.
 
 ## 4) Quyết định cuối cùng cần chốt sau vòng check
