@@ -10,6 +10,7 @@ export function buildFallbackDraft(input) {
   const policyEntries = normalizePolicyEntries(selected.policy_entries || []);
   const recommendedBlocks = normalizeRecommendedBlocks(selected.response_patterns?.recommended_blocks || []);
   const missingInfo = normalizeStringArray(input?.missing_info || triage.missing_info_hint || triage.missing_info || []);
+  const orderStatusFollowup = buildOrderStatusFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
 
   switch (caseType) {
     case 'greeting_or_opening':
@@ -73,16 +74,17 @@ export function buildFallbackDraft(input) {
       );
     case 'order_status_request':
       return draft(
-        pickFirstString(recommendedBlocks, 'handoff_safe_shapes.order_status')
+        orderStatusFollowup.replyText
+          || pickFirstString(recommendedBlocks, 'handoff_safe_shapes.order_status')
           || pickFirstString(recommendedBlocks, 'ask_for_info.order_identifier')
           || 'Dạ anh/chị gửi giúp em mã đơn hoặc số điện thoại nhận hàng để bên em kiểm tra nhanh hơn nha.',
         'handoff',
-        0.9,
+        orderStatusFollowup.lookupSatisfied ? 0.92 : 0.9,
         true,
-        missingInfo.length ? missingInfo : ['order_code', 'receiver_phone'],
-        'requires_internal_order_check',
+        orderStatusFollowup.missingInfo,
+        orderStatusFollowup.lookupSatisfied ? 'ready_for_manual_lookup' : 'requires_internal_order_check',
         buildPolicyRefs(policyEntries, caseType),
-        ['requires_internal_data']
+        ['requires_internal_data', ...(orderStatusFollowup.continuityApplied ? ['order_status_followup_continuity'] : [])]
       );
     case 'exchange_return_specific':
       return draft(
@@ -386,6 +388,98 @@ function mentionsUnspecifiedProduct(message) {
   return /(áo này|quần này|item này|mẫu này|sp này|sản phẩm này|cái này|em này|bộ này|áo kia|quần kia|mẫu kia)/.test(text);
 }
 
+function buildOrderStatusFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {
+  const activeCaseType = normalizeCaseType(threadMemory?.active_issue?.case_type || 'unknown');
+  const unresolvedAskedSlots = normalizeAskedSlots(threadMemory?.asked_slots).filter((item) => item.status !== 'resolved');
+  const pendingOrderLookup = activeCaseType === 'order_status_request' && unresolvedAskedSlots.some((item) => ['order_code', 'phone', 'receiver_phone'].includes(item.slot));
+  const extracted = extractOrderLookupIdentifiers(latestCustomerMessage);
+  const lookupSatisfied = Boolean(extracted.order_code || extracted.phone || extracted.receiver_phone);
+  const continuityApplied = pendingOrderLookup;
+
+  if (lookupSatisfied) {
+    const identifierLabel = extracted.order_code
+      ? 'mã đơn'
+      : extracted.receiver_phone || extracted.phone
+        ? 'số điện thoại'
+        : 'thông tin tra cứu';
+    return {
+      continuityApplied,
+      lookupSatisfied: true,
+      missingInfo: [],
+      replyText: `Dạ em đã nhận ${identifierLabel} của mình rồi ạ. Bên em sẽ kiểm tra đơn và phản hồi anh/chị sớm nhé.`
+    };
+  }
+
+  const requestedLookupSlots = continuityApplied
+    ? unresolvedAskedSlots.map((item) => item.slot).filter((slot) => ['order_code', 'phone', 'receiver_phone'].includes(slot))
+    : [];
+  const normalizedMissing = normalizeOrderLookupMissingInfo(requestedLookupSlots.length ? requestedLookupSlots : triageMissingInfo);
+
+  return {
+    continuityApplied,
+    lookupSatisfied: false,
+    missingInfo: normalizedMissing,
+    replyText: continuityApplied
+      ? 'Dạ để em kiểm tra đúng đơn của mình, anh/chị gửi giúp em mã đơn hoặc số điện thoại nhận hàng nha.'
+      : null
+  };
+}
+
+function extractOrderLookupIdentifiers(message) {
+  const text = String(message || '').trim();
+  if (!text) return {};
+
+  const orderCode = extractOrderCode(text);
+  const phone = extractPhoneNumber(text);
+  return {
+    order_code: orderCode,
+    phone,
+    receiver_phone: phone
+  };
+}
+
+function extractOrderCode(text) {
+  const directMatch = String(text || '').match(/(?:mã\s*đơn|madon|ma don|order\s*code|mã\s*vận\s*đơn|tracking\s*code)\s*[:#\-]?\s*([a-z0-9][a-z0-9\-_.]{4,})/iu);
+  if (directMatch?.[1]) {
+    return sanitizeToken(directMatch[1], 32);
+  }
+
+  const compactOnlyCode = String(text || '').replace(/\s+/g, ' ').trim();
+  if (/^[a-z0-9\-_.]{5,20}$/iu.test(compactOnlyCode) && /[a-z]/iu.test(compactOnlyCode) && /\d/.test(compactOnlyCode)) {
+    return sanitizeToken(compactOnlyCode, 32);
+  }
+
+  const fallbackToken = compactOnlyCode.match(/\b([a-z]{1,6}[0-9][a-z0-9\-_.]{3,})\b/iu);
+  if (fallbackToken?.[1] && !/^ship$/iu.test(fallbackToken[1])) {
+    return sanitizeToken(fallbackToken[1], 32);
+  }
+
+  return null;
+}
+
+function extractPhoneNumber(text) {
+  const match = String(text || '').match(/(?:\+?84|0)(?:[\s.-]*\d){8,10}/u);
+  if (!match?.[0]) {
+    return null;
+  }
+
+  const digits = match[0].replace(/\D+/g, '');
+  if (digits.length < 9 || digits.length > 11) {
+    return null;
+  }
+
+  return digits;
+}
+
+function normalizeOrderLookupMissingInfo(value) {
+  const slots = normalizeStringArray(value).filter((slot) => ['order_code', 'phone', 'receiver_phone'].includes(slot));
+  return slots.length ? [...new Set(slots)] : ['order_code', 'receiver_phone'];
+}
+
+function sanitizeToken(value, maxLength) {
+  return String(value || '').trim().replace(/[.,;:!?]+$/g, '').slice(0, maxLength) || null;
+}
+
 function normalizeRecommendedBlocks(value) {
   if (!Array.isArray(value)) return [];
   return value.filter((entry) => entry && typeof entry === 'object' && typeof entry.block_path === 'string');
@@ -398,16 +492,22 @@ function resolveFallbackCaseType(requestedCaseType, threadMemory, latestCustomer
 
   const activeCaseType = normalizeCaseType(threadMemory?.active_issue?.case_type || 'unknown');
   const unresolvedAskedSlots = normalizeAskedSlots(threadMemory?.asked_slots).filter((item) => item.status !== 'resolved');
-  if (activeCaseType !== 'pricing_or_promotion') {
-    return requestedCaseType;
-  }
-
   if (!unresolvedAskedSlots.length) {
     return requestedCaseType;
   }
 
-  if (threadMemory?.pending_customer_reply || mentionsUnspecifiedProduct(latestCustomerMessage) || isGenericPricingFollowup(latestCustomerMessage)) {
-    return 'pricing_or_promotion';
+  if (activeCaseType === 'pricing_or_promotion') {
+    if (threadMemory?.pending_customer_reply || mentionsUnspecifiedProduct(latestCustomerMessage) || isGenericPricingFollowup(latestCustomerMessage)) {
+      return 'pricing_or_promotion';
+    }
+    return requestedCaseType;
+  }
+
+  if (activeCaseType === 'order_status_request') {
+    const hasOrderLookupSlot = unresolvedAskedSlots.some((item) => ['order_code', 'phone', 'receiver_phone'].includes(item.slot));
+    if (hasOrderLookupSlot && (threadMemory?.pending_customer_reply || looksLikeOrderLookupFollowup(latestCustomerMessage) || extractOrderCode(latestCustomerMessage) || extractPhoneNumber(latestCustomerMessage))) {
+      return 'order_status_request';
+    }
   }
 
   return requestedCaseType;
@@ -418,6 +518,14 @@ function isGenericPricingFollowup(message) {
   if (!text) return false;
   return /^(dạ\s*)?(shop\s*)?(check|kiểm tra|coi|xem|báo|tư vấn)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(text)
     || /^(dạ\s*)?(vậy|thế)(\s+(shop|bên mình|bên em))?(\s+(check|kiểm tra|báo|tư vấn))(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(text);
+}
+
+function looksLikeOrderLookupFollowup(message) {
+  const text = String(message || '').trim().toLowerCase();
+  if (!text) return false;
+  return /^(dạ\s*)?(ok|oke|oki|vâng|dạ vâng|ừm|uhm|uk|yes|rồi|đây|nè|nha|nhé|ạ)[.!?…~]*$/iu.test(text)
+    || /^(dạ\s*)?(shop\s*)?(check|kiểm tra|coi|xem)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(text)
+    || /^(sđt|sdt|sdt nè|số điện thoại|mã đơn)(\s*[:\-].*)?$/iu.test(text);
 }
 
 function normalizeStringArray(value) {

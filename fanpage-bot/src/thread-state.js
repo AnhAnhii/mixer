@@ -163,11 +163,13 @@ function deriveAskedSlots(payload, previousMemory, providedSlots = {}) {
   const now = new Date().toISOString();
   const previousCaseType = previousMemory.active_issue?.case_type || null;
   const currentCaseType = triage.case_type || null;
+  const effectiveCaseType = currentCaseType && currentCaseType !== 'unknown' ? currentCaseType : previousCaseType;
   const caseChanged = currentCaseType && currentCaseType !== 'unknown' && previousCaseType && currentCaseType !== previousCaseType;
   const previousSlots = normalizeAskedSlots(previousMemory.asked_slots || []).filter((item) => !(caseChanged && item.status !== 'resolved'));
   const canRefreshRequests = ['handoff', 'draft_only', 'ask_for_info', 'would_auto_send', 'auto_send'].includes(action) || draft.needs_human;
 
   const slotMap = new Map(previousSlots.map((item) => [item.slot, { ...item }]));
+  const orderLookupSatisfied = isOrderLookupSatisfied(effectiveCaseType, providedSlots);
 
   for (const [slot, value] of Object.entries(providedSlots || {})) {
     if (!value) continue;
@@ -179,6 +181,20 @@ function deriveAskedSlots(payload, previousMemory, providedSlots = {}) {
       resolved_at: now,
       resolved_value_preview: truncateText(String(value), 40)
     });
+  }
+
+  if (orderLookupSatisfied) {
+    for (const slot of ['order_code', 'phone', 'receiver_phone']) {
+      const previous = slotMap.get(slot);
+      if (!previous) continue;
+      if (previous.status === 'resolved') continue;
+      slotMap.set(slot, {
+        ...previous,
+        status: 'resolved',
+        resolved_at: now,
+        resolved_value_preview: previous.resolved_value_preview || 'lookup_identifier_received'
+      });
+    }
   }
 
   if (canRefreshRequests) {
@@ -367,6 +383,10 @@ function normalizeAskedSlots(items) {
       resolved_value_preview: item?.resolved_value_preview || null
     };
   }).filter((item) => item.slot);
+}
+
+function isOrderLookupSatisfied(caseType, providedSlots = {}) {
+  return caseType === 'order_status_request' && Boolean(providedSlots.order_code || providedSlots.phone || providedSlots.receiver_phone);
 }
 
 function normalizeCustomerFacts(items) {
