@@ -557,7 +557,7 @@ function extractSizeOrVariant(text) {
     return sanitizeFreeText(directMatch[1].toUpperCase(), 24);
   }
 
-  const standaloneSize = text.match(/\b(xs|s|m|l|xl|xxl|xxxl|2xl|3xl|28|29|30|31|32|33|34|35|36)\b/iu);
+  const standaloneSize = text.match(/(?:^|\s)(xs|s|m|l|xl|xxl|xxxl|2xl|3xl|28|29|30|31|32|33|34|35|36)(?=\s|$|[.,!?])/iu);
   if (standaloneSize?.[1]) {
     return sanitizeFreeText(standaloneSize[1].toUpperCase(), 24);
   }
