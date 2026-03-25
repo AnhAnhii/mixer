@@ -130,6 +130,7 @@ What it validates:
 - pricing partial-detail vs full-detail paths are reported separately, so you can see whether the bot refined the missing info or lost the lane entirely
 - thread memory clears `pending_customer_reply` once the requested info arrives
 - expected slot resolution is visible in `thread_memory_after`, including `resolved_value_preview` evidence in the compact sample / quick table
+- `operator_readback`, `operator_report_lines`, and `report_markdown` now condense each lane into a quick validation bundle: observed case/decision, continuity before/after, resolved/missing slots, safety flags, and failed assertions
 
 Use `npm run production:check` for the audit/log-oriented production readback lanes, especially shipping ETA and shipping -> order escalation. `continuity:check` is the fast local regression helper for stateful follow-up behavior before/alongside that production readback.
 

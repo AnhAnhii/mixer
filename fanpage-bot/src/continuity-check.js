@@ -41,7 +41,10 @@ const summary = {
   },
   checks,
   quick_table: checks.map(toQuickRow),
-  overall_pass: checks.every((item) => item.pass)
+  overall_pass: checks.every((item) => item.pass),
+  operator_readback: buildOperatorReadback(checks),
+  operator_report_lines: buildOperatorReportLines(checks),
+  report_markdown: buildMarkdownReport(checks)
 };
 
 console.log(JSON.stringify(summary, null, 2));
@@ -588,8 +591,124 @@ function toQuickRow(item) {
     check: item.label,
     pass: item.pass,
     failed_assertions: failedAssertions,
-    evidence: item.sample?.followup?.asked_slots_after || null
+    evidence: pickPrimarySample(item)?.asked_slots_after || null
   };
+}
+
+function buildOperatorReadback(checks) {
+  return checks.map((item) => {
+    const sample = pickPrimarySample(item);
+    if (!sample) {
+      return `${item.label}: ${item.pass ? 'PASS' : 'FAIL'} — chưa có sample output.`;
+    }
+
+    const continuity = summarizeContinuity(sample);
+    const failedAssertions = listFailedAssertions(item);
+
+    if (item.pass) {
+      return `${item.label}: PASS — ${sample.case_type || 'unknown'} / ${sample.decision || 'unknown'}${continuity ? ` | ${continuity}` : ''}.`;
+    }
+
+    return `${item.label}: FAIL — ${failedAssertions.join(', ')}${continuity ? ` | ${continuity}` : ''}.`;
+  });
+}
+
+function buildOperatorReportLines(checks) {
+  return checks.map((item) => {
+    const sample = pickPrimarySample(item);
+    const failedAssertions = listFailedAssertions(item);
+
+    return {
+      lane: item.label,
+      status: item.pass ? 'pass' : 'fail',
+      summary: sample
+        ? `${item.pass ? 'PASS' : 'FAIL'} — ${sample.case_type || 'unknown'} / ${sample.decision || 'unknown'}`
+        : `${item.pass ? 'PASS' : 'FAIL'} — sample missing`,
+      next_action: item.pass
+        ? 'Lane này đang đủ rõ để đọc continuity/readback nhanh.'
+        : 'Mở sample lane này, nhìn reply + missing/resolved slots + safety flags rồi fix đúng chỗ.',
+      evidence: sample ? buildEvidence(sample) : null,
+      failed_assertions: failedAssertions
+    };
+  });
+}
+
+function buildMarkdownReport(checks) {
+  const lines = [
+    '# Continuity regression readback',
+    '',
+    `- Overall: **${checks.every((item) => item.pass) ? 'PASS' : 'CHECK REQUIRED'}**`,
+    `- Generated: ${new Date().toISOString()}`,
+    ''
+  ];
+
+  for (const item of checks) {
+    const sample = pickPrimarySample(item);
+    const failedAssertions = listFailedAssertions(item);
+    const evidence = sample ? buildEvidence(sample) : null;
+
+    lines.push(`## ${item.label}`);
+    lines.push(`- Status: **${item.pass ? 'PASS' : 'FAIL'}**`);
+    if (!sample) {
+      lines.push('- Evidence: (no sample)');
+      lines.push('');
+      continue;
+    }
+
+    lines.push(`- Observed: \`${sample.case_type || 'unknown'}\` / \`${sample.decision || 'unknown'}\``);
+    lines.push(`- Customer: ${sample.customer_text || '(empty)'}`);
+    lines.push(`- Reply: ${sample.reply_text || '(no reply text)'}`);
+    lines.push(`- Continuity: ${evidence.continuity || '-'}`);
+    lines.push(`- Missing after: ${evidence.missing_info_after?.length ? evidence.missing_info_after.join(', ') : '(none)'}`);
+    lines.push(`- Safety flags: ${evidence.safety_flags?.length ? evidence.safety_flags.join(', ') : '(none)'}`);
+    lines.push(`- Failed assertions: ${failedAssertions.length ? failedAssertions.join(', ') : '(none)'}`);
+    lines.push('');
+  }
+
+  return lines.join('\n').trim();
+}
+
+function pickPrimarySample(item) {
+  if (item.sample?.followup) return item.sample.followup;
+  if (item.sample?.identifier_followup) return item.sample.identifier_followup;
+  if (item.sample?.order_code_followup) return item.sample.order_code_followup;
+  const firstSample = Object.values(item.sample || {}).find((value) => value && typeof value === 'object');
+  return firstSample || null;
+}
+
+function listFailedAssertions(item) {
+  return Object.entries(item.assertions || {})
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+}
+
+function buildEvidence(sample) {
+  return {
+    customer_text: sample.customer_text || null,
+    reply_text: sample.reply_text || null,
+    continuity: summarizeContinuity(sample),
+    missing_info_after: sample.missing_info_after || [],
+    safety_flags: sample.safety_flags || []
+  };
+}
+
+function summarizeContinuity(sample) {
+  const bits = [];
+  const beforeCase = sample.active_issue_before?.case_type || null;
+  const afterCase = sample.active_issue_after?.case_type || null;
+  if (beforeCase) bits.push(`before=${beforeCase}`);
+  if (afterCase) bits.push(`after=${afterCase}`);
+
+  const resolved = (sample.resolved_slots_after || []).filter(Boolean);
+  if (resolved.length) bits.push(`resolved=${resolved.join(',')}`);
+
+  const pending = sample.pending_customer_reply_after;
+  if (typeof pending === 'boolean') bits.push(`waiting=${pending ? 'yes' : 'no'}`);
+
+  const missing = (sample.missing_info_after || []).filter(Boolean);
+  if (missing.length) bits.push(`missing=${missing.join(',')}`);
+
+  return bits.join(' | ');
 }
 
 function resetArtifacts() {
