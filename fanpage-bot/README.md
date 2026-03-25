@@ -147,6 +147,8 @@ For each case it reports:
 - continuity thread count
 - one compact sample (customer text, reply, active issue before/after)
 - notes for likely fail signs such as `unknown`, FAQ auto-send on risky cases, or reply drift on canonical shipping ETA wording
+- `operator_report_lines` for cleaner human readback
+- `report_markdown` so you can paste a compact validation report without hand-rewriting the evidence
 
 ## Replay a real webhook payload from file
 ```bash

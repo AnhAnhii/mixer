@@ -160,7 +160,15 @@ function buildProductionCheckSummary(records, meta) {
       fail_reasons: lane.fail_reasons
     })),
     required_retest: requiredRetest,
-    operator_readback: buildOperatorReadback(laneSummaries)
+    operator_readback: buildOperatorReadback(laneSummaries),
+    operator_report_lines: buildOperatorReportLines(laneSummaries),
+    report_markdown: buildMarkdownReport(laneSummaries, {
+      overallPass,
+      source: meta.targetPath,
+      analyzed: records.length,
+      limit: meta.limit,
+      timeRange: buildTimeRange(records)
+    })
   };
 }
 
@@ -230,7 +238,7 @@ function chooseBestRecord(spec, records) {
       if (a.score !== b.score) {
         return b.score - a.score;
       }
-      return recordTime(a.record) - recordTime(b.record);
+      return recordTime(b.record) - recordTime(a.record);
     });
 
   return (candidates[0]?.record) || records.at(-1) || null;
@@ -259,6 +267,89 @@ function buildOperatorReadback(lanes) {
     }
     return `${lane.label}: FAIL — ${lane.fail_reasons.join('; ')}.`;
   });
+}
+
+function buildOperatorReportLines(lanes) {
+  return lanes.map((lane) => {
+    if (lane.status === 'not_observed_yet') {
+      return {
+        lane: lane.label,
+        status: lane.status,
+        summary: 'Chưa có evidence mới trong cửa sổ log đang scan.',
+        next_action: 'Gửi lại đúng tin nhắn test của lane này rồi chạy lại production:check với cửa sổ log nhỏ.',
+        evidence: null
+      };
+    }
+
+    const sample = lane.latest_sample || {};
+    const continuityBits = [];
+    if (sample.active_issue_before) continuityBits.push(`before=${sample.active_issue_before}`);
+    if (sample.active_issue_after) continuityBits.push(`after=${sample.active_issue_after}`);
+    if ((sample.asked_slots_after || []).length) {
+      const resolved = sample.asked_slots_after
+        .filter((slot) => slot?.status === 'resolved' && slot?.slot)
+        .map((slot) => slot.slot);
+      if (resolved.length) continuityBits.push(`resolved_slots=${resolved.join(',')}`);
+    }
+
+    return {
+      lane: lane.label,
+      status: lane.status,
+      summary: lane.pass
+        ? `PASS — ${sample.case_type} / ${sample.decision}`
+        : `FAIL — ${lane.fail_reasons.join('; ')}`,
+      next_action: lane.pass
+        ? 'Có thể dùng lane này cho readback/reporting hiện tại.'
+        : 'Mở latest_sample của lane này để đối chiếu customer text, reply, continuity state rồi retest/fix đúng chỗ.',
+      evidence: {
+        observed_at: sample.logged_at || null,
+        customer_text: sample.customer_text || null,
+        reply_preview: shorten(sample.reply_text, 220),
+        continuity: continuityBits.length ? continuityBits.join(' | ') : null
+      }
+    };
+  });
+}
+
+function buildMarkdownReport(lanes, meta = {}) {
+  const header = [
+    `# Production check readback`,
+    '',
+    `- Overall: **${meta.overallPass ? 'PASS' : 'CHECK REQUIRED'}**`,
+    `- Source: \`${meta.source || 'n/a'}\``,
+    `- Records analyzed: ${meta.analyzed ?? 0} (last ${meta.limit ?? 'all'})`,
+    `- Window: ${meta.timeRange?.first_logged_at || 'n/a'} -> ${meta.timeRange?.last_logged_at || 'n/a'}`,
+    ''
+  ];
+
+  const body = lanes.flatMap((lane) => {
+    if (lane.status === 'not_observed_yet') {
+      return [
+        `## ${lane.label}`,
+        `- Status: **NOT OBSERVED YET**`,
+        `- Action: gửi lại đúng case test rồi chạy lại helper với cửa sổ log ngắn.`,
+        ''
+      ];
+    }
+
+    const sample = lane.latest_sample || {};
+    const resolvedSlots = (sample.asked_slots_after || [])
+      .filter((slot) => slot?.status === 'resolved' && slot?.slot)
+      .map((slot) => slot.slot);
+
+    return [
+      `## ${lane.label}`,
+      `- Status: **${lane.pass ? 'PASS' : 'FAIL'}**`,
+      `- Observed: \`${sample.case_type || 'unknown'}\` / \`${sample.decision || 'unknown'}\``,
+      `- Customer: ${sample.customer_text || '(empty)'}`,
+      `- Reply: ${shorten(sample.reply_text, 280) || '(no reply text)'}`,
+      `- Continuity: before=${sample.active_issue_before || '-'} | after=${sample.active_issue_after || '-'}${resolvedSlots.length ? ` | resolved_slots=${resolvedSlots.join(',')}` : ''}`,
+      `${lane.fail_reasons.length ? `- Notes: ${lane.fail_reasons.join('; ')}` : '- Notes: matched expected manual-validation shape.'}`,
+      ''
+    ];
+  });
+
+  return [...header, ...body].join('\n').trim();
 }
 
 function buildCompactSample(record) {
@@ -321,4 +412,17 @@ function textIncludesAny(text, patterns) {
 
 function recordTime(record) {
   return Date.parse(record?.logged_at || 0) || 0;
+}
+
+function shorten(value, maxLength = 160) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return '';
+  }
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
