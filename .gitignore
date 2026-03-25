@@ -123,3 +123,4 @@ dist
 .agent/
 # Fanpage bot runtime data
 fanpage-bot/data/
+.vercel

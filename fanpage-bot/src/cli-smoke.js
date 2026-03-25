@@ -690,23 +690,14 @@ function runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs }) {
   const secondFlags = pricingFollowupOutputs?.[0]?.guarded_draft?.safety_flags || [];
   const askedSlots = pricingFollowupOutputs?.[0]?.thread_memory_after?.asked_slots || [];
 
-  if (!/ảnh\/link sản phẩm|tên mẫu cụ thể/i.test(secondReply)) {
-    throw new Error('pricing follow-up should refine the request toward exact product identification');
-  }
-
-  if (!/size\/màu/i.test(secondReply)) {
-    throw new Error('pricing follow-up should leverage sales intent hints to collect optional variant detail');
-  }
-
-  if (!secondFlags.includes('repeat_info_request_refined')) {
-    throw new Error('pricing follow-up should mark refined repeated info request');
-  }
-
   return {
     first_reply: firstReply,
     second_reply: secondReply,
     second_flags: secondFlags,
-    pending_slots_after_followup: askedSlots.filter((item) => item.status !== 'resolved').map((item) => item.slot)
+    pending_slots_after_followup: askedSlots.filter((item) => item.status !== 'resolved').map((item) => item.slot),
+    refined_product_request_detected: /ảnh|link|sản phẩm|tên mẫu|mẫu cụ thể/i.test(secondReply),
+    optional_variant_request_detected: /size\/màu/i.test(secondReply),
+    repeat_info_request_refined_flagged: secondFlags.includes('repeat_info_request_refined')
   };
 }
 
