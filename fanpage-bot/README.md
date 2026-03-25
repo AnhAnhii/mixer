@@ -120,3 +120,7 @@ This runs the real pipeline against a saved webhook JSON payload, then prints a 
 ## Current deploy wiring
 - `mixer/api/webhook/facebook.ts` now delegates directly to `fanpage-bot/src/webhook.js`.
 - This keeps the real Vercel-style endpoint thin while `fanpage-bot/` stays the single pipeline source of truth.
+
+## Sales-assist planning artifacts
+- `mixer/docs/sales-assist-reasoning-layer-v1.md`: practical design note for buyer-intent recognition, need probing, close guidance, and anti-hallucination guards.
+- `mixer/fanpage-bot/knowledge/sales-layer-v1-skeleton.json`: starter knowledge contract for a future sales reasoning layer without forcing immediate pipeline changes.

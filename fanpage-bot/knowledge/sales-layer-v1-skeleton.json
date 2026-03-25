@@ -1,0 +1,150 @@
+{
+  "version": "sales-layer-v1",
+  "north_star": "Sales-assist first: understand buyer intent, gather missing need slots, recommend safe next step, never invent live product facts.",
+  "framework": "Intent -> Need -> Fit -> Close -> Guard",
+  "buyer_stages": [
+    "discover",
+    "consider",
+    "ready_to_buy",
+    "post_purchase"
+  ],
+  "buyer_intents": [
+    {
+      "key": "browse_general",
+      "signals": ["xem thử", "tham khảo", "shop có bán"],
+      "goal": "open the conversation and identify product direction",
+      "default_strategy": "ask_need_then_recommend",
+      "default_close_path": "soft_close",
+      "required_slots": ["category_or_product_name", "use_case"],
+      "grounding_needed": []
+    },
+    {
+      "key": "product_discovery",
+      "signals": ["tư vấn giúp", "gợi ý mẫu", "mẫu nào hợp"],
+      "goal": "identify use case and narrow suitable products",
+      "default_strategy": "ask_need_then_recommend",
+      "default_close_path": "choice_close",
+      "required_slots": ["category_or_product_name", "use_case", "budget"],
+      "grounding_needed": ["catalog"]
+    },
+    {
+      "key": "fit_consultation",
+      "signals": ["hợp không", "mặc size nào", "dáng này hợp gì"],
+      "goal": "reduce fit uncertainty before purchase",
+      "default_strategy": "recommend_best_fit",
+      "default_close_path": "choice_close",
+      "required_slots": ["product_name", "size", "use_case"],
+      "grounding_needed": ["catalog", "size_guide"]
+    },
+    {
+      "key": "comparison_help",
+      "signals": ["khác gì", "nên chọn", "so sánh giúp"],
+      "goal": "help customer decide between options",
+      "default_strategy": "compare_options",
+      "default_close_path": "choice_close",
+      "required_slots": ["product_name"],
+      "grounding_needed": ["catalog"]
+    },
+    {
+      "key": "availability_check",
+      "signals": ["còn hàng không", "còn size", "còn màu"],
+      "goal": "check live inventory safely",
+      "default_strategy": "handoff_for_live_check",
+      "default_close_path": "handoff_close",
+      "required_slots": ["product_name", "size", "color"],
+      "grounding_needed": ["inventory"]
+    },
+    {
+      "key": "price_promo_check",
+      "signals": ["giá bao nhiêu", "có sale không", "combo gì"],
+      "goal": "share verified price or promo info only when grounded",
+      "default_strategy": "handoff_for_live_check",
+      "default_close_path": "handoff_close",
+      "required_slots": ["product_name"],
+      "grounding_needed": ["pricing"]
+    },
+    {
+      "key": "purchase_ready",
+      "signals": ["chốt", "đặt luôn", "lấy mẫu này"],
+      "goal": "capture the remaining ordering details and route to checkout",
+      "default_strategy": "capture_order_intent",
+      "default_close_path": "order_capture",
+      "required_slots": ["product_name", "size", "color", "customer_contact"],
+      "grounding_needed": ["catalog"]
+    },
+    {
+      "key": "trust_barrier",
+      "signals": ["ổn không", "chất lượng sao", "có đổi trả không"],
+      "goal": "resolve objection without overclaiming",
+      "default_strategy": "handle_objection_then_close",
+      "default_close_path": "soft_close",
+      "required_slots": ["product_name", "objection_type"],
+      "grounding_needed": ["policy", "catalog"]
+    }
+  ],
+  "need_slots": [
+    "product_name",
+    "category_or_product_name",
+    "use_case",
+    "size",
+    "color",
+    "budget",
+    "timeline",
+    "objection_type",
+    "customer_contact"
+  ],
+  "sales_strategies": [
+    "ask_need_then_recommend",
+    "recommend_best_fit",
+    "compare_options",
+    "handle_objection_then_close",
+    "capture_order_intent",
+    "handoff_for_live_check"
+  ],
+  "close_paths": [
+    "soft_close",
+    "choice_close",
+    "order_capture",
+    "handoff_close",
+    "no_close_support_only"
+  ],
+  "guard_rules": {
+    "never_invent": [
+      "inventory",
+      "pricing",
+      "promotion",
+      "variant_availability",
+      "product_specs_not_in_catalog",
+      "delivery_promises_without_policy",
+      "return_policy_not_in_policy_bank"
+    ],
+    "fallback_order": [
+      "ask_for_missing_slots",
+      "use_safe_grounded_claims_only",
+      "handoff_for_live_check"
+    ],
+    "safe_phrasing_patterns": [
+      "Mình cần kiểm tra lại mã này giúp bạn.",
+      "Nếu bạn gửi mình tên mẫu hoặc ảnh sản phẩm, mình định hướng nhanh hơn nha.",
+      "Để mình check lại tồn kho / giá hiện tại rồi báo bạn ngay."
+    ]
+  },
+  "reply_contract": {
+    "buyer_stage": "discover|consider|ready_to_buy|post_purchase",
+    "buyer_intent": "string",
+    "intent_confidence": "number",
+    "need_slots": "object",
+    "missing_slots": "string[]",
+    "sales_strategy": "string",
+    "close_path": "string",
+    "reply_goal": "string",
+    "required_grounding": "string[]",
+    "guard_flags": "string[]",
+    "needs_human": "boolean"
+  },
+  "data_dependencies": {
+    "p0": ["catalog", "variant_matrix", "pricing", "size_guide", "policy"],
+    "p1": ["inventory_live", "faq_sales", "objection_bank", "order_capture_flow"],
+    "p2": ["best_seller_tags", "bundle_rules", "segment_hints"]
+  }
+}
