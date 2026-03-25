@@ -212,18 +212,30 @@ function inferStrategy(action, intent, missingInfo, safetyFlags) {
 
 function buildPricingPromotionDraft({ latestCustomerMessage, threadMemory, salesAssist, missingInfo }) {
   const unresolvedAskedSlots = normalizeAskedSlots(threadMemory?.asked_slots).filter((item) => item.status !== 'resolved');
+  const unresolvedAskedSlotNames = unresolvedAskedSlots.map((item) => item.slot);
   const alreadyAskedForProduct = unresolvedAskedSlots.some((item) => item.slot === 'product_name');
   const referencedProductDeictically = mentionsUnspecifiedProduct(latestCustomerMessage);
   const hasStrongBuyerIntent = String(salesAssist?.buyer_intent_hint || '') === 'present'
     || String(salesAssist?.lead_strength_hint || '') === 'high';
-  const missingProductReference = missingInfo.includes('product_name');
-  const remainingMissing = normalizeStringArray(missingInfo);
+  const providedContext = extractStockContext(latestCustomerMessage, unresolvedAskedSlotNames);
+  const normalizedMissingInfo = normalizeStringArray(missingInfo);
+  const resolvableProductReference = providedContext.product_name && !looksLikeWeakPricingProductReference(latestCustomerMessage);
+  const hasProvidedSlotValue = (slot) => {
+    if (slot === 'product_name') {
+      return Boolean(resolvableProductReference);
+    }
+
+    return Boolean(providedContext[slot]);
+  };
+  const remainingMissing = normalizedMissingInfo.length
+    ? normalizedMissingInfo.filter((slot) => !hasProvidedSlotValue(slot))
+    : unresolvedAskedSlotNames.length
+      ? unresolvedAskedSlotNames.filter((slot) => !hasProvidedSlotValue(slot))
+      : ['product_name'];
+  const missingProductReference = remainingMissing.includes('product_name');
   const remainingVariantSlots = remainingMissing.filter((slot) => ['size', 'size_or_variant', 'desired_size_or_variant_if_applicable', 'color', 'color_if_relevant'].includes(slot));
-  const productReferenceResolved = !missingProductReference && remainingMissing.length > 0;
-  const providedProductName = productReferenceResolved
-    ? extractProductName(latestCustomerMessage) || readResolvedSlotValue(threadMemory, 'product_name')
-    : null;
-  const providedContext = extractStockContext(latestCustomerMessage, unresolvedAskedSlots.map((item) => item.slot));
+  const productReferenceResolved = !missingProductReference;
+  const providedProductName = providedContext.product_name || readResolvedSlotValue(threadMemory, 'product_name');
   const providedVariantSummary = summarizeProvidedVariantContext(providedContext);
   const remainingProductlessMissing = remainingMissing.filter((slot) => slot !== 'product_name');
 
@@ -486,6 +498,13 @@ function mentionsUnspecifiedProduct(message) {
   const text = String(message || '').trim().toLowerCase();
   if (!text) return false;
   return /(áo này|quần này|item này|mẫu này|sp này|sản phẩm này|cái này|em này|bộ này|áo kia|quần kia|mẫu kia)/.test(text);
+}
+
+function looksLikeWeakPricingProductReference(message) {
+  const text = String(message || '').trim().toLowerCase();
+  if (!text) return false;
+  if (!/^mẫu\s+/.test(text)) return false;
+  return !/^mẫu\s+(áo|quần|váy|đầm|set|combo|hoodie|tee|thun|sơ mi|polo|jacket|blazer)\b/.test(text);
 }
 
 function buildExchangeReturnFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {
