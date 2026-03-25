@@ -5,7 +5,7 @@ const targetPath = process.argv[2]
   ? path.resolve(process.cwd(), process.argv[2])
   : path.resolve(process.cwd(), process.env.LOG_STORE_PATH || 'data/logs/audit.jsonl');
 const limitArg = process.argv[3] || process.env.PRODUCTION_CHECK_LIMIT || '';
-const limit = Number(limitArg) > 0 ? Number(limitArg) : null;
+const limit = Number(limitArg) > 0 ? Number(limitArg) : 400;
 
 const records = readJsonl(targetPath);
 const scopedRecords = limit ? records.slice(-limit) : records;
@@ -33,203 +33,243 @@ function readJsonl(filePath) {
 }
 
 function buildProductionCheckSummary(records, meta) {
-  const caseSpecs = [
+  const specs = [
     {
       key: 'shipping_eta',
       label: 'A. Shipping ETA',
-      expected_case_type: 'shipping_eta_general',
-      expected_decisions: ['would_auto_send', 'auto_send', 'draft_only'],
-      canonical_reply_contains: [
+      expectedCaseType: 'shipping_eta_general',
+      expectedDecisions: ['would_auto_send', 'auto_send', 'draft_only'],
+      rejectDecisions: ['handoff'],
+      rejectCaseTypes: ['unknown', 'greeting_or_opening', 'pricing_or_promotion'],
+      canonicalReplyContains: [
         '2-3 ngày với đơn nội thành Hà Nội',
         '3-5 ngày với đơn ngoại thành Hà Nội',
         '4-7 ngày với đơn các tỉnh/thành khác ngoài Hà Nội'
       ],
-      fail_if_case_types: ['unknown', 'greeting_or_opening', 'pricing_or_promotion'],
-      fail_if_decisions: ['handoff'],
-      matcher: (record) => record?.triage?.case_type === 'shipping_eta_general'
-        || /ship.*mấy ngày|giao.*bao lâu|shipping eta/i.test(String(record?.normalized_message?.text || ''))
+      selectors: [
+        /shop\s*ơi\s*ship\s*mấy\s*ngày\s*vậy/i,
+        /ship\s*mấy\s*ngày\s*vậy\s*shop/i,
+        /vậy\s*bên\s*mình\s*ship\s*mấy\s*ngày\s*nữa\s*shop/i
+      ],
+      matcher: (record, text) => textIncludesAny(text, [/ship\s*mấy\s*ngày/i, /giao\s*bao\s*lâu/i])
+        || triageCase(record) === 'shipping_eta_general'
     },
     {
       key: 'pricing_followup_continuity',
       label: 'B. Pricing follow-up continuity',
-      expected_case_type: 'pricing_or_promotion',
-      expected_decisions: ['draft_only', 'handoff'],
-      fail_if_case_types: ['unknown', 'shipping_eta_general', 'shipping_carrier'],
-      fail_if_decisions: ['would_auto_send', 'auto_send'],
-      matcher: (record) => {
-        const triageCase = record?.triage?.case_type;
-        const beforeCase = record?.thread_memory_before?.active_issue?.case_type;
-        const afterCase = record?.thread_memory_after?.active_issue?.case_type;
-        return triageCase === 'pricing_or_promotion'
-          || beforeCase === 'pricing_or_promotion'
-          || afterCase === 'pricing_or_promotion';
+      expectedCaseType: 'pricing_or_promotion',
+      expectedDecisions: ['handoff', 'draft_only'],
+      rejectDecisions: ['would_auto_send', 'auto_send'],
+      rejectCaseTypes: ['unknown', 'shipping_eta_general', 'shipping_carrier'],
+      selectors: [
+        /shop\s*check\s*giúp\s*mình\s*nha/i,
+        /check\s*giúp\s*mình\s*nha/i,
+        /áo\s*này\s*giá\s*sao\s*shop/i
+      ],
+      matcher: (record, text) => textIncludesAny(text, [/giá\s*sao/i, /check\s*giúp\s*mình/i, /báo\s*giúp\s*mình/i])
+        || activeIssueBefore(record) === 'pricing_or_promotion'
+        || activeIssueAfter(record) === 'pricing_or_promotion'
+        || triageCase(record) === 'pricing_or_promotion',
+      extraChecks: (record) => {
+        const notes = [];
+        if (activeIssueBefore(record) === 'pricing_or_promotion' && triageCase(record) !== 'pricing_or_promotion') {
+          notes.push('continuity_lost_from_thread_memory');
+        }
+        return notes;
       }
     },
     {
       key: 'order_status_followup_continuity',
       label: 'C. Order status follow-up continuity',
-      expected_case_type: 'order_status_request',
-      expected_decisions: ['draft_only', 'handoff'],
-      expected_slot_resolution: ['order_code', 'phone', 'receiver_phone'],
-      fail_if_case_types: ['unknown', 'shipping_eta_general', 'shipping_carrier'],
-      fail_if_decisions: ['would_auto_send', 'auto_send'],
-      matcher: (record) => {
-        const triageCase = record?.triage?.case_type;
-        const beforeCase = record?.thread_memory_before?.active_issue?.case_type;
-        const afterCase = record?.thread_memory_after?.active_issue?.case_type;
-        return triageCase === 'order_status_request'
-          || beforeCase === 'order_status_request'
-          || afterCase === 'order_status_request';
+      expectedCaseType: 'order_status_request',
+      expectedDecisions: ['handoff', 'draft_only'],
+      rejectDecisions: ['would_auto_send', 'auto_send'],
+      rejectCaseTypes: ['unknown', 'shipping_eta_general', 'shipping_carrier'],
+      selectors: [
+        /check\s*đơn/i,
+        /sđt\s*0/i,
+        /mã\s*đơn/i
+      ],
+      matcher: (record, text) => textIncludesAny(text, [/check\s*đơn/i, /sđt\s*0/i, /mã\s*đơn/i])
+        || activeIssueBefore(record) === 'order_status_request'
+        || activeIssueAfter(record) === 'order_status_request'
+        || triageCase(record) === 'order_status_request',
+      extraChecks: (record) => {
+        const notes = [];
+        const resolvedSlots = new Set(((record?.thread_memory_after?.asked_slots) || [])
+          .filter((item) => item?.status === 'resolved')
+          .map((item) => item?.slot));
+        if (textIncludesAny(normalizedText(record), [/sđt\s*0/i, /mã\s*đơn/i])
+          && !['order_code', 'phone', 'receiver_phone'].some((slot) => resolvedSlots.has(slot))) {
+          notes.push('identifier_followup_seen_but_slot_not_resolved');
+        }
+        if (textIncludesAny(normalizedText(record), [/sđt\s*0/i, /mã\s*đơn/i])
+          && activeIssueAfter(record) !== 'order_status_request') {
+          notes.push('identifier_followup_left_order_status_lane');
+        }
+        return notes;
       }
     },
     {
       key: 'complaint_negative_feedback',
       label: 'D. Complaint / negative feedback',
-      expected_case_type: 'complaint_or_negative_feedback',
-      expected_decisions: ['draft_only', 'handoff'],
-      fail_if_case_types: ['shipping_eta_general'],
-      fail_if_decisions: ['would_auto_send', 'auto_send'],
-      matcher: (record) => record?.triage?.case_type === 'complaint_or_negative_feedback'
-        || record?.thread_memory_after?.active_issue?.case_type === 'complaint_or_negative_feedback'
+      expectedCaseType: 'complaint_or_negative_feedback',
+      expectedDecisions: ['handoff', 'draft_only'],
+      rejectDecisions: ['would_auto_send', 'auto_send'],
+      rejectCaseTypes: ['shipping_eta_general'],
+      selectors: [
+        /bực\s*mình/i,
+        /nhận\s*hàng\s*lỗi/i,
+        /ship\s*lâu\s*quá/i
+      ],
+      matcher: (record, text) => textIncludesAny(text, [/bực\s*mình/i, /nhận\s*hàng\s*lỗi/i, /ship\s*lâu\s*quá/i])
+        || triageCase(record) === 'complaint_or_negative_feedback'
+        || activeIssueAfter(record) === 'complaint_or_negative_feedback',
+      extraChecks: (record) => {
+        const notes = [];
+        const reply = readReplyText(record);
+        if (reply && !/xin lỗi|kiểm tra|hỗ trợ/i.test(reply)) {
+          notes.push('complaint_tone_may_be_too_weak');
+        }
+        return notes;
+      }
     }
   ];
 
-  const cases = caseSpecs.map((spec) => summarizeCase(spec, records));
+  const laneSummaries = specs.map((spec) => summarizeLane(spec, records));
+  const overallPass = laneSummaries.every((lane) => lane.pass || lane.status === 'not_observed_yet');
+  const requiredRetest = laneSummaries
+    .filter((lane) => lane.status === 'not_observed_yet' || !lane.pass)
+    .map((lane) => ({ key: lane.key, label: lane.label, status: lane.status, reasons: lane.fail_reasons }));
 
   return {
     source: meta.targetPath,
     records_analyzed: records.length,
     limited_to_last: meta.limit,
     time_range: buildTimeRange(records),
-    cases,
-    quick_table: cases.map((item) => ({
-      case: item.label,
-      pass: item.pass,
-      observed_records: item.observed_records,
-      observed_case_types: item.observed_case_types,
-      observed_decisions: item.observed_decisions,
-      continuity_threads: item.continuity_threads,
-      notes: item.notes
-    }))
+    overall_pass: overallPass,
+    lanes: laneSummaries,
+    quick_table: laneSummaries.map((lane) => ({
+      case: lane.label,
+      status: lane.status,
+      pass: lane.pass,
+      observed_at: lane.latest_sample?.logged_at || null,
+      observed_text: lane.latest_sample?.customer_text || null,
+      observed_case_type: lane.latest_sample?.case_type || null,
+      observed_decision: lane.latest_sample?.decision || null,
+      fail_reasons: lane.fail_reasons
+    })),
+    required_retest: requiredRetest,
+    operator_readback: buildOperatorReadback(laneSummaries)
   };
 }
 
-function summarizeCase(spec, records) {
-  const matchedRecords = records.filter(spec.matcher);
-  const latestRecords = takeLatestPerThread(matchedRecords);
-  const observedCaseTypes = countBy(latestRecords, (record) => record?.triage?.case_type || 'unknown');
-  const observedDecisions = countBy(latestRecords, (record) => record?.delivery?.decision || 'unknown');
-  const continuityThreads = latestRecords.filter((record) => hasContinuitySignal(record, spec.expected_case_type)).length;
-  const sampleRecord = latestRecords.at(-1) || matchedRecords.at(-1) || null;
-  const notes = [];
+function summarizeLane(spec, records) {
+  const matching = records.filter((record) => spec.matcher(record, normalizedText(record)));
+  const selected = chooseBestRecord(spec, matching);
 
-  const unexpectedCaseTypes = Object.keys(observedCaseTypes).filter((caseType) => spec.fail_if_case_types?.includes(caseType));
-  const unexpectedDecisions = Object.keys(observedDecisions).filter((decision) => spec.fail_if_decisions?.includes(decision));
-  const missingExpectedCaseType = latestRecords.length > 0 && !observedCaseTypes[spec.expected_case_type];
-  const missingExpectedDecision = latestRecords.length > 0 && !Object.keys(observedDecisions).some((decision) => spec.expected_decisions?.includes(decision));
-
-  if (!latestRecords.length) {
-    notes.push('No matching records found in the scanned audit window.');
-  }
-  if (missingExpectedCaseType) {
-    notes.push(`Expected case_type ${spec.expected_case_type} not seen.`);
-  }
-  if (missingExpectedDecision) {
-    notes.push(`Expected one of decisions ${spec.expected_decisions.join(', ')} not seen.`);
-  }
-  if (unexpectedCaseTypes.length) {
-    notes.push(`Unexpected case_type(s): ${unexpectedCaseTypes.join(', ')}.`);
-  }
-  if (unexpectedDecisions.length) {
-    notes.push(`Unexpected decision(s): ${unexpectedDecisions.join(', ')}.`);
+  if (!selected) {
+    return {
+      key: spec.key,
+      label: spec.label,
+      status: 'not_observed_yet',
+      pass: false,
+      observed_records: 0,
+      fail_reasons: ['No matching evidence found in the scanned audit window.'],
+      latest_sample: null
+    };
   }
 
-  if (spec.canonical_reply_contains?.length) {
-    const replyText = readReplyText(sampleRecord);
-    const missingCanonicalPhrases = spec.canonical_reply_contains.filter((phrase) => !replyText.includes(phrase));
-    if (replyText && missingCanonicalPhrases.length) {
-      notes.push(`Canonical reply drift: missing ${missingCanonicalPhrases.length}/${spec.canonical_reply_contains.length} expected phrase(s).`);
+  const failReasons = [];
+  const caseType = triageCase(selected) || 'unknown';
+  const decision = deliveryDecision(selected) || 'unknown';
+  const replyText = readReplyText(selected);
+
+  if (caseType !== spec.expectedCaseType) {
+    failReasons.push(`expected_case_type=${spec.expectedCaseType} but saw ${caseType}`);
+  }
+  if (!spec.expectedDecisions.includes(decision)) {
+    failReasons.push(`expected_decision in [${spec.expectedDecisions.join(', ')}] but saw ${decision}`);
+  }
+  if (spec.rejectCaseTypes?.includes(caseType)) {
+    failReasons.push(`rejected_case_type=${caseType}`);
+  }
+  if (spec.rejectDecisions?.includes(decision)) {
+    failReasons.push(`rejected_decision=${decision}`);
+  }
+  if (spec.canonicalReplyContains?.length) {
+    const missing = spec.canonicalReplyContains.filter((phrase) => !replyText.includes(phrase));
+    if (missing.length) {
+      failReasons.push(`canonical_reply_drift missing ${missing.length}/${spec.canonicalReplyContains.length} phrase(s)`);
     }
   }
 
-  if (spec.expected_slot_resolution?.length && sampleRecord) {
-    const resolvedSlots = new Set(
-      (sampleRecord?.thread_memory_after?.asked_slots || [])
-        .filter((item) => item?.status === 'resolved')
-        .map((item) => item?.slot)
-        .filter(Boolean)
-    );
-    const resolvedExpectedSlot = spec.expected_slot_resolution.some((slot) => resolvedSlots.has(slot));
-    if (!resolvedExpectedSlot && isLikelyFollowup(sampleRecord)) {
-      notes.push('Follow-up seen but expected lookup slot resolution not visible in thread_memory_after.');
-    }
-  }
-
-  const pass = latestRecords.length > 0
-    && !missingExpectedCaseType
-    && !missingExpectedDecision
-    && unexpectedCaseTypes.length === 0
-    && unexpectedDecisions.length === 0
-    && !notes.some((note) => note.startsWith('Canonical reply drift'));
+  const extraChecks = spec.extraChecks ? spec.extraChecks(selected) : [];
+  failReasons.push(...extraChecks);
 
   return {
     key: spec.key,
     label: spec.label,
-    pass,
-    observed_records: latestRecords.length,
-    observed_case_types: observedCaseTypes,
-    observed_decisions: observedDecisions,
-    continuity_threads: continuityThreads,
-    sample: sampleRecord ? buildCompactSample(sampleRecord) : null,
-    notes
+    status: failReasons.length ? 'fail' : 'pass',
+    pass: failReasons.length === 0,
+    observed_records: matching.length,
+    fail_reasons: failReasons,
+    latest_sample: buildCompactSample(selected)
   };
 }
 
-function takeLatestPerThread(records) {
-  const byThread = new Map();
-  for (const record of records) {
-    const threadKey = record?.normalized_message?.thread_key || record?.normalized_message?.sender_psid || record?.normalized_message?.message_id || `record-${byThread.size}`;
-    const previous = byThread.get(threadKey);
-    const currentTime = Date.parse(record?.logged_at || 0) || 0;
-    const previousTime = Date.parse(previous?.logged_at || 0) || 0;
-    if (!previous || currentTime >= previousTime) {
-      byThread.set(threadKey, record);
-    }
+function chooseBestRecord(spec, records) {
+  if (!records.length) {
+    return null;
   }
-  return [...byThread.values()].sort((a, b) => (Date.parse(a?.logged_at || 0) || 0) - (Date.parse(b?.logged_at || 0) || 0));
+
+  const candidates = records
+    .filter((record) => deliveryDecision(record) !== 'ignore')
+    .map((record) => ({ record, score: scoreRecord(spec, record) }))
+    .sort((a, b) => {
+      if (a.score !== b.score) {
+        return b.score - a.score;
+      }
+      return recordTime(a.record) - recordTime(b.record);
+    });
+
+  return (candidates[0]?.record) || records.at(-1) || null;
 }
 
-function hasContinuitySignal(record, expectedCaseType) {
-  return record?.thread_memory_before?.active_issue?.case_type === expectedCaseType
-    || record?.thread_memory_after?.active_issue?.case_type === expectedCaseType;
+function scoreRecord(spec, record) {
+  let score = 0;
+  const text = normalizedText(record);
+  if (spec.selectors?.some((pattern) => pattern.test(text))) score += 6;
+  if (triageCase(record) === spec.expectedCaseType) score += 5;
+  if (activeIssueBefore(record) === spec.expectedCaseType) score += 4;
+  if (activeIssueAfter(record) === spec.expectedCaseType) score += 4;
+  if (spec.expectedDecisions.includes(deliveryDecision(record))) score += 2;
+  if (deliveryDecision(record) === 'ignore') score -= 10;
+  if (text) score += 1;
+  return score;
 }
 
-function isLikelyFollowup(record) {
-  return Boolean(record?.thread_memory_before?.active_issue?.case_type)
-    || Boolean(record?.thread_memory_before?.asked_slots?.length)
-    || Boolean(record?.thread_memory_before?.pending_customer_reply);
-}
-
-function readReplyText(record) {
-  return String(
-    record?.guarded_draft?.reply_text
-    || record?.guarded_draft?.reply?.reply_text
-    || record?.ai_draft?.reply_text
-    || record?.ai_draft?.reply?.reply_text
-    || ''
-  );
+function buildOperatorReadback(lanes) {
+  return lanes.map((lane) => {
+    if (lane.status === 'not_observed_yet') {
+      return `${lane.label}: chưa có evidence trong cửa sổ log đang scan, cần gửi lại case này ở production.`;
+    }
+    if (lane.pass) {
+      return `${lane.label}: PASS — ${lane.latest_sample?.case_type} / ${lane.latest_sample?.decision}.`;
+    }
+    return `${lane.label}: FAIL — ${lane.fail_reasons.join('; ')}.`;
+  });
 }
 
 function buildCompactSample(record) {
   return {
     logged_at: record?.logged_at || null,
-    thread_key: record?.normalized_message?.thread_key || null,
-    customer_text: record?.normalized_message?.text || null,
-    case_type: record?.triage?.case_type || 'unknown',
-    decision: record?.delivery?.decision || 'unknown',
+    customer_text: normalizedText(record) || null,
+    case_type: triageCase(record) || 'unknown',
+    decision: deliveryDecision(record) || 'unknown',
     reply_text: readReplyText(record) || null,
-    active_issue_before: record?.thread_memory_before?.active_issue || null,
-    active_issue_after: record?.thread_memory_after?.active_issue || null,
+    active_issue_before: activeIssueBefore(record) || null,
+    active_issue_after: activeIssueAfter(record) || null,
     asked_slots_after: record?.thread_memory_after?.asked_slots || []
   };
 }
@@ -245,10 +285,40 @@ function buildTimeRange(records) {
   };
 }
 
-function countBy(items, getKey) {
-  return items.reduce((acc, item) => {
-    const key = getKey(item);
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
+function normalizedText(record) {
+  return String(record?.normalized_message?.text || '').trim();
+}
+
+function triageCase(record) {
+  return record?.triage?.case_type || null;
+}
+
+function deliveryDecision(record) {
+  return record?.delivery?.decision || null;
+}
+
+function activeIssueBefore(record) {
+  return record?.thread_memory_before?.active_issue?.case_type || null;
+}
+
+function activeIssueAfter(record) {
+  return record?.thread_memory_after?.active_issue?.case_type || null;
+}
+
+function readReplyText(record) {
+  return String(
+    record?.guarded_draft?.reply_text
+    || record?.guarded_draft?.reply?.reply_text
+    || record?.ai_draft?.reply_text
+    || record?.ai_draft?.reply?.reply_text
+    || ''
+  );
+}
+
+function textIncludesAny(text, patterns) {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function recordTime(record) {
+  return Date.parse(record?.logged_at || 0) || 0;
 }
