@@ -32,6 +32,23 @@ export async function handleFacebookWebhook(req, res) {
         resolvedHandoffPath: resolveWritableDataPath('data/logs/pending-handoffs.jsonl')
       });
       const outputs = await processWebhookBody(req.body, {});
+      const decisionSummary = outputs.map((item) => ({
+        message_id: item?.normalized_message?.message_id || null,
+        text_preview: item?.normalized_message?.text?.slice(0, 120) || null,
+        case_type: item?.triage?.case_type || null,
+        risk_level: item?.triage?.risk_level || null,
+        delivery_decision: item?.delivery?.decision || null,
+        delivery_reason: item?.delivery?.reason || null,
+        send_status: item?.send_result?.status || null,
+        needs_human: item?.guarded_draft?.needs_human ?? item?.ai_draft?.needs_human ?? null,
+        reply_preview: item?.guarded_draft?.reply_text?.slice(0, 160) || item?.ai_draft?.reply_text?.slice(0, 160) || null,
+        handoff_path: item?.handoff_path || null
+      }));
+      console.info('FANPAGE BOT FINAL DECISION', {
+        marker: RUNTIME_DEBUG_MARKER,
+        processed: outputs.length,
+        outputs: decisionSummary
+      });
       return res.status(200).json({ status: 'EVENT_RECEIVED', processed: outputs.length });
     } catch (error) {
       console.error('fanpage-bot webhook error', error);
