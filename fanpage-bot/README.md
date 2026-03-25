@@ -116,6 +116,7 @@ npm run continuity:check
 ```
 
 This is the fastest repeatable check after any continuity-related fix. It seeds minimal thread state, replays follow-up messages through the real pipeline, and returns a tight pass/fail summary for the risky continuity behaviors that most easily regress:
+- pricing variant-only refinement
 - pricing detail acknowledgement
 - stock follow-up continuity
 - order-status follow-up continuity
@@ -126,8 +127,9 @@ What it validates:
 - follow-up stays on the original risky case instead of falling back to `unknown`
 - delivery stays non-auto (`handoff` / `draft_only`)
 - the bot acknowledges newly provided detail/identifier info instead of asking for it again
+- pricing partial-detail vs full-detail paths are reported separately, so you can see whether the bot refined the missing info or lost the lane entirely
 - thread memory clears `pending_customer_reply` once the requested info arrives
-- expected slot resolution is visible in `thread_memory_after`
+- expected slot resolution is visible in `thread_memory_after`, including `resolved_value_preview` evidence in the compact sample / quick table
 
 Use `npm run production:check` for the audit/log-oriented production readback lanes, especially shipping ETA and shipping -> order escalation. `continuity:check` is the fast local regression helper for stateful follow-up behavior before/alongside that production readback.
 

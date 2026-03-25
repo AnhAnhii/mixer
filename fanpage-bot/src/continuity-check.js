@@ -47,34 +47,21 @@ const summary = {
 console.log(JSON.stringify(summary, null, 2));
 
 async function runPricingDetailAcknowledgementChecks() {
+  const variantOnlyCheck = await runPricingVariantOnlyFollowupCheck();
+  const fullDetailCheck = await runPricingFullDetailLaneCheck();
+  return [variantOnlyCheck, fullDetailCheck];
+}
+
+async function runPricingVariantOnlyFollowupCheck() {
   resetStoresOnly();
   const store = createThreadStateStore({ threadStatePath });
   const senderId = 'test-pricing-followup';
   const threadKey = `facebook:${pageId}:${senderId}`;
 
-  store.updateMemory(threadKey, {
-    normalizedMessage: {
-      thread_key: threadKey,
-      message_id: 'mid.seed.pricing.1',
-      text: 'áo này giá sao shop',
-      timestamp: inHoursTimestamp
-    },
-    triage: {
-      case_type: 'pricing_or_promotion',
-      missing_info: ['product_name', 'size_or_variant'],
-      reason: 'matched_pricing_followup_rule',
-      needs_human: true
-    },
-    guarded: {
-      guarded_draft: {
-        action: 'handoff',
-        needs_human: true,
-        missing_info: ['product_name', 'size_or_variant'],
-        reason: 'pricing_context_missing_product',
-        reply_text: 'Dạ để em báo đúng giá/ưu đãi hiện có, anh/chị gửi giúp em tên mẫu hoặc ảnh/link sản phẩm mình đang xem nha. Nếu có size/màu mình quan tâm thì nhắn kèm giúp em luôn ạ.'
-      },
-      delivery: { decision: 'handoff' }
-    }
+  seedPricingFollowupMemory(store, threadKey, {
+    messageId: 'mid.seed.pricing.1',
+    missingInfo: ['product_name', 'size_or_variant'],
+    reason: 'pricing_context_missing_product'
   });
 
   const followupOutputs = await replaySingleMessage({
@@ -94,12 +81,59 @@ async function runPricingDetailAcknowledgementChecks() {
     followup_keeps_case: followup.triage?.case_type === 'pricing_or_promotion',
     followup_stays_non_auto: ['handoff', 'draft_only'].includes(followup.delivery?.decision),
     followup_acknowledges_received_detail: /đã nhận thông tin mẫu|đã nhận mẫu/i.test(reply),
-    followup_mentions_price_check_path: /kiểm tra lại giá\/ưu đãi|phản hồi mình sớm nhất/i.test(reply),
+    followup_mentions_remaining_need: /tên mẫu|ảnh\/link sản phẩm/i.test(reply),
+    followup_keeps_price_check_path: /kiểm tra đúng giá\/ưu đãi hiện có/i.test(reply),
+    followup_resolves_product_slot: resolvedSlots.includes('product_name'),
+    followup_resolves_variant_slot: resolvedSlots.includes('size_or_variant') || resolvedSlots.includes('size'),
+    followup_refines_missing_info_to_product_only: missingInfo.length === 1 && missingInfo.includes('product_name'),
+    followup_sets_refinement_flag: flags.includes('repeat_info_request_refined')
+  };
+
+  return {
+    key: 'pricing_variant_only_refinement',
+    label: 'Pricing variant-only refinement',
+    pass: Object.values(assertions).every(Boolean),
+    assertions,
+    sample: {
+      followup: buildCompactSample(followup)
+    }
+  };
+}
+
+async function runPricingFullDetailLaneCheck() {
+  resetStoresOnly();
+  const store = createThreadStateStore({ threadStatePath });
+  const senderId = 'test-pricing-full-detail';
+  const threadKey = `facebook:${pageId}:${senderId}`;
+
+  seedPricingFollowupMemory(store, threadKey, {
+    messageId: 'mid.seed.pricing.full.1',
+    missingInfo: ['product_name', 'size_or_variant'],
+    reason: 'pricing_context_missing_product'
+  });
+
+  const followupOutputs = await replaySingleMessage({
+    senderId,
+    mid: 'mid.local.pricing.full.detail',
+    text: 'áo polo basic màu đen size L nha',
+    timestamp: inHoursTimestamp + (60 * 1000)
+  });
+
+  const followup = followupOutputs[0] || {};
+  const reply = readReplyText(followup);
+  const missingInfo = guardedMissingInfo(followup);
+  const resolvedSlots = resolvedSlotsAfter(followup);
+
+  const assertions = {
+    followup_keeps_case: followup.triage?.case_type === 'pricing_or_promotion',
+    followup_stays_non_auto: ['handoff', 'draft_only'].includes(followup.delivery?.decision),
+    followup_acknowledges_received_detail: /đã nhận thông tin mẫu|đã nhận mẫu/i.test(reply),
+    followup_keeps_price_check_path: /kiểm tra lại giá\/ưu đãi|phản hồi mình sớm nhất/i.test(reply),
     followup_does_not_reask_product_detail: !/tên mẫu cụ thể|ảnh\/link sản phẩm/i.test(reply),
     followup_resolves_product_slot: resolvedSlots.includes('product_name'),
     followup_resolves_variant_slot: resolvedSlots.includes('size_or_variant') || resolvedSlots.includes('size'),
     followup_missing_info_refined_or_cleared: !missingInfo.includes('product_name'),
-    followup_continuity_flagged_or_specific: flags.includes('repeat_info_request_refined') || /size|màu/i.test(reply)
+    followup_avoids_generic_unknown_fallback: followup.triage?.case_type !== 'unknown' && !/chia sẻ thêm giúp em nội dung cần hỗ trợ/i.test(reply)
   };
 
   return {
@@ -111,6 +145,33 @@ async function runPricingDetailAcknowledgementChecks() {
       followup: buildCompactSample(followup)
     }
   };
+}
+
+function seedPricingFollowupMemory(store, threadKey, { messageId, missingInfo, reason }) {
+  store.updateMemory(threadKey, {
+    normalizedMessage: {
+      thread_key: threadKey,
+      message_id: messageId,
+      text: 'áo này giá sao shop',
+      timestamp: inHoursTimestamp
+    },
+    triage: {
+      case_type: 'pricing_or_promotion',
+      missing_info: missingInfo,
+      reason: 'matched_pricing_followup_rule',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: missingInfo,
+        reason,
+        reply_text: 'Dạ để em báo đúng giá/ưu đãi hiện có, anh/chị gửi giúp em tên mẫu hoặc ảnh/link sản phẩm mình đang xem nha. Nếu có size/màu mình quan tâm thì nhắn kèm giúp em luôn ạ.'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
 }
 
 async function runStockFollowupContinuityChecks() {
@@ -470,10 +531,12 @@ function buildCompactSample(output) {
     customer_text: output.normalized_message?.text || null,
     case_type: output.triage?.case_type || null,
     decision: output.delivery?.decision || null,
+    reason: output.guarded_draft?.reason || output.ai_draft?.reason || null,
     reply_text: readReplyText(output) || null,
     pending_customer_reply_after: output.thread_memory_after?.pending_customer_reply ?? null,
     missing_info_after: guardedMissingInfo(output),
     resolved_slots_after: resolvedSlotsAfter(output),
+    asked_slots_after: normalizeAskedSlotEvidence(output.thread_memory_after?.asked_slots),
     active_issue_before: output.thread_memory_before?.active_issue || null,
     active_issue_after: output.thread_memory_after?.active_issue || null,
     safety_flags: safetyFlags(output)
@@ -508,13 +571,24 @@ function resolvedSlotsAfter(output) {
     .map((item) => item.slot);
 }
 
+function normalizeAskedSlotEvidence(askedSlots = []) {
+  return (askedSlots || []).map((item) => ({
+    slot: item?.slot || null,
+    status: item?.status || null,
+    resolved_value_preview: item?.resolved_value_preview || null
+  }));
+}
+
 function toQuickRow(item) {
+  const failedAssertions = Object.entries(item.assertions)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+
   return {
     check: item.label,
     pass: item.pass,
-    failed_assertions: Object.entries(item.assertions)
-      .filter(([, value]) => !value)
-      .map(([key]) => key)
+    failed_assertions: failedAssertions,
+    evidence: item.sample?.followup?.asked_slots_after || null
   };
 }
 
