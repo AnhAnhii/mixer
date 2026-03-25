@@ -70,7 +70,7 @@ async function runPricingVariantOnlyFollowupCheck() {
   const followupOutputs = await replaySingleMessage({
     senderId,
     mid: 'mid.local.pricing.detail',
-    text: 'mẫu polo basic đen size L nha',
+    text: 'màu đen size L nha shop',
     timestamp: inHoursTimestamp + (60 * 1000)
   });
 
@@ -83,10 +83,10 @@ async function runPricingVariantOnlyFollowupCheck() {
   const assertions = {
     followup_keeps_case: followup.triage?.case_type === 'pricing_or_promotion',
     followup_stays_non_auto: ['handoff', 'draft_only'].includes(followup.delivery?.decision),
-    followup_acknowledges_received_detail: /đã nhận thông tin mẫu|đã nhận mẫu/i.test(reply),
+    followup_acknowledges_received_detail: /đã nhận.*size|đã nhận.*màu|đã nhận.*biến thể/i.test(reply),
     followup_mentions_remaining_need: /tên mẫu|ảnh\/link sản phẩm/i.test(reply),
     followup_keeps_price_check_path: /kiểm tra đúng giá\/ưu đãi hiện có/i.test(reply),
-    followup_resolves_product_slot: resolvedSlots.includes('product_name'),
+    followup_keeps_product_slot_unresolved: !resolvedSlots.includes('product_name'),
     followup_resolves_variant_slot: resolvedSlots.includes('size_or_variant') || resolvedSlots.includes('size'),
     followup_refines_missing_info_to_product_only: missingInfo.length === 1 && missingInfo.includes('product_name'),
     followup_sets_refinement_flag: flags.includes('repeat_info_request_refined')
@@ -723,3 +723,4 @@ function resetStoresOnly() {
     }
   }
 }
+
