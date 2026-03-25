@@ -1,5 +1,8 @@
 import * as crypto from 'node:crypto';
 import { processWebhookBody } from './pipeline.js';
+import { resolveWritableDataPath } from './runtime-paths.js';
+
+const RUNTIME_DEBUG_MARKER = 'debug-bad10e1-plus';
 
 export async function handleFacebookWebhook(req, res) {
   if (req.method === 'GET') {
@@ -20,6 +23,14 @@ export async function handleFacebookWebhook(req, res) {
     }
 
     try {
+      console.info('FANPAGE BOT RUNTIME DEBUG', {
+        marker: RUNTIME_DEBUG_MARKER,
+        cwd: process.cwd(),
+        vercel: Boolean(process.env.VERCEL),
+        resolvedAuditPath: resolveWritableDataPath('data/logs/audit.jsonl'),
+        resolvedRawPath: resolveWritableDataPath('data/logs/raw-events.jsonl'),
+        resolvedHandoffPath: resolveWritableDataPath('data/logs/pending-handoffs.jsonl')
+      });
       const outputs = await processWebhookBody(req.body, {});
       return res.status(200).json({ status: 'EVENT_RECEIVED', processed: outputs.length });
     } catch (error) {

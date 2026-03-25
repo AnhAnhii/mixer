@@ -42,6 +42,7 @@ export function appendPendingHandoff(record, targetPath = process.env.HANDOFF_ST
 }
 
 export function appendHandoffResolution(record, targetPath = process.env.HANDOFF_RESOLUTION_STORE_PATH || resolveWritableDataPath('data/logs/handoff-resolutions.jsonl')) {
+  targetPath = normalizeWritableTargetPath(targetPath, 'data/logs/handoff-resolutions.jsonl');
   const resolutionRecord = {
     resolved_at: new Date().toISOString(),
     status: 'resolved',
