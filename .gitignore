@@ -121,6 +121,11 @@ dist
 
 # Agent config
 .agent/
+
+# Local runtime data
+# Root-level smoke/debug runs can emit ephemeral JSON under data/tmp/.
+data/tmp/
+
 # Fanpage bot runtime data
 fanpage-bot/data/
 .vercel
