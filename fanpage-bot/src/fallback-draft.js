@@ -266,19 +266,19 @@ function buildLowRiskFaqReply({ primaryCaseType, latestCustomerMessage, policyEn
   ];
 
   const replyParts = orderedIntents
-    .map((intent) => buildLowRiskFaqSegment(intent, policyEntries, recommendedBlocks))
+    .map((intent) => buildLowRiskFaqSegment(intent, policyEntries, recommendedBlocks, latestCustomerMessage))
     .filter(Boolean);
 
   return replyParts.join(' ');
 }
 
-function buildLowRiskFaqSegment(caseType, policyEntries, recommendedBlocks) {
+function buildLowRiskFaqSegment(caseType, policyEntries, recommendedBlocks, latestCustomerMessage = '') {
   switch (caseType) {
     case 'shipping_eta_general':
       return interpolateTemplate(
         pickFirstString(recommendedBlocks, 'faq_answer_shapes.shipping_eta') || 'Dạ thời gian giao hàng bên em thường khoảng {eta_summary} ạ.',
         {
-          eta_summary: summarizeShippingEta(policyEntries)
+          eta_summary: summarizeShippingEta(policyEntries, latestCustomerMessage)
         }
       );
     case 'shipping_carrier':
@@ -325,16 +325,58 @@ function interpolateTemplate(template, values) {
   return String(template || '').replace(/\{([^}]+)\}/g, (_, key) => values[key] ?? `{${key}}`);
 }
 
-function summarizeShippingEta(policyEntries) {
+function summarizeShippingEta(policyEntries, latestCustomerMessage = '') {
   const etaPolicy = policyEntries.find((entry) => entry.policy_id === 'shipping_eta_general');
+  const defaultSummary = '2-3 ngày với đơn nội thành Hà Nội, 3-5 ngày với ngoại thành Hà Nội, và 4-7 ngày với các tỉnh/thành khác';
   if (!etaPolicy?.facts?.length) {
-    return '2-3 ngày với đơn nội thành Hà Nội, 3-5 ngày với ngoại thành Hà Nội, và 4-7 ngày với các tỉnh/thành khác';
+    return selectEtaSegment(defaultSummary, latestCustomerMessage) || defaultSummary;
   }
 
   const preferredFact = etaPolicy.facts.find((fact) => fact.fact_id === 'eta_canonical_v1') || etaPolicy.facts[0];
-  return cleanupStatement(preferredFact.statement)
+  const canonicalSummary = cleanupStatement(preferredFact.statement)
     .replace(/^/u, '')
     .replace(/\.$/, '');
+
+  return selectEtaSegment(canonicalSummary, latestCustomerMessage) || canonicalSummary;
+}
+
+function selectEtaSegment(canonicalSummary, latestCustomerMessage = '') {
+  const text = String(latestCustomerMessage || '').trim().toLowerCase();
+  if (!text) return null;
+
+  const segments = String(canonicalSummary || '')
+    .split(/;\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const rules = [
+    {
+      match: /(nội thành hà nội|hn nội thành|hà nội nội thành|trong nội thành)/,
+      segment: (value) => /nội thành hà nội/i.test(value)
+    },
+    {
+      match: /(ngoại thành hà nội|hn ngoại thành|hà nội ngoại thành|ngoại thành)/,
+      segment: (value) => /ngoại thành hà nội/i.test(value)
+    },
+    {
+      match: /(hà nội|hn|ở hà nội|giao hà nội)/,
+      segment: (value) => /hà nội/i.test(value)
+    },
+    {
+      match: /(tỉnh|tỉnh khác|ngoài hà nội|miền nam|miền trung|miền bắc|sài gòn|hồ chí minh|hcm|đà nẵng|cần thơ)/,
+      segment: (value) => /(các tỉnh|tỉnh\/thành khác|ngoài hà nội)/i.test(value)
+    }
+  ];
+
+  for (const rule of rules) {
+    if (!rule.match.test(text)) continue;
+    const matched = segments.find((segment) => rule.segment(segment));
+    if (matched) {
+      return matched.replace(/^(và\s+)/i, '').trim();
+    }
+  }
+
+  return null;
 }
 
 function extractSupportHours(policyEntries) {
@@ -518,9 +560,6 @@ function resolveFallbackCaseType(requestedCaseType, threadMemory, latestCustomer
 
   const activeCaseType = normalizeCaseType(threadMemory?.active_issue?.case_type || 'unknown');
   const unresolvedAskedSlots = normalizeAskedSlots(threadMemory?.asked_slots).filter((item) => item.status !== 'resolved');
-  if (!unresolvedAskedSlots.length) {
-    return requestedCaseType;
-  }
 
   if (activeCaseType === 'pricing_or_promotion') {
     if (threadMemory?.pending_customer_reply || mentionsUnspecifiedProduct(latestCustomerMessage) || isGenericPricingFollowup(latestCustomerMessage)) {
@@ -536,7 +575,46 @@ function resolveFallbackCaseType(requestedCaseType, threadMemory, latestCustomer
     }
   }
 
+  const lowRiskShippingFollowup = resolveLowRiskShippingFollowup(activeCaseType, latestCustomerMessage);
+  if (lowRiskShippingFollowup) {
+    return lowRiskShippingFollowup;
+  }
+
+  if (!unresolvedAskedSlots.length) {
+    return requestedCaseType;
+  }
+
   return requestedCaseType;
+}
+
+function resolveLowRiskShippingFollowup(activeCaseType, latestCustomerMessage) {
+  const text = String(latestCustomerMessage || '').trim().toLowerCase();
+  if (!text) return null;
+
+  if (activeCaseType === 'shipping_eta_general') {
+    if (looksLikeShippingEtaRefinement(text)) {
+      return 'shipping_eta_general';
+    }
+    if (looksLikeShippingCarrierRefinement(text)) {
+      return 'shipping_carrier';
+    }
+  }
+
+  if (activeCaseType === 'shipping_carrier' && looksLikeShippingEtaRefinement(text)) {
+    return 'shipping_eta_general';
+  }
+
+  return null;
+}
+
+function looksLikeShippingEtaRefinement(text) {
+  return /(hà nội|hn|nội thành|ngoại thành|tỉnh|ngoài hà nội|miền nam|miền trung|miền bắc|sài gòn|hồ chí minh|hcm|đà nẵng|cần thơ)/.test(text)
+    || /^(còn|thế|vậy|nếu|ở)\b.*(sao|shop|ạ|nha|nhé)?/.test(text);
+}
+
+function looksLikeShippingCarrierRefinement(text) {
+  return /^(còn|với|thế|vậy|tiện)\b.*(đơn vị|hãng|bên vận chuyển|carrier|viettel|ghtk|ghn)/.test(text)
+    || /(đơn vị nào|ship hãng nào|gửi qua hãng nào|vận chuyển bên nào|ship đơn vị nào|giao qua đơn vị nào|bên vận chuyển nào|ship bên nào)/.test(text);
 }
 
 function isGenericPricingFollowup(message) {

@@ -183,6 +183,7 @@ function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage
     && (threadMemory?.pending_customer_reply || unresolvedAskedSlots.length > 0 || isGenericFollowup);
   const isComplaintContinuation = activeCaseType === 'complaint_or_negative_feedback'
     && (threadMemory?.pending_customer_reply || hasProvidedIdentifier || isGenericFollowup);
+  const lowRiskFaqContinuationCase = detectLowRiskFaqContinuation(activeCaseType, latestText);
 
   if (activeCaseType === 'complaint_or_negative_feedback' && triage?.case_type === 'order_status_request' && hasProvidedIdentifier && isComplaintContinuation) {
     return {
@@ -200,6 +201,20 @@ function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage
 
   if (triage?.case_type !== 'unknown') {
     return triage;
+  }
+
+  if (lowRiskFaqContinuationCase) {
+    return {
+      ...triage,
+      case_type: lowRiskFaqContinuationCase,
+      risk_level: 'low',
+      needs_human: false,
+      auto_reply_allowed: true,
+      confidence: Math.max(Number(triage?.confidence || 0), 0.8),
+      missing_info: [],
+      reason: `followup_to_active_${activeCaseType}`,
+      suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'low_risk_faq_continuity'])]
+    };
   }
 
   if (!threadMemory?.pending_customer_reply && !isPricingContinuation && !isComplaintContinuation) {
@@ -232,6 +247,30 @@ function detectGenericFollowup(text) {
   return /^(dạ\s*)?(shop\s*)?(check|kiểm tra|coi|xem)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized)
     || /^(dạ\s*)?(shop\s*)?(báo|tư vấn)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized)
     || /^(dạ\s*)?(vậy|thế)(\s+(shop|bên mình|bên em))?(\s+(check|kiểm tra|báo|tư vấn))(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized);
+}
+
+function detectLowRiskFaqContinuation(activeCaseType, latestText) {
+  const normalized = String(latestText || '').trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (activeCaseType === 'shipping_eta_general') {
+    if (/(đơn vị nào|ship hãng nào|gửi qua hãng nào|vận chuyển bên nào|ship đơn vị nào|giao qua đơn vị nào|bên vận chuyển nào|ship bên nào|carrier|viettel|ghtk|ghn)/.test(normalized)) {
+      return 'shipping_carrier';
+    }
+
+    if (/(hà nội|hn|nội thành|ngoại thành|tỉnh|ngoài hà nội|miền nam|miền trung|miền bắc|sài gòn|hồ chí minh|hcm|đà nẵng|cần thơ)/.test(normalized)
+      || /^(còn|thế|vậy|nếu|ở)\b.*(sao|shop|ạ|nha|nhé)?/.test(normalized)) {
+      return 'shipping_eta_general';
+    }
+  }
+
+  if (activeCaseType === 'shipping_carrier' && /(ship|giao hàng|bao lâu|mấy ngày|khi nào nhận|hà nội|hn|nội thành|ngoại thành|tỉnh|ngoài hà nội)/.test(normalized)) {
+    return 'shipping_eta_general';
+  }
+
+  return null;
 }
 
 function buildTriageHint(normalizedMessage, triage) {

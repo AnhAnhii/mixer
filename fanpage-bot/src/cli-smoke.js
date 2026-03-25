@@ -264,6 +264,46 @@ const complaintOrderCodeFollowupBody = {
   ]
 };
 
+const shippingEtaRegionFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-19' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (6 * 60 * 1000),
+          message: {
+            mid: 'mid.local.17',
+            text: 'còn Hà Nội thì sao shop'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const shippingCarrierFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-20' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (7 * 60 * 1000),
+          message: {
+            mid: 'mid.local.18',
+            text: 'còn đơn vị nào vậy shop'
+          }
+        }
+      ]
+    }
+  ]
+};
+
 const shortAmbiguousBody = {
   object: 'page',
   entry: [
@@ -712,6 +752,98 @@ const complaintOrderCodeFollowupOutputs = await processWebhookBody(complaintOrde
 });
 
 resetDedupeStore();
+resetThreadState();
+const shippingEtaFollowupStore = createThreadStateStore({ threadStatePath });
+shippingEtaFollowupStore.updateMemory('facebook:105265398928721:test-psid-19', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-19',
+    message_id: 'mid.seed.shipping.1',
+    text: 'shop ơi ship mấy ngày vậy',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'shipping_eta_general',
+    missing_info: [],
+    reason: 'matched_shipping_eta_rule',
+    needs_human: false
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'draft_only',
+      needs_human: false,
+      missing_info: [],
+      reason: 'knowledge_bank_faq_answer',
+      reply_text: 'Dạ thời gian giao hàng bên em thường khoảng 2-3 ngày với đơn nội thành Hà Nội; 3-5 ngày với đơn ngoại thành Hà Nội; 4-7 ngày với đơn các tỉnh/thành khác ngoài Hà Nội; không tính thứ 7/chủ nhật ạ.'
+    },
+    delivery: { decision: 'draft_only' }
+  }
+});
+const shippingEtaRegionFollowupOutputs = await processWebhookBody(shippingEtaRegionFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async (url, init) => ({
+    ok: true,
+    status: 200,
+    async text() {
+      return JSON.stringify({
+        recipient_id: JSON.parse(init.body).recipient.id,
+        message_id: 'mid.mock.sent.shipping.region.1',
+        url
+      });
+    }
+  })
+});
+
+resetDedupeStore();
+resetThreadState();
+const shippingCarrierFollowupStore = createThreadStateStore({ threadStatePath });
+shippingCarrierFollowupStore.updateMemory('facebook:105265398928721:test-psid-20', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-20',
+    message_id: 'mid.seed.shipping.2',
+    text: 'shop ơi ship mấy ngày vậy',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'shipping_eta_general',
+    missing_info: [],
+    reason: 'matched_shipping_eta_rule',
+    needs_human: false
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'draft_only',
+      needs_human: false,
+      missing_info: [],
+      reason: 'knowledge_bank_faq_answer',
+      reply_text: 'Dạ thời gian giao hàng bên em thường khoảng 2-3 ngày với đơn nội thành Hà Nội; 3-5 ngày với đơn ngoại thành Hà Nội; 4-7 ngày với đơn các tỉnh/thành khác ngoài Hà Nội; không tính thứ 7/chủ nhật ạ.'
+    },
+    delivery: { decision: 'draft_only' }
+  }
+});
+const shippingCarrierFollowupOutputs = await processWebhookBody(shippingCarrierFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async (url, init) => ({
+    ok: true,
+    status: 200,
+    async text() {
+      return JSON.stringify({
+        recipient_id: JSON.parse(init.body).recipient.id,
+        message_id: 'mid.mock.sent.shipping.carrier.1',
+        url
+      });
+    }
+  })
+});
+
+resetDedupeStore();
 const shortAmbiguousOutputs = await processWebhookBody(shortAmbiguousBody, {
   autoReplyEnabled: true,
   shadowMode: false,
@@ -774,8 +906,9 @@ const threadMemoryChecks = runThreadMemoryChecks();
 const pricingFollowupChecks = runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs });
 const orderStatusContinuityChecks = runOrderStatusContinuityChecks({ orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs });
 const complaintFollowupChecks = runComplaintFollowupChecks({ complaintOrderCodeFollowupOutputs });
+const shippingFollowupChecks = runShippingFollowupChecks({ shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs });
 
-console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks }, null, 2));
+console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks, shippingFollowupChecks }, null, 2));
 
 function resetDedupeStore() {
   if (fs.existsSync(dedupeStorePath)) {
@@ -988,6 +1121,26 @@ function runComplaintFollowupChecks({ complaintOrderCodeFollowupOutputs }) {
       && complaintOrderCodeFollowupOutputs[0].guarded_draft.missing_info.length === 0,
     followup_thread_waiting_cleared: memory.pending_customer_reply === false,
     followup_thread_resolved_slots: (memory.asked_slots || []).filter((item) => item.status === 'resolved').map((item) => item.slot)
+  };
+}
+
+function runShippingFollowupChecks({ shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs }) {
+  const regionOutput = shippingEtaRegionFollowupOutputs?.[0] || {};
+  const carrierOutput = shippingCarrierFollowupOutputs?.[0] || {};
+  const regionReply = regionOutput?.guarded_draft?.reply_text || regionOutput?.ai_draft?.reply_text || '';
+  const carrierReply = carrierOutput?.guarded_draft?.reply_text || carrierOutput?.ai_draft?.reply_text || '';
+
+  return {
+    eta_region_followup_triage: regionOutput?.triage?.case_type || null,
+    eta_region_followup_reply: regionReply,
+    eta_region_followup_stays_low_risk_shipping: regionOutput?.triage?.case_type === 'shipping_eta_general',
+    eta_region_followup_sent: regionOutput?.delivery?.decision === 'auto_send',
+    eta_region_followup_is_specific: /2-3 ngày|3-5 ngày/i.test(regionReply) && !/4-7 ngày/i.test(regionReply),
+    carrier_followup_triage: carrierOutput?.triage?.case_type || null,
+    carrier_followup_reply: carrierReply,
+    carrier_followup_switches_to_carrier_case: carrierOutput?.triage?.case_type === 'shipping_carrier',
+    carrier_followup_sent: carrierOutput?.delivery?.decision === 'auto_send',
+    carrier_followup_mentions_carrier: /viettel post/i.test(carrierReply)
   };
 }
 
