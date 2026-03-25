@@ -467,7 +467,7 @@ function extractSlotValue(slot, text) {
       for (const pattern of productPatterns) {
         const match = compactText.match(pattern);
         const value = sanitizeProductName(match?.[1]);
-        if (value && !looksLikeOnlyVariantInfo(value) && !looksLikePricingOrPromoFragment(value)) {
+        if (value && !looksLikeOnlyVariantInfo(value) && !looksLikePricingOrPromoFragment(value) && !looksLikeNonProductFragment(value)) {
           return value;
         }
       }
@@ -487,6 +487,11 @@ function extractSlotValue(slot, text) {
       return extractReceiverName(compactText);
     case 'requested_change':
       return extractRequestedChange(compactText);
+    case 'product_issue_detail':
+    case 'reason_for_exchange_or_return':
+      return extractIssueDetail(compactText);
+    case 'date_received':
+      return extractDateReceived(compactText);
     default:
       return null;
   }
@@ -595,6 +600,47 @@ function extractRequestedChange(text) {
   return sanitizeFreeText(match?.[1], 80);
 }
 
+function extractIssueDetail(text) {
+  const compact = String(text || '').trim();
+  if (!compact) return null;
+
+  const explicitMatch = compact.match(/(?:lý do|vấn đề|bị|lỗi|rách|hỏng|sai hàng|sai size)\s*[:\-]?\s*([^\n]{3,120})/iu);
+  if (explicitMatch?.[1]) {
+    return sanitizeIssueDetail(explicitMatch[1]);
+  }
+
+  if (extractOrderCode(compact) || extractPhoneNumber(compact)) {
+    return null;
+  }
+
+  if (/^(dạ|vâng|ok|oke|oki|rồi|đây|nè|shop check|check giúp|kiểm tra giúp)[.!?…~\s]*$/iu.test(compact)) {
+    return null;
+  }
+
+  if (compact.length >= 6 && /(lỗi|rách|hỏng|sai hàng|sai size|bung|tuột|bể|nứt|không lên|không chạy|không quay|không dùng được|móp|méo|gãy|vỡ|rung mạnh)/iu.test(compact)) {
+    return sanitizeIssueDetail(compact);
+  }
+
+  return null;
+}
+
+function extractDateReceived(text) {
+  const compact = String(text || '').trim();
+  if (!compact) return null;
+
+  const directDate = compact.match(/\b(\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?)\b/u);
+  if (directDate?.[1]) {
+    return sanitizeFreeText(directDate[1], 20);
+  }
+
+  const relative = compact.match(/\b(hôm nay|hôm qua|hôm kia|mới nhận(?: hôm qua| hôm nay)?|vừa nhận(?: hôm qua| hôm nay)?|nhận hôm qua|nhận hôm nay)\b/iu);
+  if (relative?.[1]) {
+    return sanitizeFreeText(relative[1], 30);
+  }
+
+  return null;
+}
+
 function sanitizeFreeText(value, maxLength = 60) {
   const cleaned = String(value || '').replace(/\s+/g, ' ').trim().replace(/[.,;:!?]+$/g, '');
   if (!cleaned) return null;
@@ -628,15 +674,29 @@ function sanitizePersonName(value) {
   return cleaned;
 }
 
+function sanitizeIssueDetail(value) {
+  const cleaned = sanitizeFreeText(value, 120);
+  if (!cleaned) return null;
+  if (/^(dạ|vâng|ok|oke|oki|rồi|đây|nè)$/iu.test(cleaned)) return null;
+  return cleaned;
+}
+
 function looksLikeOnlyVariantInfo(value) {
-  const normalized = String(value || '').toLowerCase();
-  return /^(đen|trắng|xám|ghi|be|kem|nâu|xanh|đỏ|hồng|tím|vàng|xs|s|m|l|xl|xxl|xxxl|2xl|3xl|28|29|30|31|32|33|34|35|36)(\s|$)/.test(normalized);
+  const normalized = String(value || '').toLowerCase().trim();
+  return /^(size\s+|màu\s+|color\s+|đen|trắng|xám|ghi|be|kem|nâu|xanh|đỏ|hồng|tím|vàng|xs|s|m|l|xl|xxl|xxxl|2xl|3xl|28|29|30|31|32|33|34|35|36)(\s|$)/.test(normalized);
 }
 
 function looksLikePricingOrPromoFragment(value) {
   const normalized = String(value || '').toLowerCase().trim();
   if (!normalized) return false;
   return /(giá|bao nhiêu|bao tiền|sale|khuyến mãi|ưu đãi|voucher|mã giảm giá|freeship)/.test(normalized);
+}
+
+function looksLikeNonProductFragment(value) {
+  const normalized = String(value || '').toLowerCase().trim();
+  if (!normalized) return false;
+  return /^(này|đó|kia|cái này|mẫu này|sp này|sản phẩm này|không|không shop|còn không|còn hàng không|check giúp mình|kiểm tra giúp mình)$/i.test(normalized)
+    || /(không shop|còn không shop)/i.test(normalized);
 }
 
 function coerceSentiment(...values) {

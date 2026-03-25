@@ -12,6 +12,7 @@ export function buildFallbackDraft(input) {
   const missingInfo = normalizeStringArray(input?.missing_info || triage.missing_info_hint || triage.missing_info || []);
   const orderStatusFollowup = buildOrderStatusFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
   const complaintFollowup = buildComplaintFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
+  const exchangeReturnFollowup = buildExchangeReturnFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
   const stockFollowup = buildStockFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
 
   switch (caseType) {
@@ -90,15 +91,16 @@ export function buildFallbackDraft(input) {
       );
     case 'exchange_return_specific':
       return draft(
-        pickFirstString(recommendedBlocks, 'ask_for_info.return_context')
+        exchangeReturnFollowup.replyText
+          || pickFirstString(recommendedBlocks, 'ask_for_info.return_context')
           || 'Dạ anh/chị cho em xin mã đơn, ngày nhận hàng và lý do đổi/trả để bên em hỗ trợ mình chuẩn hơn ạ.',
         'handoff',
-        0.88,
+        exchangeReturnFollowup.detailsReceived ? 0.9 : 0.88,
         true,
-        missingInfo.length ? missingInfo : ['order_code', 'date_received', 'reason_for_exchange_or_return'],
-        'exchange_return_case_needs_human',
+        exchangeReturnFollowup.missingInfo,
+        exchangeReturnFollowup.detailsReceived ? 'exchange_return_followup_context_received' : 'exchange_return_case_needs_human',
         buildPolicyRefs(policyEntries, caseType),
-        ['policy_risk']
+        ['policy_risk', ...(exchangeReturnFollowup.continuityApplied ? ['exchange_return_followup_continuity'] : [])]
       );
     case 'stock_or_product_availability':
       return draft(
@@ -221,6 +223,9 @@ function buildPricingPromotionDraft({ latestCustomerMessage, threadMemory, sales
   const providedProductName = productReferenceResolved
     ? extractProductName(latestCustomerMessage) || readResolvedSlotValue(threadMemory, 'product_name')
     : null;
+  const providedContext = extractStockContext(latestCustomerMessage, unresolvedAskedSlots.map((item) => item.slot));
+  const providedVariantSummary = summarizeProvidedVariantContext(providedContext);
+  const remainingProductlessMissing = remainingMissing.filter((slot) => slot !== 'product_name');
 
   if (!missingProductReference) {
     const acknowledgedProductLine = providedProductName
@@ -253,7 +258,11 @@ function buildPricingPromotionDraft({ latestCustomerMessage, threadMemory, sales
   }
 
   const replyText = alreadyAskedForProduct
-    ? 'Dạ để em kiểm tra đúng giá/ưu đãi hiện có cho mình, anh/chị gửi giúp em tên mẫu cụ thể hoặc ảnh/link sản phẩm nha. Nếu mình chốt luôn thì nhắn thêm size/màu đang cần, bên em sẽ kiểm tra đúng hơn cho mình ạ.'
+    ? buildProductlessPricingFollowupReply({
+        providedVariantSummary,
+        remainingMissing: remainingProductlessMissing,
+        defaultReply: 'Dạ để em kiểm tra đúng giá/ưu đãi hiện có cho mình, anh/chị gửi giúp em tên mẫu cụ thể hoặc ảnh/link sản phẩm nha. Nếu mình chốt luôn thì nhắn thêm size/màu đang cần, bên em sẽ kiểm tra đúng hơn cho mình ạ.'
+      })
     : referencedProductDeictically || hasStrongBuyerIntent
       ? 'Dạ để em báo đúng giá/ưu đãi hiện có, anh/chị gửi giúp em tên mẫu hoặc ảnh/link sản phẩm mình đang xem nha. Nếu có size/màu mình quan tâm thì nhắn kèm giúp em luôn ạ.'
       : 'Dạ anh/chị nhắn giúp em tên mẫu hoặc ảnh/link sản phẩm mình quan tâm để bên em kiểm tra đúng giá/ưu đãi hiện có cho mình nha. Em chưa dám báo giá hay khuyến mãi nếu chưa có dữ liệu xác nhận ạ.';
@@ -264,6 +273,9 @@ function buildPricingPromotionDraft({ latestCustomerMessage, threadMemory, sales
   }
   if (referencedProductDeictically) {
     safetyFlags.push('product_reference_ambiguous');
+  }
+  if (providedVariantSummary) {
+    safetyFlags.push('pricing_variant_context_received');
   }
 
   return draft(
@@ -476,6 +488,43 @@ function mentionsUnspecifiedProduct(message) {
   return /(áo này|quần này|item này|mẫu này|sp này|sản phẩm này|cái này|em này|bộ này|áo kia|quần kia|mẫu kia)/.test(text);
 }
 
+function buildExchangeReturnFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {
+  const activeCaseType = normalizeCaseType(threadMemory?.active_issue?.case_type || 'unknown');
+  const unresolvedAskedSlots = normalizeAskedSlots(threadMemory?.asked_slots).filter((item) => item.status !== 'resolved');
+  const pendingExchangeReturn = activeCaseType === 'exchange_return_specific' && unresolvedAskedSlots.length > 0;
+  const extracted = extractExchangeReturnContext(latestCustomerMessage, unresolvedAskedSlots.map((item) => item.slot));
+  const remainingMissingInfo = unresolvedAskedSlots
+    .map((item) => item.slot)
+    .filter((slot) => !extracted[slot]);
+  const detailsReceived = pendingExchangeReturn && Object.keys(extracted).length > 0;
+
+  if (detailsReceived && remainingMissingInfo.length === 0) {
+    return {
+      continuityApplied: true,
+      detailsReceived: true,
+      missingInfo: [],
+      replyText: 'Dạ em đã nhận đủ thông tin đổi/trả hoặc lỗi sản phẩm của mình rồi ạ. Bên em sẽ kiểm tra và hỗ trợ anh/chị sớm nhất nha.'
+    };
+  }
+
+  if (pendingExchangeReturn) {
+    const effectiveMissingInfo = remainingMissingInfo.length ? remainingMissingInfo : normalizeStringArray(triageMissingInfo.length ? triageMissingInfo : unresolvedAskedSlots.map((item) => item.slot));
+    return {
+      continuityApplied: true,
+      detailsReceived,
+      missingInfo: effectiveMissingInfo,
+      replyText: buildExchangeReturnFollowupReply(effectiveMissingInfo)
+    };
+  }
+
+  return {
+    continuityApplied: false,
+    detailsReceived: false,
+    missingInfo: normalizeStringArray(triageMissingInfo.length ? triageMissingInfo : ['order_code', 'date_received', 'reason_for_exchange_or_return']),
+    replyText: null
+  };
+}
+
 function buildStockFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {
   const activeCaseType = normalizeCaseType(threadMemory?.active_issue?.case_type || 'unknown');
   const unresolvedAskedSlots = normalizeAskedSlots(threadMemory?.asked_slots).filter((item) => item.status !== 'resolved');
@@ -485,6 +534,7 @@ function buildStockFollowupContext(threadMemory, latestCustomerMessage, triageMi
     .map((item) => item.slot)
     .filter((slot) => !extracted[slot]);
   const detailsReceived = pendingStockCheck && Object.keys(extracted).length > 0;
+  const providedSummary = summarizeProvidedVariantContext(extracted);
 
   if (detailsReceived && remainingMissingInfo.length === 0) {
     return {
@@ -500,7 +550,9 @@ function buildStockFollowupContext(threadMemory, latestCustomerMessage, triageMi
       continuityApplied: true,
       detailsReceived,
       missingInfo: remainingMissingInfo.length ? remainingMissingInfo : normalizeStringArray(triageMissingInfo.length ? triageMissingInfo : unresolvedAskedSlots.map((item) => item.slot)),
-      replyText: null
+      replyText: detailsReceived
+        ? buildStockPartialFollowupReply(providedSummary, remainingMissingInfo)
+        : null
     };
   }
 
@@ -510,6 +562,130 @@ function buildStockFollowupContext(threadMemory, latestCustomerMessage, triageMi
     missingInfo: normalizeStringArray(triageMissingInfo.length ? triageMissingInfo : unresolvedAskedSlots.map((item) => item.slot)),
     replyText: null
   };
+}
+
+function summarizeProvidedVariantContext(context = {}) {
+  const parts = [];
+
+  if (context.product_name) {
+    parts.push(`mẫu ${context.product_name}`);
+  }
+  if (context.color_if_relevant || context.color) {
+    parts.push(`màu ${context.color_if_relevant || context.color}`);
+  }
+  if (context.desired_size_or_variant_if_applicable || context.size_or_variant) {
+    parts.push(`size ${context.desired_size_or_variant_if_applicable || context.size_or_variant}`);
+  }
+
+  return parts.join(', ');
+}
+
+function buildStockPartialFollowupReply(providedSummary, remainingMissingInfo = []) {
+  const ask = buildRemainingInfoPrompt(remainingMissingInfo, 'để bên em kiểm tra lại tồn kho chính xác hơn cho mình nha.');
+  if (providedSummary) {
+    return `Dạ em đã nhận ${providedSummary} rồi ạ. ${ask}`;
+  }
+  return ask;
+}
+
+function buildProductlessPricingFollowupReply({ providedVariantSummary, remainingMissing = [], defaultReply }) {
+  const ask = buildRemainingInfoPrompt(['product_name', ...remainingMissing], 'để bên em kiểm tra đúng giá/ưu đãi hiện có cho mình nha.');
+  if (providedVariantSummary) {
+    return `Dạ em đã nhận ${providedVariantSummary} mình quan tâm rồi ạ. ${ask} Nếu có ảnh/link sản phẩm thì anh/chị gửi kèm giúp em luôn nha.`;
+  }
+  return defaultReply;
+}
+
+function buildRemainingInfoPrompt(missingInfo = [], trailing = '') {
+  const labels = normalizeMissingInfoLabels(missingInfo);
+  if (!labels.length) {
+    return `Anh/chị nhắn thêm giúp em thông tin còn thiếu ${trailing}`.trim();
+  }
+
+  if (labels.length === 1) {
+    return `Anh/chị nhắn thêm giúp em ${labels[0]} ${trailing}`.trim();
+  }
+
+  if (labels.length === 2) {
+    return `Anh/chị nhắn thêm giúp em ${labels[0]} và ${labels[1]} ${trailing}`.trim();
+  }
+
+  return `Anh/chị nhắn thêm giúp em ${labels.slice(0, -1).join(', ')} và ${labels.at(-1)} ${trailing}`.trim();
+}
+
+function normalizeMissingInfoLabels(missingInfo = []) {
+  const labelMap = {
+    product_name: 'tên mẫu',
+    size: 'size',
+    size_or_variant: 'size/biến thể',
+    desired_size_or_variant_if_applicable: 'size/biến thể',
+    color: 'màu',
+    color_if_relevant: 'màu'
+  };
+
+  return [...new Set(normalizeStringArray(missingInfo).map((slot) => labelMap[slot] || slot).filter(Boolean))];
+}
+
+function extractExchangeReturnContext(message, relevantSlots = []) {
+  const text = String(message || '').trim();
+  if (!text) return {};
+
+  const slotSet = new Set(relevantSlots || []);
+  const extracted = {};
+
+  if (!slotSet.size || slotSet.has('order_code')) {
+    const orderCode = extractOrderCode(text);
+    if (orderCode) {
+      extracted.order_code = orderCode;
+    }
+  }
+
+  if (!slotSet.size || slotSet.has('date_received')) {
+    const dateReceived = extractDateReceived(text);
+    if (dateReceived) {
+      extracted.date_received = dateReceived;
+    }
+  }
+
+  if (!slotSet.size || slotSet.has('reason_for_exchange_or_return') || slotSet.has('product_issue_detail')) {
+    const issueDetail = extractIssueDetail(text);
+    if (issueDetail) {
+      extracted.reason_for_exchange_or_return = issueDetail;
+      extracted.product_issue_detail = issueDetail;
+    }
+  }
+
+  return extracted;
+}
+
+function buildExchangeReturnFollowupReply(remainingMissingInfo = []) {
+  const missing = new Set(normalizeStringArray(remainingMissingInfo));
+
+  if (missing.has('order_code') && missing.has('date_received') && (missing.has('reason_for_exchange_or_return') || missing.has('product_issue_detail'))) {
+    return 'Dạ em đã nhận thêm thông tin rồi ạ. Anh/chị gửi giúp em mã đơn, ngày nhận hàng và mô tả lỗi/lý do đổi trả để bên em hỗ trợ mình chuẩn hơn nha.';
+  }
+
+  if (missing.has('order_code') && (missing.has('reason_for_exchange_or_return') || missing.has('product_issue_detail'))) {
+    return 'Dạ em đã nhận thêm thông tin rồi ạ. Anh/chị gửi giúp em mã đơn và mô tả lỗi/lý do đổi trả để bên em hỗ trợ mình chuẩn hơn nha.';
+  }
+
+  if (missing.has('order_code')) {
+    return 'Dạ em đã nhận thêm thông tin rồi ạ. Anh/chị gửi giúp em mã đơn để bên em kiểm tra và hỗ trợ mình nhanh hơn nha.';
+  }
+
+  if (missing.has('date_received') && (missing.has('reason_for_exchange_or_return') || missing.has('product_issue_detail'))) {
+    return 'Dạ em đã nhận thêm thông tin rồi ạ. Anh/chị cho em xin ngày nhận hàng và mô tả lỗi/lý do đổi trả để bên em hỗ trợ đúng hơn nha.';
+  }
+
+  if (missing.has('date_received')) {
+    return 'Dạ em đã nhận thêm thông tin rồi ạ. Anh/chị cho em xin ngày nhận hàng giúp em để bên em hỗ trợ mình đúng hơn nha.';
+  }
+
+  if (missing.has('reason_for_exchange_or_return') || missing.has('product_issue_detail')) {
+    return 'Dạ em đã nhận thêm thông tin rồi ạ. Anh/chị mô tả giúp em tình trạng lỗi hoặc lý do đổi/trả để bên em hỗ trợ mình chuẩn hơn nha.';
+  }
+
+  return 'Dạ em đã nhận thêm thông tin rồi ạ. Bên em sẽ kiểm tra và hỗ trợ anh/chị sớm nhất nha.';
 }
 
 function extractStockContext(message, relevantSlots = []) {
@@ -652,20 +828,60 @@ function extractPhoneNumber(text) {
   return digits;
 }
 
+function extractIssueDetail(text) {
+  const compact = String(text || '').trim();
+  if (!compact) return null;
+
+  const explicitMatch = compact.match(/(?:lý do|vấn đề|bị|lỗi|rách|hỏng|sai hàng|sai size)\s*[:\-]?\s*([^\n]{3,120})/iu);
+  if (explicitMatch?.[1]) {
+    return sanitizeIssueDetail(explicitMatch[1]);
+  }
+
+  if (extractOrderCode(compact) || extractPhoneNumber(compact)) {
+    return null;
+  }
+
+  if (/^(dạ|vâng|ok|oke|oki|rồi|đây|nè|shop check|check giúp|kiểm tra giúp)[.!?…~\s]*$/iu.test(compact)) {
+    return null;
+  }
+
+  if (compact.length >= 6 && /(lỗi|rách|hỏng|sai hàng|sai size|bung|tuột|bể|nứt|không lên|không chạy|không quay|không dùng được|móp|méo|gãy|vỡ|rung mạnh)/iu.test(compact)) {
+    return sanitizeIssueDetail(compact);
+  }
+
+  return null;
+}
+
+function extractDateReceived(text) {
+  const compact = String(text || '').trim();
+  if (!compact) return null;
+
+  const directDate = compact.match(/\b(\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?)\b/u);
+  if (directDate?.[1]) {
+    return sanitizeFreeText(directDate[1], 20);
+  }
+
+  const relative = compact.match(/\b(hôm nay|hôm qua|hôm kia|mới nhận(?: hôm qua| hôm nay)?|vừa nhận(?: hôm qua| hôm nay)?|nhận hôm qua|nhận hôm nay)\b/iu);
+  if (relative?.[1]) {
+    return sanitizeFreeText(relative[1], 30);
+  }
+
+  return null;
+}
+
 function extractProductName(text) {
   const compactText = String(text || '').trim();
   if (!compactText) return null;
 
   const productPatterns = [
     /(?:mẫu|áo|quần|set|váy|đầm|item|sp|sản phẩm|product)(?:\s+này|\s+đó|\s+kia)?\s*(?:là|mã|tên)?\s*[:\-]?\s*([\p{L}\p{N}][\p{L}\p{N}\s\-_/]{2,60})/iu,
-    /(?:em lấy|mình lấy|cho mình|cho em|muốn lấy|chốt|đặt)(?:\s+mẫu)?\s+([\p{L}\p{N}][\p{L}\p{N}\s\-_/]{2,60})/iu,
-    /^([\p{L}\p{N}][\p{L}\p{N}\s\-_/]{2,60})$/iu
+    /(?:em lấy|mình lấy|cho mình|cho em|muốn lấy|chốt|đặt)(?:\s+mẫu)?\s+([\p{L}\p{N}][\p{L}\p{N}\s\-_/]{2,60})/iu
   ];
 
   for (const pattern of productPatterns) {
     const match = compactText.match(pattern);
     const value = sanitizeProductName(match?.[1] || match?.[0]);
-    if (value && !looksLikeOnlyVariantInfo(value) && !looksLikePricingOrPromoFragment(value)) {
+    if (value && !looksLikeOnlyVariantInfo(value) && !looksLikePricingOrPromoFragment(value) && !looksLikeNonProductFragment(value)) {
       return value;
     }
   }
@@ -690,14 +906,21 @@ function sanitizeProductName(value) {
 }
 
 function looksLikeOnlyVariantInfo(value) {
-  const normalized = String(value || '').toLowerCase();
-  return /^(đen|trắng|xám|ghi|be|kem|nâu|xanh|đỏ|hồng|tím|vàng|xs|s|m|l|xl|xxl|xxxl|2xl|3xl|28|29|30|31|32|33|34|35|36)(\s|$)/.test(normalized);
+  const normalized = String(value || '').toLowerCase().trim();
+  return /^(size\s+|màu\s+|color\s+|đen|trắng|xám|ghi|be|kem|nâu|xanh|đỏ|hồng|tím|vàng|xs|s|m|l|xl|xxl|xxxl|2xl|3xl|28|29|30|31|32|33|34|35|36)(\s|$)/.test(normalized);
 }
 
 function looksLikePricingOrPromoFragment(value) {
   const normalized = String(value || '').toLowerCase().trim();
   if (!normalized) return false;
   return /(giá|bao nhiêu|bao tiền|sale|khuyến mãi|ưu đãi|voucher|mã giảm giá|freeship)/.test(normalized);
+}
+
+function looksLikeNonProductFragment(value) {
+  const normalized = String(value || '').toLowerCase().trim();
+  if (!normalized) return false;
+  return /^(này|đó|kia|cái này|mẫu này|sp này|sản phẩm này|không|không shop|còn không|còn hàng không|check giúp mình|kiểm tra giúp mình)$/i.test(normalized)
+    || /(không shop|còn không shop)/i.test(normalized);
 }
 
 function sanitizeToken(value, maxLength) {
@@ -830,6 +1053,13 @@ function sanitizeColor(value) {
     .replace(/\b(size|sz|cỡ)\b.*$/iu, '')
     .replace(/\s+(nha|nhé|ạ|giúp em|giúp mình)$/iu, '')
     .trim() || null;
+}
+
+function sanitizeIssueDetail(value) {
+  const cleaned = sanitizeFreeText(value, 120);
+  if (!cleaned) return null;
+  if (/^(dạ|vâng|ok|oke|oki|rồi|đây|nè)$/iu.test(cleaned)) return null;
+  return cleaned;
 }
 
 function normalizeStringArray(value) {

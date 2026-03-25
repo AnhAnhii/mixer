@@ -214,6 +214,20 @@ function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage
     };
   }
 
+  if (activeCaseType === 'exchange_return_specific' && triage?.case_type === 'order_status_request' && hasProvidedIdentifier) {
+    return {
+      ...triage,
+      case_type: activeCaseType,
+      risk_level: 'high',
+      needs_human: true,
+      auto_reply_allowed: false,
+      confidence: Math.max(Number(triage?.confidence || 0), 0.82),
+      missing_info: remainingMissingInfo,
+      reason: `followup_to_active_${activeCaseType}`,
+      suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'exchange_return_followup_continuity'])]
+    };
+  }
+
   if (triage?.case_type !== 'unknown') {
     return triage;
   }

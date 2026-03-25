@@ -224,6 +224,26 @@ const pricingProductNameFollowupBody = {
   ]
 };
 
+const pricingVariantOnlyFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-23' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (10 * 60 * 1000),
+          message: {
+            mid: 'mid.local.21',
+            text: 'size m màu đen nha shop'
+          }
+        }
+      ]
+    }
+  ]
+};
+
 const orderStatusGenericFollowupBody = {
   object: 'page',
   entry: [
@@ -337,6 +357,66 @@ const stockVariantFollowupBody = {
           message: {
             mid: 'mid.local.20',
             text: 'áo polo basic màu đen size m nha'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const exchangeReturnOrderCodeFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-23' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (10 * 60 * 1000),
+          message: {
+            mid: 'mid.local.21',
+            text: 'mã đơn DH123456'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const exchangeReturnIssueFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-24' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (11 * 60 * 1000),
+          message: {
+            mid: 'mid.local.22',
+            text: 'quạt bị gãy cánh với rung mạnh'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const stockPartialFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-24' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (11 * 60 * 1000),
+          message: {
+            mid: 'mid.local.22',
+            text: 'size m nha shop'
           }
         }
       ]
@@ -717,6 +797,44 @@ const pricingProductNameFollowupOutputs = await processWebhookBody(pricingProduc
 
 resetDedupeStore();
 resetThreadState();
+const pricingVariantOnlyStore = createThreadStateStore({ threadStatePath });
+pricingVariantOnlyStore.updateMemory('facebook:105265398928721:test-psid-23', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-23',
+    message_id: 'mid.seed.pricing.4',
+    text: 'áo này giá bao nhiêu vậy shop',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'pricing_or_promotion',
+    missing_info: ['product_name', 'size_or_variant', 'color_if_relevant'],
+    reason: 'matched_pricing_or_promotion_rule',
+    needs_human: false
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'draft_only',
+      needs_human: false,
+      missing_info: ['product_name', 'size_or_variant', 'color_if_relevant'],
+      reason: 'pricing_or_promotion_needs_grounded_product_data',
+      reply_text: 'Dạ để em báo đúng giá/ưu đãi hiện có, anh/chị gửi giúp em tên mẫu hoặc ảnh/link sản phẩm mình đang xem nha. Nếu có size/màu mình quan tâm thì nhắn kèm giúp em luôn ạ.'
+    },
+    delivery: { decision: 'draft_only' }
+  }
+});
+const pricingVariantOnlyFollowupOutputs = await processWebhookBody(pricingVariantOnlyFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for pricing variant-only follow-up');
+  }
+});
+
+resetDedupeStore();
+resetThreadState();
 const orderStatusContinuityStore = createThreadStateStore({ threadStatePath });
 orderStatusContinuityStore.updateMemory('facebook:105265398928721:test-psid-16', {
   normalizedMessage: {
@@ -928,7 +1046,7 @@ stockFollowupStore.updateMemory('facebook:105265398928721:test-psid-22', {
   normalizedMessage: {
     thread_key: 'facebook:105265398928721:test-psid-22',
     message_id: 'mid.seed.stock.1',
-    text: 'còn mẫu này không shop',
+    text: 'check tồn kho giúp mình',
     timestamp: inHoursTimestamp
   },
   triage: {
@@ -956,6 +1074,120 @@ const stockVariantFollowupOutputs = await processWebhookBody(stockVariantFollowu
   pageAccessToken: 'test-page-token',
   fetchImpl: async () => {
     throw new Error('fetch should not be called for stock follow-up handoff');
+  }
+});
+
+resetDedupeStore();
+resetThreadState();
+const exchangeReturnOrderCodeStore = createThreadStateStore({ threadStatePath });
+exchangeReturnOrderCodeStore.updateMemory('facebook:105265398928721:test-psid-23', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-23',
+    message_id: 'mid.seed.exchange.1',
+    text: 'shop ơi mình muốn đổi vì quạt bị lỗi',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'exchange_return_specific',
+    missing_info: ['order_code', 'product_issue_detail'],
+    reason: 'matched_exchange_or_defect_rule',
+    needs_human: true
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'handoff',
+      needs_human: true,
+      missing_info: ['order_code', 'product_issue_detail'],
+      reason: 'exchange_return_case_needs_human',
+      reply_text: 'Dạ anh/chị cho em xin mã đơn và mô tả lỗi để bên em hỗ trợ mình chuẩn hơn ạ.'
+    },
+    delivery: { decision: 'handoff' }
+  }
+});
+const exchangeReturnOrderCodeFollowupOutputs = await processWebhookBody(exchangeReturnOrderCodeFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for exchange/return order-code follow-up');
+  }
+});
+
+resetDedupeStore();
+resetThreadState();
+const exchangeReturnIssueStore = createThreadStateStore({ threadStatePath });
+exchangeReturnIssueStore.updateMemory('facebook:105265398928721:test-psid-24', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-24',
+    message_id: 'mid.seed.exchange.2',
+    text: 'shop ơi mình muốn đổi',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'exchange_return_specific',
+    missing_info: ['order_code', 'product_issue_detail'],
+    reason: 'matched_exchange_or_defect_rule',
+    needs_human: true
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'handoff',
+      needs_human: true,
+      missing_info: ['order_code', 'product_issue_detail'],
+      reason: 'exchange_return_case_needs_human',
+      reply_text: 'Dạ anh/chị cho em xin mã đơn và mô tả lỗi để bên em hỗ trợ mình chuẩn hơn ạ.'
+    },
+    delivery: { decision: 'handoff' }
+  }
+});
+const exchangeReturnIssueFollowupOutputs = await processWebhookBody(exchangeReturnIssueFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for exchange/return issue-detail follow-up');
+  }
+});
+
+resetDedupeStore();
+resetThreadState();
+const stockPartialStore = createThreadStateStore({ threadStatePath });
+stockPartialStore.updateMemory('facebook:105265398928721:test-psid-24', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-24',
+    message_id: 'mid.seed.stock.2',
+    text: 'check tồn kho giúp mình',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'stock_or_product_availability',
+    missing_info: ['product_name', 'size_or_variant', 'color_if_relevant'],
+    reason: 'matched_stock_check_rule',
+    needs_human: true
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'handoff',
+      needs_human: true,
+      missing_info: ['product_name', 'size_or_variant', 'color_if_relevant'],
+      reason: 'requires_stock_verification',
+      reply_text: 'Anh/chị giúp em gửi tên mẫu kèm size/màu mình cần để bên em kiểm tra lại chính xác hơn nha.'
+    },
+    delivery: { decision: 'handoff' }
+  }
+});
+const stockPartialFollowupOutputs = await processWebhookBody(stockPartialFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for partial stock follow-up handoff');
   }
 });
 
@@ -1019,13 +1251,14 @@ const signatureChecks = runSignatureChecks();
 const reasoningBundleChecks = runReasoningBundleChecks(pricingOutputs);
 const draftContractChecks = await runDraftContractChecks({ shadowOutputs, liveOutputs, complaintOutputs, pricingOutputs });
 const threadMemoryChecks = runThreadMemoryChecks();
-const pricingFollowupChecks = runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs });
+const pricingFollowupChecks = runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, pricingVariantOnlyFollowupOutputs });
 const orderStatusContinuityChecks = runOrderStatusContinuityChecks({ orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs });
 const complaintFollowupChecks = runComplaintFollowupChecks({ complaintOrderCodeFollowupOutputs });
-const stockFollowupChecks = runStockFollowupChecks({ stockVariantFollowupOutputs });
+const stockFollowupChecks = runStockFollowupChecks({ stockVariantFollowupOutputs, stockPartialFollowupOutputs });
+const exchangeReturnFollowupChecks = runExchangeReturnFollowupChecks({ exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs });
 const shippingFollowupChecks = runShippingFollowupChecks({ shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs });
 
-console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs, stockVariantFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks, stockFollowupChecks, shippingFollowupChecks }, null, 2));
+console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, pricingVariantOnlyFollowupOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs, stockVariantFollowupOutputs, stockPartialFollowupOutputs, exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks, stockFollowupChecks, exchangeReturnFollowupChecks, shippingFollowupChecks }, null, 2));
 
 function resetDedupeStore() {
   if (fs.existsSync(dedupeStorePath)) {
@@ -1241,11 +1474,14 @@ function runComplaintFollowupChecks({ complaintOrderCodeFollowupOutputs }) {
   };
 }
 
-function runStockFollowupChecks({ stockVariantFollowupOutputs }) {
+function runStockFollowupChecks({ stockVariantFollowupOutputs, stockPartialFollowupOutputs }) {
   const output = stockVariantFollowupOutputs?.[0] || {};
   const reply = output?.guarded_draft?.reply_text || output?.ai_draft?.reply_text || '';
   const flags = output?.guarded_draft?.safety_flags || [];
   const memory = output?.thread_memory_after || {};
+  const partialOutput = stockPartialFollowupOutputs?.[0] || {};
+  const partialReply = partialOutput?.guarded_draft?.reply_text || partialOutput?.ai_draft?.reply_text || '';
+  const partialMissing = partialOutput?.guarded_draft?.missing_info || [];
 
   return {
     followup_triage: output?.triage?.case_type || null,
@@ -1256,7 +1492,38 @@ function runStockFollowupChecks({ stockVariantFollowupOutputs }) {
     followup_continuity_flagged: flags.includes('stock_followup_continuity'),
     followup_missing_info_cleared: Array.isArray(output?.guarded_draft?.missing_info) && output.guarded_draft.missing_info.length === 0,
     followup_thread_waiting_cleared: memory.pending_customer_reply === false,
-    followup_thread_resolved_slots: (memory.asked_slots || []).filter((item) => item.status === 'resolved').map((item) => item.slot)
+    followup_thread_resolved_slots: (memory.asked_slots || []).filter((item) => item.status === 'resolved').map((item) => item.slot),
+    partial_followup_reply: partialReply,
+    partial_followup_acknowledges_partial_detail: /đã nhận.*size m/i.test(partialReply),
+    partial_followup_asks_only_remaining_slots: /tên mẫu/i.test(partialReply) && /màu/i.test(partialReply) && !/size\/màu mình cần/i.test(partialReply),
+    partial_followup_keeps_partial_missing_info: Array.isArray(partialMissing) && partialMissing.includes('product_name') && partialMissing.includes('color_if_relevant') && !partialMissing.includes('size_or_variant')
+  };
+}
+
+function runExchangeReturnFollowupChecks({ exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs }) {
+  const orderCodeOutput = exchangeReturnOrderCodeFollowupOutputs?.[0] || {};
+  const orderCodeReply = orderCodeOutput?.guarded_draft?.reply_text || orderCodeOutput?.ai_draft?.reply_text || '';
+  const orderCodeFlags = orderCodeOutput?.guarded_draft?.safety_flags || [];
+  const orderCodeMemory = orderCodeOutput?.thread_memory_after || {};
+
+  const issueOutput = exchangeReturnIssueFollowupOutputs?.[0] || {};
+  const issueReply = issueOutput?.guarded_draft?.reply_text || issueOutput?.ai_draft?.reply_text || '';
+  const issueFlags = issueOutput?.guarded_draft?.safety_flags || [];
+  const issueMemory = issueOutput?.thread_memory_after || {};
+
+  return {
+    order_code_followup_triage: orderCodeOutput?.triage?.case_type || null,
+    order_code_followup_stays_exchange_return: orderCodeOutput?.triage?.case_type === 'exchange_return_specific',
+    order_code_followup_reply: orderCodeReply,
+    order_code_followup_asks_only_remaining_issue_context: /mô tả lỗi|lý do đổi/i.test(orderCodeReply) && !/mã đơn.*ngày nhận hàng.*lý do/i.test(orderCodeReply),
+    order_code_followup_continuity_flagged: orderCodeFlags.includes('exchange_return_followup_continuity'),
+    order_code_followup_order_slot_resolved: (orderCodeMemory.asked_slots || []).some((item) => item.slot === 'order_code' && item.status === 'resolved'),
+    issue_followup_triage: issueOutput?.triage?.case_type || null,
+    issue_followup_stays_exchange_return: issueOutput?.triage?.case_type === 'exchange_return_specific',
+    issue_followup_reply: issueReply,
+    issue_followup_asks_only_remaining_order_code: /mã đơn/i.test(issueReply) && !/ngày nhận hàng/i.test(issueReply),
+    issue_followup_continuity_flagged: issueFlags.includes('exchange_return_followup_continuity'),
+    issue_followup_issue_slot_resolved: (issueMemory.asked_slots || []).some((item) => item.slot === 'product_issue_detail' && item.status === 'resolved')
   };
 }
 
@@ -1280,7 +1547,7 @@ function runShippingFollowupChecks({ shippingEtaRegionFollowupOutputs, shippingC
   };
 }
 
-function runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs }) {
+function runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, pricingVariantOnlyFollowupOutputs }) {
   const firstReply = pricingOutputs?.[0]?.guarded_draft?.reply_text || pricingOutputs?.[0]?.ai_draft?.reply_text || '';
   const secondReply = pricingFollowupOutputs?.[0]?.guarded_draft?.reply_text || pricingFollowupOutputs?.[0]?.ai_draft?.reply_text || '';
   const secondFlags = pricingFollowupOutputs?.[0]?.guarded_draft?.safety_flags || [];
@@ -1294,6 +1561,10 @@ function runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pric
     || '';
   const productNameMissing = pricingProductNameFollowupOutputs?.[0]?.guarded_draft?.missing_info || [];
   const productNameAskedSlots = pricingProductNameFollowupOutputs?.[0]?.thread_memory_after?.asked_slots || [];
+  const variantOnlyReply = pricingVariantOnlyFollowupOutputs?.[0]?.guarded_draft?.reply_text
+    || pricingVariantOnlyFollowupOutputs?.[0]?.ai_draft?.reply_text
+    || '';
+  const variantOnlyFlags = pricingVariantOnlyFollowupOutputs?.[0]?.guarded_draft?.safety_flags || [];
 
   return {
     first_reply: firstReply,
@@ -1312,7 +1583,11 @@ function runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pric
     product_name_followup_acknowledges_product: /đã nhận mẫu/i.test(productNameReply),
     product_name_followup_asks_remaining_variant_only: /size|màu/i.test(productNameReply) && !/ảnh|link sản phẩm|tên mẫu cụ thể/i.test(productNameReply),
     product_name_followup_missing_info_refined: Array.isArray(productNameMissing) && !productNameMissing.includes('product_name') && productNameMissing.includes('size_or_variant'),
-    product_name_followup_product_slot_resolved: productNameAskedSlots.some((item) => item.slot === 'product_name' && item.status === 'resolved')
+    product_name_followup_product_slot_resolved: productNameAskedSlots.some((item) => item.slot === 'product_name' && item.status === 'resolved'),
+    variant_only_followup_reply: variantOnlyReply,
+    variant_only_followup_acknowledges_variant_context: /đã nhận.*màu đen.*size m|đã nhận.*size m.*màu đen/i.test(variantOnlyReply),
+    variant_only_followup_still_requests_product: /tên mẫu|ảnh\/link sản phẩm/i.test(variantOnlyReply),
+    variant_only_followup_flags_context_received: variantOnlyFlags.includes('pricing_variant_context_received')
   };
 }
 
