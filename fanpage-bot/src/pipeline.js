@@ -247,7 +247,7 @@ function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage
     needs_human: activeCaseType === 'pricing_or_promotion' ? false : true,
     auto_reply_allowed: false,
     confidence: Math.max(Number(triage?.confidence || 0), activeCaseType === 'pricing_or_promotion' ? 0.78 : 0.72),
-    missing_info: isComplaintContinuation ? remainingMissingInfo : unresolvedAskedSlots,
+    missing_info: remainingMissingInfo,
     reason: isComplaintContinuation ? `followup_to_active_${activeCaseType}` : `followup_to_pending_${activeCaseType}`,
     suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', ...(isComplaintContinuation ? ['complaint_followup_continuity'] : ['slot_fill_expected'])])]
   };

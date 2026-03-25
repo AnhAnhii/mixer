@@ -12,6 +12,7 @@ export function buildFallbackDraft(input) {
   const missingInfo = normalizeStringArray(input?.missing_info || triage.missing_info_hint || triage.missing_info || []);
   const orderStatusFollowup = buildOrderStatusFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
   const complaintFollowup = buildComplaintFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
+  const stockFollowup = buildStockFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
 
   switch (caseType) {
     case 'greeting_or_opening':
@@ -101,15 +102,16 @@ export function buildFallbackDraft(input) {
       );
     case 'stock_or_product_availability':
       return draft(
-        pickFirstString(recommendedBlocks, 'ask_for_info.stock_context')
+        stockFollowup.replyText
+          || pickFirstString(recommendedBlocks, 'ask_for_info.stock_context')
           || 'Anh/chị giúp em gửi tên mẫu kèm size/màu mình cần để bên em kiểm tra lại chính xác hơn nha.',
         'handoff',
-        0.78,
+        stockFollowup.detailsReceived ? 0.84 : 0.78,
         true,
-        missingInfo.length ? missingInfo : ['product_name', 'size_or_variant'],
-        'requires_stock_verification',
+        stockFollowup.missingInfo,
+        stockFollowup.detailsReceived ? 'ready_for_inventory_check' : 'requires_stock_verification',
         ['case:stock_or_product_availability'],
-        ['stock_unverified']
+        ['stock_unverified', ...(stockFollowup.continuityApplied ? ['stock_followup_continuity'] : [])]
       );
     case 'pricing_or_promotion':
       return buildPricingPromotionDraft({
@@ -213,17 +215,40 @@ function buildPricingPromotionDraft({ latestCustomerMessage, threadMemory, sales
   const hasStrongBuyerIntent = String(salesAssist?.buyer_intent_hint || '') === 'present'
     || String(salesAssist?.lead_strength_hint || '') === 'high';
   const missingProductReference = missingInfo.includes('product_name');
+  const remainingMissing = normalizeStringArray(missingInfo);
+  const remainingVariantSlots = remainingMissing.filter((slot) => ['size', 'size_or_variant', 'desired_size_or_variant_if_applicable', 'color', 'color_if_relevant'].includes(slot));
+  const productReferenceResolved = !missingProductReference && remainingMissing.length > 0;
+  const providedProductName = productReferenceResolved
+    ? extractProductName(latestCustomerMessage) || readResolvedSlotValue(threadMemory, 'product_name')
+    : null;
 
   if (!missingProductReference) {
+    const acknowledgedProductLine = providedProductName
+      ? `Dạ bên em đã nhận mẫu ${providedProductName} rồi ạ.`
+      : 'Dạ bên em đã nhận thông tin mẫu anh/chị quan tâm rồi ạ.';
+
+    if (remainingVariantSlots.length > 0) {
+      return draft(
+        `${acknowledgedProductLine} Nếu anh/chị đang quan tâm size/màu cụ thể thì nhắn thêm giúp em để bên em kiểm tra giá/ưu đãi sát hơn cho mình nha.`,
+        'draft_only',
+        0.87,
+        false,
+        remainingMissing,
+        'pricing_or_promotion_waiting_variant_details',
+        ['case:pricing_or_promotion'],
+        ['pricing_unverified', 'promotion_unverified', 'pricing_product_context_received']
+      );
+    }
+
     return draft(
-      'Dạ bên em đã nhận thông tin mẫu anh/chị quan tâm rồi ạ. Để bên em kiểm tra lại giá/ưu đãi hiện có và phản hồi mình sớm nhất nha.',
+      `${acknowledgedProductLine} Để bên em kiểm tra lại giá/ưu đãi hiện có và phản hồi mình sớm nhất nha.`,
       'handoff',
       0.86,
       true,
       [],
       'pricing_or_promotion_waiting_manual_grounded_check',
       ['case:pricing_or_promotion'],
-      ['pricing_unverified', 'promotion_unverified']
+      ['pricing_unverified', 'promotion_unverified', 'pricing_product_context_received']
     );
   }
 
@@ -246,11 +271,16 @@ function buildPricingPromotionDraft({ latestCustomerMessage, threadMemory, sales
     'draft_only',
     alreadyAskedForProduct ? 0.86 : 0.82,
     false,
-    missingInfo,
+    remainingMissing,
     'pricing_or_promotion_needs_grounded_product_data',
     ['case:pricing_or_promotion'],
     safetyFlags
   );
+}
+
+function readResolvedSlotValue(threadMemory, slotName) {
+  const match = normalizeAskedSlots(threadMemory?.asked_slots).find((item) => item.slot === slotName && item.status === 'resolved' && item.resolved_value_preview);
+  return match?.resolved_value_preview || null;
 }
 
 function inferSentiment(intent, safetyFlags) {
@@ -446,6 +476,75 @@ function mentionsUnspecifiedProduct(message) {
   return /(áo này|quần này|item này|mẫu này|sp này|sản phẩm này|cái này|em này|bộ này|áo kia|quần kia|mẫu kia)/.test(text);
 }
 
+function buildStockFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {
+  const activeCaseType = normalizeCaseType(threadMemory?.active_issue?.case_type || 'unknown');
+  const unresolvedAskedSlots = normalizeAskedSlots(threadMemory?.asked_slots).filter((item) => item.status !== 'resolved');
+  const pendingStockCheck = activeCaseType === 'stock_or_product_availability' && unresolvedAskedSlots.length > 0;
+  const extracted = extractStockContext(latestCustomerMessage, unresolvedAskedSlots.map((item) => item.slot));
+  const remainingMissingInfo = unresolvedAskedSlots
+    .map((item) => item.slot)
+    .filter((slot) => !extracted[slot]);
+  const detailsReceived = pendingStockCheck && Object.keys(extracted).length > 0;
+
+  if (detailsReceived && remainingMissingInfo.length === 0) {
+    return {
+      continuityApplied: true,
+      detailsReceived: true,
+      missingInfo: [],
+      replyText: 'Dạ em đã nhận mẫu/size mình cần rồi ạ. Bên em sẽ kiểm tra lại tồn kho và phản hồi anh/chị sớm nhất nha.'
+    };
+  }
+
+  if (pendingStockCheck) {
+    return {
+      continuityApplied: true,
+      detailsReceived,
+      missingInfo: remainingMissingInfo.length ? remainingMissingInfo : normalizeStringArray(triageMissingInfo.length ? triageMissingInfo : unresolvedAskedSlots.map((item) => item.slot)),
+      replyText: null
+    };
+  }
+
+  return {
+    continuityApplied: false,
+    detailsReceived: false,
+    missingInfo: normalizeStringArray(triageMissingInfo.length ? triageMissingInfo : unresolvedAskedSlots.map((item) => item.slot)),
+    replyText: null
+  };
+}
+
+function extractStockContext(message, relevantSlots = []) {
+  const text = String(message || '').trim();
+  if (!text) return {};
+
+  const slotSet = new Set(relevantSlots || []);
+  const extracted = {};
+
+  if (!slotSet.size || slotSet.has('product_name')) {
+    const productName = extractProductName(text);
+    if (productName) {
+      extracted.product_name = productName;
+    }
+  }
+
+  if (!slotSet.size || slotSet.has('size_or_variant') || slotSet.has('desired_size_or_variant_if_applicable')) {
+    const size = extractSizeOrVariant(text);
+    if (size) {
+      extracted.size_or_variant = size;
+      extracted.desired_size_or_variant_if_applicable = size;
+    }
+  }
+
+  if (!slotSet.size || slotSet.has('color_if_relevant') || slotSet.has('color')) {
+    const color = extractColor(text);
+    if (color) {
+      extracted.color_if_relevant = color;
+      extracted.color = color;
+    }
+  }
+
+  return extracted;
+}
+
 function buildComplaintFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {
   const latestText = String(latestCustomerMessage || '').trim();
   const pendingComplaint = threadMemory?.active_issue?.case_type === 'complaint_or_negative_feedback';
@@ -553,9 +652,52 @@ function extractPhoneNumber(text) {
   return digits;
 }
 
+function extractProductName(text) {
+  const compactText = String(text || '').trim();
+  if (!compactText) return null;
+
+  const productPatterns = [
+    /(?:mẫu|áo|quần|set|váy|đầm|item|sp|sản phẩm|product)(?:\s+này|\s+đó|\s+kia)?\s*(?:là|mã|tên)?\s*[:\-]?\s*([\p{L}\p{N}][\p{L}\p{N}\s\-_/]{2,60})/iu,
+    /(?:em lấy|mình lấy|cho mình|cho em|muốn lấy|chốt|đặt)(?:\s+mẫu)?\s+([\p{L}\p{N}][\p{L}\p{N}\s\-_/]{2,60})/iu,
+    /^([\p{L}\p{N}][\p{L}\p{N}\s\-_/]{2,60})$/iu
+  ];
+
+  for (const pattern of productPatterns) {
+    const match = compactText.match(pattern);
+    const value = sanitizeProductName(match?.[1] || match?.[0]);
+    if (value && !looksLikeOnlyVariantInfo(value) && !looksLikePricingOrPromoFragment(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 function normalizeOrderLookupMissingInfo(value) {
   const slots = normalizeStringArray(value).filter((slot) => ['order_code', 'phone', 'receiver_phone'].includes(slot));
   return slots.length ? [...new Set(slots)] : ['order_code', 'receiver_phone'];
+}
+
+function sanitizeProductName(value) {
+  const cleaned = String(value || '').replace(/\s+/g, ' ').trim().replace(/[.,;:!?]+$/g, '');
+  if (!cleaned) return null;
+  return cleaned
+    .replace(/(màu|color).*$/iu, '')
+    .replace(/(size|sz|cỡ).*$/iu, '')
+    .replace(/\s+(nha|nhé|ạ|giúp em|giúp mình)$/iu, '')
+    .trim()
+    .slice(0, 60) || null;
+}
+
+function looksLikeOnlyVariantInfo(value) {
+  const normalized = String(value || '').toLowerCase();
+  return /^(đen|trắng|xám|ghi|be|kem|nâu|xanh|đỏ|hồng|tím|vàng|xs|s|m|l|xl|xxl|xxxl|2xl|3xl|28|29|30|31|32|33|34|35|36)(\s|$)/.test(normalized);
+}
+
+function looksLikePricingOrPromoFragment(value) {
+  const normalized = String(value || '').toLowerCase().trim();
+  if (!normalized) return false;
+  return /(giá|bao nhiêu|bao tiền|sale|khuyến mãi|ưu đãi|voucher|mã giảm giá|freeship)/.test(normalized);
 }
 
 function sanitizeToken(value, maxLength) {
@@ -644,6 +786,50 @@ function looksLikeOrderLookupFollowup(message) {
   return /^(dạ\s*)?(ok|oke|oki|vâng|dạ vâng|ừm|uhm|uk|yes|rồi|đây|nè|nha|nhé|ạ)[.!?…~]*$/iu.test(text)
     || /^(dạ\s*)?(shop\s*)?(check|kiểm tra|coi|xem)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(text)
     || /^(sđt|sdt|sdt nè|số điện thoại|mã đơn)(\s*[:\-].*)?$/iu.test(text);
+}
+
+function extractSizeOrVariant(text) {
+  const directMatch = String(text || '').match(/(?:size|sz|cỡ|co)\s*[:\-]?\s*([a-z0-9]{1,6}(?:\s*[\/\-]\s*[a-z0-9]{1,6})?)/iu);
+  if (directMatch?.[1]) {
+    return sanitizeFreeText(directMatch[1].toUpperCase(), 24);
+  }
+
+  const standaloneSize = String(text || '').match(/\b(xs|s|m|l|xl|xxl|xxxl|2xl|3xl|28|29|30|31|32|33|34|35|36)\b/iu);
+  if (standaloneSize?.[1]) {
+    return sanitizeFreeText(standaloneSize[1].toUpperCase(), 24);
+  }
+
+  return null;
+}
+
+function extractColor(text) {
+  const directMatch = String(text || '').match(/(?:màu|mau|color)\s*[:\-]?\s*([\p{L}\s]{2,30})/iu);
+  if (directMatch?.[1]) {
+    return sanitizeColor(directMatch[1]);
+  }
+
+  const commonColor = String(text || '').match(/\b(đen|trắng|xám|ghi|be|kem|nâu|xanh|xanh nhạt|xanh đậm|xanh da trời|xanh navy|đỏ|hồng|tím|vàng)\b/iu);
+  if (commonColor?.[1]) {
+    return sanitizeColor(commonColor[1]);
+  }
+
+  return null;
+}
+
+function sanitizeFreeText(value, maxLength = 60) {
+  const cleaned = String(value || '').replace(/\s+/g, ' ').trim().replace(/[.,;:!?]+$/g, '');
+  if (!cleaned) return null;
+  return cleaned.slice(0, maxLength);
+}
+
+function sanitizeColor(value) {
+  const cleaned = sanitizeFreeText(value, 30);
+  if (!cleaned) return null;
+  return cleaned
+    .replace(/^(màu|color)\s+/iu, '')
+    .replace(/\b(size|sz|cỡ)\b.*$/iu, '')
+    .replace(/\s+(nha|nhé|ạ|giúp em|giúp mình)$/iu, '')
+    .trim() || null;
 }
 
 function normalizeStringArray(value) {
