@@ -75,7 +75,7 @@ export async function processWebhookBody(body, options = {}) {
     }
 
     const threadMemoryBefore = threadStateStore.getMemory(normalizedMessage.thread_key);
-    const triage = recoverThreadAwareTriage(classifyMessage(normalizedMessage), threadMemoryBefore);
+    const triage = recoverThreadAwareTriage(classifyMessage(normalizedMessage), threadMemoryBefore, normalizedMessage);
     const triageHint = buildTriageHint(normalizedMessage, triage);
     const groundedInput = buildGroundedInput(normalizedMessage, triage, options.recentMessages || [], {
       threadMemory: threadMemoryBefore
@@ -167,11 +167,7 @@ export async function processWebhookBody(body, options = {}) {
   return outputs;
 }
 
-function recoverThreadAwareTriage(triage, threadMemory = null) {
-  if (!threadMemory?.pending_customer_reply) {
-    return triage;
-  }
-
+function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage = null) {
   if (triage?.case_type !== 'unknown') {
     return triage;
   }
@@ -180,6 +176,14 @@ function recoverThreadAwareTriage(triage, threadMemory = null) {
   const unresolvedAskedSlots = Array.isArray(threadMemory?.asked_slots)
     ? threadMemory.asked_slots.filter((item) => item?.slot && item.status !== 'resolved').map((item) => item.slot)
     : [];
+  const latestText = String(normalizedMessage?.text || '').trim();
+  const isGenericFollowup = detectGenericFollowup(latestText);
+  const isPricingContinuation = activeCaseType === 'pricing_or_promotion'
+    && (threadMemory?.pending_customer_reply || unresolvedAskedSlots.length > 0 || isGenericFollowup);
+
+  if (!threadMemory?.pending_customer_reply && !isPricingContinuation) {
+    return triage;
+  }
 
   if (!activeCaseType || !unresolvedAskedSlots.length) {
     return triage;
@@ -191,11 +195,22 @@ function recoverThreadAwareTriage(triage, threadMemory = null) {
     risk_level: activeCaseType === 'pricing_or_promotion' ? 'medium' : (triage?.risk_level || 'medium'),
     needs_human: false,
     auto_reply_allowed: false,
-    confidence: Math.max(Number(triage?.confidence || 0), 0.72),
+    confidence: Math.max(Number(triage?.confidence || 0), activeCaseType === 'pricing_or_promotion' ? 0.78 : 0.72),
     missing_info: unresolvedAskedSlots,
     reason: `followup_to_pending_${activeCaseType}`,
     suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'slot_fill_expected'])]
   };
+}
+
+function detectGenericFollowup(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return /^(dạ\s*)?(shop\s*)?(check|kiểm tra|coi|xem)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized)
+    || /^(dạ\s*)?(shop\s*)?(báo|tư vấn)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized)
+    || /^(dạ\s*)?(vậy|thế)(\s+(shop|bên mình|bên em))?(\s+(check|kiểm tra|báo|tư vấn))(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized);
 }
 
 function buildTriageHint(normalizedMessage, triage) {

@@ -184,6 +184,26 @@ const pricingFollowupBody = {
   ]
 };
 
+const pricingGenericFollowupAfterStateDriftBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-15' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (2 * 60 * 1000),
+          message: {
+            mid: 'mid.local.13',
+            text: 'check giúp mình nha'
+          }
+        }
+      ]
+    }
+  ]
+};
+
 const shortAmbiguousBody = {
   object: 'page',
   entry: [
@@ -457,6 +477,67 @@ const pricingFollowupOutputs = await processWebhookBody(pricingFollowupBody, {
 });
 
 resetDedupeStore();
+resetThreadState();
+const pricingDriftStore = createThreadStateStore({ threadStatePath });
+pricingDriftStore.updateMemory('facebook:105265398928721:test-psid-15', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-15',
+    message_id: 'mid.seed.pricing.1',
+    text: 'áo này giá bao nhiêu vậy shop',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'pricing_or_promotion',
+    missing_info: ['product_name'],
+    reason: 'matched_pricing_or_promotion_rule',
+    needs_human: false
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'draft_only',
+      needs_human: false,
+      missing_info: ['product_name'],
+      reason: 'pricing_or_promotion_needs_grounded_product_data',
+      reply_text: 'Dạ để em báo đúng giá/ưu đãi hiện có, anh/chị gửi giúp em tên mẫu hoặc ảnh/link sản phẩm mình đang xem nha. Nếu có size/màu mình quan tâm thì nhắn kèm giúp em luôn ạ.'
+    },
+    delivery: { decision: 'draft_only' }
+  }
+});
+pricingDriftStore.updateMemory('facebook:105265398928721:test-psid-15', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-15',
+    message_id: 'mid.seed.pricing.2',
+    text: 'ok shop',
+    timestamp: inHoursTimestamp + 1000
+  },
+  triage: {
+    case_type: 'unknown',
+    missing_info: [],
+    reason: 'customer_acknowledged',
+    needs_human: false
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'draft_only',
+      needs_human: false,
+      missing_info: [],
+      reason: 'acknowledged'
+    },
+    delivery: { decision: 'draft_only' }
+  }
+});
+const pricingGenericFollowupAfterStateDriftOutputs = await processWebhookBody(pricingGenericFollowupAfterStateDriftBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for vague pricing follow-up after state drift');
+  }
+});
+
+resetDedupeStore();
 const shortAmbiguousOutputs = await processWebhookBody(shortAmbiguousBody, {
   autoReplyEnabled: true,
   shadowMode: false,
@@ -516,9 +597,9 @@ const signatureChecks = runSignatureChecks();
 const reasoningBundleChecks = runReasoningBundleChecks(pricingOutputs);
 const draftContractChecks = await runDraftContractChecks({ shadowOutputs, liveOutputs, complaintOutputs, pricingOutputs });
 const threadMemoryChecks = runThreadMemoryChecks();
-const pricingFollowupChecks = runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs });
+const pricingFollowupChecks = runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs });
 
-console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks }, null, 2));
+console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks }, null, 2));
 
 function resetDedupeStore() {
   if (fs.existsSync(dedupeStorePath)) {
@@ -684,11 +765,15 @@ function hasLegacyCompatibilityShape(draft) {
   );
 }
 
-function runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs }) {
+function runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs }) {
   const firstReply = pricingOutputs?.[0]?.guarded_draft?.reply_text || pricingOutputs?.[0]?.ai_draft?.reply_text || '';
   const secondReply = pricingFollowupOutputs?.[0]?.guarded_draft?.reply_text || pricingFollowupOutputs?.[0]?.ai_draft?.reply_text || '';
   const secondFlags = pricingFollowupOutputs?.[0]?.guarded_draft?.safety_flags || [];
   const askedSlots = pricingFollowupOutputs?.[0]?.thread_memory_after?.asked_slots || [];
+  const driftReply = pricingGenericFollowupAfterStateDriftOutputs?.[0]?.guarded_draft?.reply_text
+    || pricingGenericFollowupAfterStateDriftOutputs?.[0]?.ai_draft?.reply_text
+    || '';
+  const driftTriage = pricingGenericFollowupAfterStateDriftOutputs?.[0]?.triage?.case_type || null;
 
   return {
     first_reply: firstReply,
@@ -697,7 +782,11 @@ function runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs }) {
     pending_slots_after_followup: askedSlots.filter((item) => item.status !== 'resolved').map((item) => item.slot),
     refined_product_request_detected: /ảnh|link|sản phẩm|tên mẫu|mẫu cụ thể/i.test(secondReply),
     optional_variant_request_detected: /size\/màu/i.test(secondReply),
-    repeat_info_request_refined_flagged: secondFlags.includes('repeat_info_request_refined')
+    repeat_info_request_refined_flagged: secondFlags.includes('repeat_info_request_refined'),
+    state_drift_followup_triage: driftTriage,
+    state_drift_followup_reply: driftReply,
+    state_drift_followup_stays_specific: /ảnh|link|sản phẩm|tên mẫu|mẫu cụ thể/i.test(driftReply) && /size\/màu/i.test(driftReply),
+    state_drift_followup_avoids_generic_fallback: !/chia sẻ thêm giúp em nội dung cần hỗ trợ/i.test(driftReply)
   };
 }
 

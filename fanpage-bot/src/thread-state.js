@@ -122,7 +122,7 @@ function buildNextThreadMemory(previousMemory, payload, sentimentWindow) {
 
   const customerFacts = deriveCustomerFacts(payload, previousMemory, providedSlots);
   const previousCaseType = previousMemory.active_issue?.case_type || null;
-  const currentCaseType = triage.case_type || previousCaseType || null;
+  const currentCaseType = resolveCurrentCaseType(triage.case_type, previousCaseType, unresolvedAskedSlots);
   const caseChanged = currentCaseType && previousCaseType && currentCaseType !== previousCaseType;
 
   return {
@@ -304,6 +304,14 @@ function derivePromisedFollowUp(payload, previousMemory) {
   return merged.slice(-5);
 }
 
+function resolveCurrentCaseType(nextCaseType, previousCaseType, unresolvedAskedSlots = []) {
+  const normalizedNext = String(nextCaseType || '').trim();
+  if (!normalizedNext || normalizedNext === 'unknown') {
+    return unresolvedAskedSlots.length > 0 ? (previousCaseType || normalizedNext || null) : (normalizedNext || previousCaseType || null);
+  }
+  return normalizedNext;
+}
+
 function deriveIssueStatus(deliveryDecision, triage, previousMemory) {
   if (deliveryDecision === 'handoff') return 'handoff_recommended';
   if (deliveryDecision === 'auto_send' || deliveryDecision === 'would_auto_send') return 'replied';
@@ -439,7 +447,7 @@ function extractSlotValue(slot, text) {
       for (const pattern of productPatterns) {
         const match = compactText.match(pattern);
         const value = sanitizeProductName(match?.[1]);
-        if (value && !looksLikeOnlyVariantInfo(value)) {
+        if (value && !looksLikeOnlyVariantInfo(value) && !looksLikePricingOrPromoFragment(value)) {
           return value;
         }
       }
@@ -603,6 +611,12 @@ function sanitizePersonName(value) {
 function looksLikeOnlyVariantInfo(value) {
   const normalized = String(value || '').toLowerCase();
   return /^(đen|trắng|xám|ghi|be|kem|nâu|xanh|đỏ|hồng|tím|vàng|xs|s|m|l|xl|xxl|xxxl|2xl|3xl|28|29|30|31|32|33|34|35|36)(\s|$)/.test(normalized);
+}
+
+function looksLikePricingOrPromoFragment(value) {
+  const normalized = String(value || '').toLowerCase().trim();
+  if (!normalized) return false;
+  return /(giá|bao nhiêu|bao tiền|sale|khuyến mãi|ưu đãi|voucher|mã giảm giá|freeship)/.test(normalized);
 }
 
 function coerceSentiment(...values) {

@@ -3,7 +3,10 @@ import { normalizeCaseType, normalizeDraftAction } from './types.js';
 export function buildFallbackDraft(input) {
   const triage = input?.triage || input?.triage_hint || {};
   const selected = input?.grounding?.selected || input?.grounding_bundle?.grounding?.selected || {};
-  const caseType = normalizeCaseType(input?.case_type || triage.case_type_hint || triage.case_type || 'unknown');
+  const requestedCaseType = normalizeCaseType(input?.case_type || triage.case_type_hint || triage.case_type || 'unknown');
+  const threadMemory = input?.thread_memory || input?.grounding_bundle?.customer_context?.thread_memory || null;
+  const latestCustomerMessage = input?.latest_customer_message || input?.message?.text || '';
+  const caseType = resolveFallbackCaseType(requestedCaseType, threadMemory, latestCustomerMessage);
   const policyEntries = normalizePolicyEntries(selected.policy_entries || []);
   const recommendedBlocks = normalizeRecommendedBlocks(selected.response_patterns?.recommended_blocks || []);
   const missingInfo = normalizeStringArray(input?.missing_info || triage.missing_info_hint || triage.missing_info || []);
@@ -319,6 +322,35 @@ function mentionsUnspecifiedProduct(message) {
 function normalizeRecommendedBlocks(value) {
   if (!Array.isArray(value)) return [];
   return value.filter((entry) => entry && typeof entry === 'object' && typeof entry.block_path === 'string');
+}
+
+function resolveFallbackCaseType(requestedCaseType, threadMemory, latestCustomerMessage) {
+  if (requestedCaseType !== 'unknown') {
+    return requestedCaseType;
+  }
+
+  const activeCaseType = normalizeCaseType(threadMemory?.active_issue?.case_type || 'unknown');
+  const unresolvedAskedSlots = normalizeAskedSlots(threadMemory?.asked_slots).filter((item) => item.status !== 'resolved');
+  if (activeCaseType !== 'pricing_or_promotion') {
+    return requestedCaseType;
+  }
+
+  if (!unresolvedAskedSlots.length) {
+    return requestedCaseType;
+  }
+
+  if (threadMemory?.pending_customer_reply || mentionsUnspecifiedProduct(latestCustomerMessage) || isGenericPricingFollowup(latestCustomerMessage)) {
+    return 'pricing_or_promotion';
+  }
+
+  return requestedCaseType;
+}
+
+function isGenericPricingFollowup(message) {
+  const text = String(message || '').trim().toLowerCase();
+  if (!text) return false;
+  return /^(dạ\s*)?(shop\s*)?(check|kiểm tra|coi|xem|báo|tư vấn)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(text)
+    || /^(dạ\s*)?(vậy|thế)(\s+(shop|bên mình|bên em))?(\s+(check|kiểm tra|báo|tư vấn))(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(text);
 }
 
 function normalizeStringArray(value) {
