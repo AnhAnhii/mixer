@@ -25,12 +25,12 @@ export function buildFallbackDraft(input) {
       );
     case 'shipping_eta_general':
       return draft(
-        interpolateTemplate(
-          pickFirstString(recommendedBlocks, 'faq_answer_shapes.shipping_eta') || 'Dạ thời gian giao hàng bên em thường khoảng {eta_summary} ạ.',
-          {
-            eta_summary: summarizeShippingEta(policyEntries)
-          }
-        ),
+        buildLowRiskFaqReply({
+          primaryCaseType: caseType,
+          latestCustomerMessage,
+          policyEntries,
+          recommendedBlocks
+        }),
         'draft_only',
         0.91,
         false,
@@ -41,12 +41,12 @@ export function buildFallbackDraft(input) {
       );
     case 'shipping_carrier':
       return draft(
-        interpolateTemplate(
-          pickFirstString(recommendedBlocks, 'faq_answer_shapes.shipping_carrier') || 'Dạ hiện bên em gửi hàng qua {carrier} nha anh/chị.',
-          {
-            carrier: extractCarrierName(policyEntries)
-          }
-        ),
+        buildLowRiskFaqReply({
+          primaryCaseType: caseType,
+          latestCustomerMessage,
+          policyEntries,
+          recommendedBlocks
+        }),
         'draft_only',
         0.92,
         false,
@@ -57,12 +57,12 @@ export function buildFallbackDraft(input) {
       );
     case 'support_hours':
       return draft(
-        interpolateTemplate(
-          pickFirstString(recommendedBlocks, 'faq_answer_shapes.support_hours') || 'Dạ bên em hỗ trợ trong khung giờ {support_hours} hằng ngày ạ.',
-          {
-            support_hours: extractSupportHours(policyEntries)
-          }
-        ),
+        buildLowRiskFaqReply({
+          primaryCaseType: caseType,
+          latestCustomerMessage,
+          policyEntries,
+          recommendedBlocks
+        }),
         'draft_only',
         0.93,
         false,
@@ -248,6 +248,73 @@ function pickFirstString(recommendedBlocks, expectedPath) {
     return String(match.value[0] || '').trim() || null;
   }
   return null;
+}
+
+function buildLowRiskFaqReply({ primaryCaseType, latestCustomerMessage, policyEntries, recommendedBlocks }) {
+  const detectedIntents = detectLowRiskFaqIntents(latestCustomerMessage);
+  if (!detectedIntents.length) {
+    detectedIntents.push(primaryCaseType);
+  }
+
+  const orderedIntents = [
+    primaryCaseType,
+    ...detectedIntents.filter((intent) => intent !== primaryCaseType)
+  ];
+
+  const replyParts = orderedIntents
+    .map((intent) => buildLowRiskFaqSegment(intent, policyEntries, recommendedBlocks))
+    .filter(Boolean);
+
+  return replyParts.join(' ');
+}
+
+function buildLowRiskFaqSegment(caseType, policyEntries, recommendedBlocks) {
+  switch (caseType) {
+    case 'shipping_eta_general':
+      return interpolateTemplate(
+        pickFirstString(recommendedBlocks, 'faq_answer_shapes.shipping_eta') || 'Dạ thời gian giao hàng bên em thường khoảng {eta_summary} ạ.',
+        {
+          eta_summary: summarizeShippingEta(policyEntries)
+        }
+      );
+    case 'shipping_carrier':
+      return interpolateTemplate(
+        pickFirstString(recommendedBlocks, 'faq_answer_shapes.shipping_carrier') || 'Hiện bên em gửi hàng qua {carrier} nha anh/chị.',
+        {
+          carrier: extractCarrierName(policyEntries)
+        }
+      );
+    case 'support_hours':
+      return interpolateTemplate(
+        pickFirstString(recommendedBlocks, 'faq_answer_shapes.support_hours') || 'Bên em hỗ trợ trong khung giờ {support_hours} hằng ngày ạ.',
+        {
+          support_hours: extractSupportHours(policyEntries)
+        }
+      );
+    default:
+      return null;
+  }
+}
+
+function detectLowRiskFaqIntents(message) {
+  const text = String(message || '').trim().toLowerCase();
+  if (!text) return [];
+
+  const intents = [];
+
+  if (/đơn vị vận chuyển|đơn vị nào|ship hãng nào|gửi qua hãng nào|vận chuyển bên nào|ship đơn vị nào|giao qua đơn vị nào|bên vận chuyển nào|ship bên nào/.test(text)) {
+    intents.push('shipping_carrier');
+  }
+
+  if (/giờ hỗ trợ|mấy giờ|khi nào làm việc|shop làm việc mấy giờ|shop hỗ trợ mấy giờ/.test(text)) {
+    intents.push('support_hours');
+  }
+
+  if (/ship|giao hàng|bao lâu|mấy ngày|khi nào nhận/.test(text)) {
+    intents.push('shipping_eta_general');
+  }
+
+  return [...new Set(intents)];
 }
 
 function interpolateTemplate(template, values) {
