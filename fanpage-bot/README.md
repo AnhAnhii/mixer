@@ -120,6 +120,7 @@ This is the fastest repeatable check after any continuity-related fix. It seeds 
 - stock follow-up continuity
 - order-status follow-up continuity
 - complaint follow-up continuity
+- exchange/return + defect follow-up continuity
 
 What it validates:
 - follow-up stays on the original risky case instead of falling back to `unknown`

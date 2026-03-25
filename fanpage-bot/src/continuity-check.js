@@ -20,13 +20,15 @@ const pricingResults = await runPricingDetailAcknowledgementChecks();
 const stockResults = await runStockFollowupContinuityChecks();
 const orderStatusResults = await runOrderStatusContinuityChecks();
 const complaintResults = await runComplaintContinuityChecks();
+const exchangeReturnResults = await runExchangeReturnContinuityChecks();
 
 const checks = [
   pricingResults,
   stockResults,
   orderStatusResults,
-  complaintResults
-];
+  complaintResults,
+  exchangeReturnResults
+].flat();
 
 const summary = {
   generated_at: new Date().toISOString(),
@@ -313,6 +315,118 @@ async function runComplaintContinuityChecks() {
     assertions,
     sample: {
       followup: buildCompactSample(followup)
+    }
+  };
+}
+
+async function runExchangeReturnContinuityChecks() {
+  resetStoresOnly();
+  const orderCodeStore = createThreadStateStore({ threadStatePath });
+  const orderCodeSenderId = 'test-exchange-followup-order-code';
+  const orderCodeThreadKey = `facebook:${pageId}:${orderCodeSenderId}`;
+
+  orderCodeStore.updateMemory(orderCodeThreadKey, {
+    normalizedMessage: {
+      thread_key: orderCodeThreadKey,
+      message_id: 'mid.seed.exchange.1',
+      text: 'shop ơi mình muốn đổi vì quạt bị lỗi',
+      timestamp: inHoursTimestamp
+    },
+    triage: {
+      case_type: 'exchange_return_specific',
+      missing_info: ['order_code', 'product_issue_detail'],
+      reason: 'matched_exchange_or_defect_rule',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: ['order_code', 'product_issue_detail'],
+        reason: 'exchange_return_case_needs_human',
+        reply_text: 'Dạ anh/chị cho em xin mã đơn và mô tả lỗi để bên em hỗ trợ mình chuẩn hơn ạ.'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
+
+  const orderCodeFollowupOutputs = await replaySingleMessage({
+    senderId: orderCodeSenderId,
+    mid: 'mid.local.exchange.order_code',
+    text: 'mã đơn DH123456',
+    timestamp: inHoursTimestamp + (60 * 1000)
+  });
+
+  resetStoresOnly();
+  const issueStore = createThreadStateStore({ threadStatePath });
+  const issueSenderId = 'test-exchange-followup-issue';
+  const issueThreadKey = `facebook:${pageId}:${issueSenderId}`;
+
+  issueStore.updateMemory(issueThreadKey, {
+    normalizedMessage: {
+      thread_key: issueThreadKey,
+      message_id: 'mid.seed.exchange.2',
+      text: 'shop ơi mình muốn đổi',
+      timestamp: inHoursTimestamp
+    },
+    triage: {
+      case_type: 'exchange_return_specific',
+      missing_info: ['order_code', 'product_issue_detail'],
+      reason: 'matched_exchange_or_defect_rule',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: ['order_code', 'product_issue_detail'],
+        reason: 'exchange_return_case_needs_human',
+        reply_text: 'Dạ anh/chị cho em xin mã đơn và mô tả lỗi để bên em hỗ trợ mình chuẩn hơn ạ.'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
+
+  const issueFollowupOutputs = await replaySingleMessage({
+    senderId: issueSenderId,
+    mid: 'mid.local.exchange.issue',
+    text: 'quạt bị gãy cánh với rung mạnh',
+    timestamp: inHoursTimestamp + (2 * 60 * 1000)
+  });
+
+  const orderCodeFollowup = orderCodeFollowupOutputs[0] || {};
+  const issueFollowup = issueFollowupOutputs[0] || {};
+  const orderCodeReply = readReplyText(orderCodeFollowup);
+  const issueReply = readReplyText(issueFollowup);
+  const orderCodeResolvedSlots = resolvedSlotsAfter(orderCodeFollowup);
+  const issueResolvedSlots = resolvedSlotsAfter(issueFollowup);
+  const orderCodeMissingInfo = guardedMissingInfo(orderCodeFollowup);
+
+  const assertions = {
+    order_code_followup_keeps_case: orderCodeFollowup.triage?.case_type === 'exchange_return_specific',
+    order_code_followup_stays_non_auto: ['handoff', 'draft_only'].includes(orderCodeFollowup.delivery?.decision),
+    order_code_followup_acknowledges_received_order_code: /đã nhận.*thông tin đổi\/trả|đã nhận.*mã đơn/i.test(orderCodeReply),
+    order_code_followup_only_requests_remaining_context_or_completes_intake: (
+      /mô tả lỗi|lý do đổi/i.test(orderCodeReply) && !/mã đơn.*ngày nhận hàng.*lý do/i.test(orderCodeReply)
+    ) || (Array.isArray(orderCodeMissingInfo) && orderCodeMissingInfo.length === 0 && orderCodeFollowup.thread_memory_after?.pending_customer_reply === false),
+    order_code_followup_has_continuity_flag: safetyFlags(orderCodeFollowup).includes('exchange_return_followup_continuity'),
+    order_code_followup_marks_order_slot_resolved: orderCodeResolvedSlots.includes('order_code'),
+    issue_followup_keeps_case: issueFollowup.triage?.case_type === 'exchange_return_specific',
+    issue_followup_stays_non_auto: ['handoff', 'draft_only'].includes(issueFollowup.delivery?.decision),
+    issue_followup_acknowledges_received_issue_detail: /đã nhận thêm thông tin|đã nhận mô tả lỗi/i.test(issueReply),
+    issue_followup_asks_only_remaining_order_code: /mã đơn/i.test(issueReply) && !/ngày nhận hàng/i.test(issueReply),
+    issue_followup_has_continuity_flag: safetyFlags(issueFollowup).includes('exchange_return_followup_continuity'),
+    issue_followup_marks_issue_slot_resolved: issueResolvedSlots.includes('product_issue_detail') || issueResolvedSlots.includes('reason_for_exchange_or_return')
+  };
+
+  return {
+    key: 'exchange_return_followup_continuity',
+    label: 'Exchange/return + defect follow-up continuity',
+    pass: Object.values(assertions).every(Boolean),
+    assertions,
+    sample: {
+      order_code_followup: buildCompactSample(orderCodeFollowup),
+      issue_followup: buildCompactSample(issueFollowup)
     }
   };
 }
