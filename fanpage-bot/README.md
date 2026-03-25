@@ -109,6 +109,25 @@ npm run metrics -- data/logs/audit.jsonl 200
 
 This summarizes the audit JSONL into quick rollout metrics: inbound count, unique threads, case mix, decisions, send outcomes, duplicate ignores, top safety flags, and rollout version slices (`policy_version`, `prompt_version`, `ai_mode`, `ai_model`).
 
+## Run the focused continuity regression check
+```bash
+cd fanpage-bot
+npm run continuity:check
+```
+
+This is the fastest repeatable check after any continuity-related fix. It seeds a minimal thread state, replays follow-up messages through the real pipeline, and returns a tight pass/fail summary for the two behaviors that most easily regress:
+- order-status follow-up continuity
+- complaint follow-up continuity
+
+What it validates:
+- follow-up stays on the original risky case instead of falling back to `unknown`
+- delivery stays non-auto (`handoff` / `draft_only`)
+- the bot acknowledges newly provided identifier info instead of asking for it again
+- thread memory clears `pending_customer_reply` once the requested identifier arrives
+- expected slot resolution is visible in `thread_memory_after`
+
+Artifacts are isolated under `data/tmp/continuity-check/` so this check does not pollute normal logs/state.
+
 ## Summarize the production validation cases from the runbook
 ```bash
 cd fanpage-bot
