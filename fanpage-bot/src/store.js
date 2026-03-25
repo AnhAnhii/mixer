@@ -2,21 +2,36 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resolveWritableDataPath } from './runtime-paths.js';
 
+function normalizeWritableTargetPath(targetPath, fallbackRelativePath) {
+  if (!targetPath) {
+    return resolveWritableDataPath(fallbackRelativePath);
+  }
+
+  if (targetPath === '/var/task' || targetPath.startsWith('/var/task/')) {
+    return resolveWritableDataPath(fallbackRelativePath);
+  }
+
+  return targetPath;
+}
+
 export function appendAuditLog(record, targetPath = process.env.LOG_STORE_PATH || resolveWritableDataPath('data/logs/audit.jsonl')) {
+  targetPath = normalizeWritableTargetPath(targetPath, 'data/logs/audit.jsonl');
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.appendFileSync(targetPath, JSON.stringify(record) + '\n', 'utf8');
   return targetPath;
 }
 
 export function appendRawEventLog(record, targetPath = process.env.RAW_EVENT_STORE_PATH || resolveWritableDataPath('data/logs/raw-events.jsonl')) {
+  targetPath = normalizeWritableTargetPath(targetPath, 'data/logs/raw-events.jsonl');
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.appendFileSync(targetPath, JSON.stringify(record) + '\n', 'utf8');
   return targetPath;
 }
 
-export function appendPendingHandoff(record, targetPath = process.env.HANDOFF_STORE_PATH || path.resolve(process.cwd(), 'data/logs/pending-handoffs.jsonl')) {
+export function appendPendingHandoff(record, targetPath = process.env.HANDOFF_STORE_PATH || resolveWritableDataPath('data/logs/pending-handoffs.jsonl')) {
+  targetPath = normalizeWritableTargetPath(targetPath, 'data/logs/pending-handoffs.jsonl');
   const dedupeKey = buildPendingHandoffKey(record);
-  const dedupePath = `${targetPath}.dedupe.json`;
+  const dedupePath = normalizeWritableTargetPath(`${targetPath}.dedupe.json`, 'data/logs/pending-handoffs.jsonl.dedupe.json');
   const dedupeState = loadPendingHandoffDedupeState(dedupePath);
 
   if (dedupeKey && dedupeState.seen[dedupeKey]) {
@@ -78,10 +93,12 @@ export function buildPendingHandoffRecord({ normalizedMessage, triage, guarded, 
 }
 
 export function readPendingHandoffs(targetPath = process.env.HANDOFF_STORE_PATH || resolveWritableDataPath('data/logs/pending-handoffs.jsonl')) {
+  targetPath = normalizeWritableTargetPath(targetPath, 'data/logs/pending-handoffs.jsonl');
   return readJsonl(targetPath);
 }
 
 export function readHandoffResolutions(targetPath = process.env.HANDOFF_RESOLUTION_STORE_PATH || resolveWritableDataPath('data/logs/handoff-resolutions.jsonl')) {
+  targetPath = normalizeWritableTargetPath(targetPath, 'data/logs/handoff-resolutions.jsonl');
   return readJsonl(targetPath);
 }
 
@@ -127,6 +144,8 @@ function buildPendingHandoffKey(record) {
 }
 
 function loadPendingHandoffDedupeState(filePath) {
+  filePath = normalizeWritableTargetPath(filePath, 'data/logs/pending-handoffs.jsonl.dedupe.json');
+
   try {
     if (!fs.existsSync(filePath)) {
       return { order: [], seen: {} };
@@ -190,16 +209,4 @@ function buildResolutionLookupKey(record) {
   }
 
   return null;
-}
-
-function normalizeWritableTargetPath(targetPath, fallbackRelativePath) {
-  if (!targetPath) {
-    return resolveWritableDataPath(fallbackRelativePath);
-  }
-
-  if (targetPath === '/var/task' || targetPath.startsWith('/var/task/')) {
-    return resolveWritableDataPath(fallbackRelativePath);
-  }
-
-  return targetPath;
 }
