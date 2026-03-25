@@ -9,6 +9,7 @@ import { buildMessageKey, createMessageDeduper } from './idempotency.js';
 import { createThreadStateStore } from './thread-state.js';
 
 const DEFAULT_PIPELINE_VERSION = '0.1.0';
+const PIPELINE_DEBUG_MARKER = 'pipeline-checkpoints-v1';
 
 export async function processWebhookBody(body, options = {}) {
   const eventPairs = extractWebhookEventPairs(body);
@@ -157,6 +158,7 @@ export async function processWebhookBody(body, options = {}) {
     outputs.push({ ...record, log_path: logPath, raw_log_path: rawLogPath, handoff_path: handoffPath });
   }
 
+  console.info('FANPAGE BOT PIPELINE CHECKPOINT', { marker: PIPELINE_DEBUG_MARKER, stage: 'PIPELINE_RETURN', outputs: outputs.length });
   return outputs;
 }
 
