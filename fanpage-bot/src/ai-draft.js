@@ -9,6 +9,7 @@ export async function generateDraft(input, options = {}) {
         missing_info_hint: input?.triage_hint?.missing_info || input?.triage?.missing_info_hint || []
       },
       grounding: input?.grounding_bundle?.grounding || input?.grounding || {},
+      thread_memory: input?.grounding_bundle?.customer_context?.thread_memory || input?.thread_memory || null,
       latest_customer_message: input?.message?.text || input?.latest_customer_message,
       reasoning_summary: buildFallbackReasoningSummary(input)
     }),

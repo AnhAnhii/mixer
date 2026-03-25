@@ -74,9 +74,9 @@ export async function processWebhookBody(body, options = {}) {
       continue;
     }
 
-    const triage = classifyMessage(normalizedMessage);
-    const triageHint = buildTriageHint(normalizedMessage, triage);
     const threadMemoryBefore = threadStateStore.getMemory(normalizedMessage.thread_key);
+    const triage = recoverThreadAwareTriage(classifyMessage(normalizedMessage), threadMemoryBefore);
+    const triageHint = buildTriageHint(normalizedMessage, triage);
     const groundedInput = buildGroundedInput(normalizedMessage, triage, options.recentMessages || [], {
       threadMemory: threadMemoryBefore
     });
@@ -165,6 +165,37 @@ export async function processWebhookBody(body, options = {}) {
     outputs: outputs.length
   });
   return outputs;
+}
+
+function recoverThreadAwareTriage(triage, threadMemory = null) {
+  if (!threadMemory?.pending_customer_reply) {
+    return triage;
+  }
+
+  if (triage?.case_type !== 'unknown') {
+    return triage;
+  }
+
+  const activeCaseType = threadMemory?.active_issue?.case_type;
+  const unresolvedAskedSlots = Array.isArray(threadMemory?.asked_slots)
+    ? threadMemory.asked_slots.filter((item) => item?.slot && item.status !== 'resolved').map((item) => item.slot)
+    : [];
+
+  if (!activeCaseType || !unresolvedAskedSlots.length) {
+    return triage;
+  }
+
+  return {
+    ...triage,
+    case_type: activeCaseType,
+    risk_level: activeCaseType === 'pricing_or_promotion' ? 'medium' : (triage?.risk_level || 'medium'),
+    needs_human: false,
+    auto_reply_allowed: false,
+    confidence: Math.max(Number(triage?.confidence || 0), 0.72),
+    missing_info: unresolvedAskedSlots,
+    reason: `followup_to_pending_${activeCaseType}`,
+    suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'slot_fill_expected'])]
+  };
 }
 
 function buildTriageHint(normalizedMessage, triage) {

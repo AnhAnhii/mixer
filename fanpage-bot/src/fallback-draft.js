@@ -106,16 +106,12 @@ export function buildFallbackDraft(input) {
         ['stock_unverified']
       );
     case 'pricing_or_promotion':
-      return draft(
-        'Dạ anh/chị nhắn giúp em tên mẫu hoặc ảnh sản phẩm mình quan tâm để bên em kiểm tra đúng giá/ưu đãi hiện có cho mình nha. Em chưa dám báo giá hay khuyến mãi nếu chưa có dữ liệu xác nhận ạ.',
-        'draft_only',
-        0.82,
-        false,
-        missingInfo.length ? missingInfo : ['product_name'],
-        'pricing_or_promotion_needs_grounded_product_data',
-        ['case:pricing_or_promotion'],
-        ['pricing_unverified', 'promotion_unverified']
-      );
+      return buildPricingPromotionDraft({
+        latestCustomerMessage: input?.latest_customer_message,
+        threadMemory: input?.thread_memory,
+        salesAssist: input?.grounding?.sales_assist || input?.grounding_bundle?.grounding?.sales_assist || {},
+        missingInfo: missingInfo.length ? missingInfo : ['product_name']
+      });
     case 'complaint_or_negative_feedback':
       return draft(
         pickFirstString(recommendedBlocks, 'handoff_safe_shapes.complaint')
@@ -203,6 +199,39 @@ function inferStrategy(action, intent, missingInfo, safetyFlags) {
   return 'direct_grounded_answer';
 }
 
+function buildPricingPromotionDraft({ latestCustomerMessage, threadMemory, salesAssist, missingInfo }) {
+  const unresolvedAskedSlots = normalizeAskedSlots(threadMemory?.asked_slots).filter((item) => item.status !== 'resolved');
+  const alreadyAskedForProduct = unresolvedAskedSlots.some((item) => item.slot === 'product_name');
+  const referencedProductDeictically = mentionsUnspecifiedProduct(latestCustomerMessage);
+  const hasStrongBuyerIntent = String(salesAssist?.buyer_intent_hint || '') === 'present'
+    || String(salesAssist?.lead_strength_hint || '') === 'high';
+
+  const replyText = alreadyAskedForProduct
+    ? 'Dạ để em kiểm tra đúng giá/ưu đãi hiện có cho mình, anh/chị gửi giúp em tên mẫu cụ thể hoặc ảnh/link sản phẩm nha. Nếu mình chốt luôn thì nhắn thêm size/màu đang cần, bên em sẽ kiểm tra đúng hơn cho mình ạ.'
+    : referencedProductDeictically || hasStrongBuyerIntent
+      ? 'Dạ để em báo đúng giá/ưu đãi hiện có, anh/chị gửi giúp em tên mẫu hoặc ảnh/link sản phẩm mình đang xem nha. Nếu có size/màu mình quan tâm thì nhắn kèm giúp em luôn ạ.'
+      : 'Dạ anh/chị nhắn giúp em tên mẫu hoặc ảnh/link sản phẩm mình quan tâm để bên em kiểm tra đúng giá/ưu đãi hiện có cho mình nha. Em chưa dám báo giá hay khuyến mãi nếu chưa có dữ liệu xác nhận ạ.';
+
+  const safetyFlags = ['pricing_unverified', 'promotion_unverified'];
+  if (alreadyAskedForProduct) {
+    safetyFlags.push('repeat_info_request_refined');
+  }
+  if (referencedProductDeictically) {
+    safetyFlags.push('product_reference_ambiguous');
+  }
+
+  return draft(
+    replyText,
+    'draft_only',
+    alreadyAskedForProduct ? 0.86 : 0.82,
+    false,
+    missingInfo,
+    'pricing_or_promotion_needs_grounded_product_data',
+    ['case:pricing_or_promotion'],
+    safetyFlags
+  );
+}
+
 function inferSentiment(intent, safetyFlags) {
   if (safetyFlags.includes('negative_sentiment')) return 'frustrated';
   if (intent === 'greeting_or_opening') return 'positive';
@@ -274,6 +303,17 @@ function buildPolicyRefs(policyEntries, caseType) {
 function normalizePolicyEntries(value) {
   if (!Array.isArray(value)) return [];
   return value.filter((entry) => entry && typeof entry === 'object');
+}
+
+function normalizeAskedSlots(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry) => entry && typeof entry === 'object' && typeof entry.slot === 'string');
+}
+
+function mentionsUnspecifiedProduct(message) {
+  const text = String(message || '').trim().toLowerCase();
+  if (!text) return false;
+  return /(áo này|quần này|item này|mẫu này|sp này|sản phẩm này|cái này|em này|bộ này|áo kia|quần kia|mẫu kia)/.test(text);
 }
 
 function normalizeRecommendedBlocks(value) {

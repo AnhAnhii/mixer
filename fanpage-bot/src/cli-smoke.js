@@ -164,6 +164,26 @@ const pricingBody = {
   ]
 };
 
+const pricingFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-14' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (60 * 1000),
+          message: {
+            mid: 'mid.local.12',
+            text: 'shop check giúp mình nha'
+          }
+        }
+      ]
+    }
+  ]
+};
+
 const shortAmbiguousBody = {
   object: 'page',
   entry: [
@@ -413,13 +433,26 @@ const carrierOutputs = await processWebhookBody(carrierBody, {
 });
 
 resetDedupeStore();
+resetThreadState();
 const pricingOutputs = await processWebhookBody(pricingBody, {
   autoReplyEnabled: true,
   shadowMode: false,
   dedupeStorePath,
+  threadStatePath,
   pageAccessToken: 'test-page-token',
   fetchImpl: async () => {
     throw new Error('fetch should not be called for ungrounded pricing/promo request');
+  }
+});
+
+const pricingFollowupOutputs = await processWebhookBody(pricingFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for repeated ungrounded pricing/promo request');
   }
 });
 
@@ -483,8 +516,9 @@ const signatureChecks = runSignatureChecks();
 const reasoningBundleChecks = runReasoningBundleChecks(pricingOutputs);
 const draftContractChecks = await runDraftContractChecks({ shadowOutputs, liveOutputs, complaintOutputs, pricingOutputs });
 const threadMemoryChecks = runThreadMemoryChecks();
+const pricingFollowupChecks = runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs });
 
-console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks }, null, 2));
+console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks }, null, 2));
 
 function resetDedupeStore() {
   if (fs.existsSync(dedupeStorePath)) {
@@ -650,6 +684,32 @@ function hasLegacyCompatibilityShape(draft) {
   );
 }
 
+function runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs }) {
+  const firstReply = pricingOutputs?.[0]?.guarded_draft?.reply_text || pricingOutputs?.[0]?.ai_draft?.reply_text || '';
+  const secondReply = pricingFollowupOutputs?.[0]?.guarded_draft?.reply_text || pricingFollowupOutputs?.[0]?.ai_draft?.reply_text || '';
+  const secondFlags = pricingFollowupOutputs?.[0]?.guarded_draft?.safety_flags || [];
+  const askedSlots = pricingFollowupOutputs?.[0]?.thread_memory_after?.asked_slots || [];
+
+  if (!/ảnh\/link sản phẩm|tên mẫu cụ thể/i.test(secondReply)) {
+    throw new Error('pricing follow-up should refine the request toward exact product identification');
+  }
+
+  if (!/size\/màu/i.test(secondReply)) {
+    throw new Error('pricing follow-up should leverage sales intent hints to collect optional variant detail');
+  }
+
+  if (!secondFlags.includes('repeat_info_request_refined')) {
+    throw new Error('pricing follow-up should mark refined repeated info request');
+  }
+
+  return {
+    first_reply: firstReply,
+    second_reply: secondReply,
+    second_flags: secondFlags,
+    pending_slots_after_followup: askedSlots.filter((item) => item.status !== 'resolved').map((item) => item.slot)
+  };
+}
+
 function runThreadMemoryChecks() {
   const store = createThreadStateStore({
     threadStatePath: path.join(tmpDir, 'thread-state.logic.smoke.json')
@@ -708,15 +768,132 @@ function runThreadMemoryChecks() {
 
   const afterReply = store.getMemory(threadKey);
 
+  const salesThreadKey = 'facebook:test-page:test-sales-user';
+  store.updateMemory(salesThreadKey, {
+    normalizedMessage: {
+      thread_key: salesThreadKey,
+      message_id: 'mid.sales.1',
+      text: 'còn mẫu này không shop',
+      timestamp: inHoursTimestamp
+    },
+    triage: {
+      case_type: 'stock_or_product_availability',
+      missing_info: ['product_name', 'size_or_variant', 'color_if_relevant'],
+      reason: 'matched_stock_check_rule',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: ['product_name', 'size_or_variant', 'color_if_relevant'],
+        reason: 'need_variant_details'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
+
+  store.updateMemory(salesThreadKey, {
+    normalizedMessage: {
+      thread_key: salesThreadKey,
+      message_id: 'mid.sales.2',
+      text: 'áo polo basic màu đen size m nha',
+      timestamp: inHoursTimestamp + 1000
+    },
+    triage: {
+      case_type: 'unknown',
+      missing_info: [],
+      reason: 'customer_provided_variant_details',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: [],
+        reason: 'ready_for_inventory_check'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
+
+  const afterSalesReply = store.getMemory(salesThreadKey);
+
+  const staleThreadKey = 'facebook:test-page:test-stale-user';
+  store.updateMemory(staleThreadKey, {
+    normalizedMessage: {
+      thread_key: staleThreadKey,
+      message_id: 'mid.stale.1',
+      text: 'kiểm tra đơn giúp mình',
+      timestamp: inHoursTimestamp
+    },
+    triage: {
+      case_type: 'order_status_request',
+      missing_info: ['order_code'],
+      reason: 'matched_order_status_rule',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: ['order_code'],
+        reason: 'need_order_code'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
+
+  store.updateMemory(staleThreadKey, {
+    normalizedMessage: {
+      thread_key: staleThreadKey,
+      message_id: 'mid.stale.2',
+      text: 'shop mấy giờ mở cửa vậy',
+      timestamp: inHoursTimestamp + 1000
+    },
+    triage: {
+      case_type: 'support_hours',
+      missing_info: [],
+      reason: 'matched_support_hours_rule',
+      needs_human: false
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'draft_only',
+        needs_human: false,
+        missing_info: [],
+        reason: 'knowledge_bank_faq_answer'
+      },
+      delivery: { decision: 'draft_only' }
+    }
+  });
+
+  const afterCaseShift = store.getMemory(staleThreadKey);
+
   return {
     after_ask: {
       pending_customer_reply: afterAsk.pending_customer_reply,
-      asked_slots: afterAsk.asked_slots
+      asked_slots: afterAsk.asked_slots,
+      customer_facts: afterAsk.customer_facts
     },
     after_reply: {
       pending_customer_reply: afterReply.pending_customer_reply,
       asked_slots: afterReply.asked_slots,
-      resolved_slots: afterReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => item.slot)
+      resolved_slots: afterReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => item.slot),
+      customer_facts: afterReply.customer_facts,
+      fact_types: afterReply.customer_facts.map((item) => item.fact_type)
+    },
+    sales_follow_up: {
+      pending_customer_reply: afterSalesReply.pending_customer_reply,
+      asked_slots: afterSalesReply.asked_slots,
+      resolved_slots: afterSalesReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => item.slot),
+      resolved_values: Object.fromEntries(afterSalesReply.asked_slots.filter((item) => item.status === 'resolved').map((item) => [item.slot, item.resolved_value_preview])),
+      fact_types: afterSalesReply.customer_facts.map((item) => item.fact_type)
+    },
+    case_shift_cleanup: {
+      pending_customer_reply: afterCaseShift.pending_customer_reply,
+      asked_slots: afterCaseShift.asked_slots,
+      active_issue: afterCaseShift.active_issue
     }
   };
 }
