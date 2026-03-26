@@ -5,6 +5,7 @@ import { processWebhookBody } from './pipeline.js';
 import { verifyFacebookWebhookSignature } from './webhook.js';
 import { normalizeDraftContract, generateDraft } from './ai-draft.js';
 import { createThreadStateStore } from './thread-state.js';
+import { runPolicyReadbackChecks } from './policy-readback-check.js';
 
 const tmpDir = path.resolve(process.cwd(), 'data/tmp');
 fs.mkdirSync(tmpDir, { recursive: true });
@@ -137,6 +138,26 @@ const complaintShippingBody = {
           message: {
             mid: 'mid.local.10',
             text: 'ship lâu quá, mình bực mình rồi'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const concreteDefectBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-28' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp,
+          message: {
+            mid: 'mid.local.28',
+            text: 'quạt bị gãy cánh với rung mạnh'
           }
         }
       ]
@@ -780,6 +801,17 @@ const complaintShippingOutputs = await processWebhookBody(complaintShippingBody,
   pageAccessToken: 'test-page-token',
   fetchImpl: async () => {
     throw new Error('fetch should not be called for complaint-like shipping message');
+  }
+});
+
+resetDedupeStore();
+const concreteDefectOutputs = await processWebhookBody(concreteDefectBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for concrete defect claim');
   }
 });
 
@@ -1479,8 +1511,9 @@ const stockFollowupChecks = runStockFollowupChecks({ stockVariantFollowupOutputs
 const exchangeReturnFollowupChecks = runExchangeReturnFollowupChecks({ exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs });
 const orderModificationFollowupChecks = runOrderModificationFollowupChecks({ orderModificationOutputs, orderModificationOrderCodeFollowupOutputs });
 const shippingFollowupChecks = runShippingFollowupChecks({ shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs });
+const policyReadbackChecks = runPolicyReadbackChecks();
 
-console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, paymentScamOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, pricingVariantOnlyFollowupOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, paymentScamOrderCodeFollowupOutputs, shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs, stockVariantFollowupOutputs, stockPartialFollowupOutputs, exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs, orderModificationOutputs, orderModificationOrderCodeFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks, paymentScamChecks, stockFollowupChecks, exchangeReturnFollowupChecks, orderModificationFollowupChecks, shippingFollowupChecks }, null, 2));
+console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, paymentScamOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, pricingVariantOnlyFollowupOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, paymentScamOrderCodeFollowupOutputs, shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs, stockVariantFollowupOutputs, stockPartialFollowupOutputs, exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs, orderModificationOutputs, orderModificationOrderCodeFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks, paymentScamChecks, stockFollowupChecks, exchangeReturnFollowupChecks, orderModificationFollowupChecks, shippingFollowupChecks, policyReadbackChecks }, null, 2));
 
 function resetDedupeStore() {
   if (fs.existsSync(dedupeStorePath)) {

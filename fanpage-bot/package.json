@@ -10,6 +10,7 @@
     "metrics": "node src/report-metrics.js",
     "production:check": "node src/production-check-summary.js",
     "continuity:check": "node src/continuity-check.js",
+    "policy:check": "node -e \"import('./src/policy-readback-check.js').then(({ runPolicyReadbackChecks }) => console.log(JSON.stringify(runPolicyReadbackChecks(), null, 2)))\"",
     "replay": "node src/replay-webhook.js",
     "replay:extract": "node src/extract-replay-payload.js"
   }
