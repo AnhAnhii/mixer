@@ -12,6 +12,10 @@ export function classifyMessage(normalizedMessage) {
     return buildResult('unknown', 'low', false, 0.2, [], 'empty_or_non_text_message', ['non_text']);
   }
 
+  if (/(scam|lừa đảo|lừa tiền|lừa lấy tiền|fake|giả mạo|mạo danh|uy tín không|có uy tín không|có phải lừa đảo không|shop thật không|page thật không|page chính chủ không|thanh toán trước có an toàn không|chuyển khoản trước có an toàn không|ck trước có an toàn không|chuyển khoản trước có bị lừa không|đã chuyển khoản.*(chưa thấy|không thấy)|đã thanh toán.*(chưa thấy|không thấy)|bị trừ tiền|trừ tiền rồi|thanh toán lỗi nhưng bị trừ|quét qr.*(bị|mà chưa)|chuyển khoản.*nhầm|báo scam|sợ bị lừa)/.test(text)) {
+    return buildResult('payment_or_scam_concern', 'high', true, 0.95, ['brief_context_of_concern_if_not_clear'], 'matched_payment_or_scam_concern_rule', ['payment_risk', 'trust_concern', 'handoff']);
+  }
+
   if (/bực|khó chịu|thất vọng|tệ quá|quá tệ|lừa đảo|phốt|không hài lòng|bực mình|chán shop|dịch vụ chán|dịch vụ tệ|khiếu nại|complain/.test(text)) {
     return buildResult('complaint_or_negative_feedback', 'high', true, 0.92, [], 'matched_negative_feedback_rule', ['complaint', 'negative_sentiment', 'handoff']);
   }

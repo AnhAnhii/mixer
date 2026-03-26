@@ -11,7 +11,9 @@ export function buildFallbackDraft(input) {
   const recommendedBlocks = normalizeRecommendedBlocks(selected.response_patterns?.recommended_blocks || []);
   const missingInfo = normalizeStringArray(input?.missing_info || triage.missing_info_hint || triage.missing_info || []);
   const orderStatusFollowup = buildOrderStatusFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
+  const orderModificationFollowup = buildOrderModificationFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
   const complaintFollowup = buildComplaintFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
+  const paymentScamFollowup = buildPaymentScamFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
   const exchangeReturnFollowup = buildExchangeReturnFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
   const stockFollowup = buildStockFollowupContext(threadMemory, latestCustomerMessage, missingInfo);
 
@@ -75,6 +77,38 @@ export function buildFallbackDraft(input) {
         buildPolicyRefs(policyEntries, caseType),
         []
       );
+    case 'return_policy_general':
+      return draft(
+        buildLowRiskFaqReply({
+          primaryCaseType: caseType,
+          latestCustomerMessage,
+          policyEntries,
+          recommendedBlocks
+        }),
+        'draft_only',
+        0.86,
+        false,
+        [],
+        'knowledge_bank_policy_answer',
+        buildPolicyRefs(policyEntries, caseType),
+        ['policy_topic_conservative']
+      );
+    case 'defective_product_policy_general':
+      return draft(
+        buildLowRiskFaqReply({
+          primaryCaseType: caseType,
+          latestCustomerMessage,
+          policyEntries,
+          recommendedBlocks
+        }),
+        'draft_only',
+        0.85,
+        false,
+        [],
+        'knowledge_bank_policy_answer',
+        buildPolicyRefs(policyEntries, caseType),
+        ['policy_topic_conservative']
+      );
     case 'order_status_request':
       return draft(
         orderStatusFollowup.replyText
@@ -88,6 +122,18 @@ export function buildFallbackDraft(input) {
         orderStatusFollowup.lookupSatisfied ? 'ready_for_manual_lookup' : 'requires_internal_order_check',
         buildPolicyRefs(policyEntries, caseType),
         ['requires_internal_data', ...(orderStatusFollowup.continuityApplied ? ['order_status_followup_continuity'] : [])]
+      );
+    case 'order_modification_or_cancel':
+      return draft(
+        orderModificationFollowup.replyText
+          || 'Dạ anh/chị gửi giúp em mã đơn và thông tin muốn thay đổi/hủy để bên em kiểm tra và hỗ trợ mình nhanh hơn nha.',
+        'handoff',
+        orderModificationFollowup.detailsReceived ? 0.91 : 0.89,
+        true,
+        orderModificationFollowup.missingInfo,
+        orderModificationFollowup.detailsReceived ? 'order_modification_context_received' : 'order_modification_requires_human',
+        buildPolicyRefs(policyEntries, caseType),
+        ['policy_risk', ...(orderModificationFollowup.continuityApplied ? ['order_modification_followup_continuity'] : [])]
       );
     case 'exchange_return_specific':
       return draft(
@@ -135,6 +181,18 @@ export function buildFallbackDraft(input) {
         complaintFollowup.identifierReceived ? 'complaint_identifier_received_waiting_manual_review' : 'negative_feedback_needs_human',
         buildPolicyRefs(policyEntries, caseType),
         ['negative_sentiment', 'policy_risk', ...(complaintFollowup.continuityApplied ? ['complaint_followup_continuity'] : [])]
+      );
+    case 'payment_or_scam_concern':
+      return draft(
+        paymentScamFollowup.replyText
+          || 'Dạ bên em rất tiếc vì anh/chị đang lo về vấn đề thanh toán/độ uy tín ạ. Anh/chị giúp em gửi thêm mã đơn, số điện thoại nhận hàng hoặc mô tả ngắn tình huống để bên em kiểm tra và hỗ trợ mình theo luồng xác minh phù hợp nha.',
+        'handoff',
+        paymentScamFollowup.identifierReceived ? 0.95 : 0.93,
+        true,
+        paymentScamFollowup.missingInfo,
+        paymentScamFollowup.identifierReceived ? 'payment_or_scam_identifier_received_waiting_manual_review' : 'payment_or_scam_concern_needs_human',
+        buildPolicyRefs(policyEntries, caseType),
+        ['payment_risk', 'trust_concern', ...(paymentScamFollowup.continuityApplied ? ['payment_or_scam_followup_continuity'] : [])]
       );
     default:
       return draft(
@@ -363,6 +421,21 @@ function buildLowRiskFaqSegment(caseType, policyEntries, recommendedBlocks, late
           support_hours: extractSupportHours(policyEntries)
         }
       );
+    case 'return_policy_general':
+      return interpolateTemplate(
+        pickFirstString(recommendedBlocks, 'faq_answer_shapes.return_policy_general') || 'Dạ bên em hỗ trợ đổi/trả trong vòng {return_window} kể từ khi giao hàng thành công ạ.',
+        {
+          return_window: extractReturnWindow(policyEntries)
+        }
+      );
+    case 'defective_product_policy_general':
+      return interpolateTemplate(
+        pickFirstString(recommendedBlocks, 'faq_answer_shapes.defect_policy_general') || 'Dạ nếu sản phẩm lỗi, bên em hỗ trợ trong vòng {defect_window} từ ngày nhận hàng thành công và hỗ trợ {defect_shipping_support} ạ.',
+        {
+          defect_window: extractDefectWindow(policyEntries),
+          defect_shipping_support: extractDefectShippingSupport(policyEntries)
+        }
+      );
     default:
       return null;
   }
@@ -466,6 +539,24 @@ function getFactStatement(policyEntries, factId) {
 function extractCarrierName(policyEntries) {
   const raw = getFactStatement(policyEntries, 'carrier_primary') || 'Viettel Post';
   const match = raw.match(/là\s+(.+?)\.?$/i);
+  return match?.[1]?.trim() || raw.replace(/\.$/, '').trim();
+}
+
+function extractReturnWindow(policyEntries) {
+  const raw = getFactStatement(policyEntries, 'return_window_general') || '3 ngày';
+  const match = raw.match(/trong\s+vòng\s+(.+?)\s+kể\s+từ/i);
+  return match?.[1]?.trim() || '3 ngày';
+}
+
+function extractDefectWindow(policyEntries) {
+  const raw = getFactStatement(policyEntries, 'defect_window') || '3 ngày';
+  const match = raw.match(/trong\s+vòng\s+(.+?)\s+từ/i);
+  return match?.[1]?.trim() || '3 ngày';
+}
+
+function extractDefectShippingSupport(policyEntries) {
+  const raw = getFactStatement(policyEntries, 'defect_shipping_support') || 'phí ship 2 đầu';
+  const match = raw.match(/hỗ trợ\s+(.+?)\.?$/i);
   return match?.[1]?.trim() || raw.replace(/\.$/, '').trim();
 }
 
@@ -740,6 +831,78 @@ function extractStockContext(message, relevantSlots = []) {
   return extracted;
 }
 
+function buildOrderModificationFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {
+  const activeCaseType = normalizeCaseType(threadMemory?.active_issue?.case_type || 'unknown');
+  const unresolvedAskedSlots = normalizeAskedSlots(threadMemory?.asked_slots).filter((item) => item.status !== 'resolved');
+  const pendingOrderModification = activeCaseType === 'order_modification_or_cancel' && unresolvedAskedSlots.length > 0;
+  const extracted = extractOrderModificationContext(latestCustomerMessage, unresolvedAskedSlots.map((item) => item.slot));
+  const remainingMissingInfo = unresolvedAskedSlots.map((item) => item.slot).filter((slot) => !extracted[slot]);
+  const detailsReceived = pendingOrderModification && Object.keys(extracted).length > 0;
+
+  if (detailsReceived && remainingMissingInfo.length === 0) {
+    return {
+      continuityApplied: true,
+      detailsReceived: true,
+      missingInfo: [],
+      replyText: 'Dạ em đã nhận đủ thông tin điều chỉnh/hủy đơn của mình rồi ạ. Bên em sẽ kiểm tra và phản hồi anh/chị sớm nhất nha.'
+    };
+  }
+
+  if (pendingOrderModification) {
+    return {
+      continuityApplied: true,
+      detailsReceived,
+      missingInfo: remainingMissingInfo.length ? remainingMissingInfo : normalizeStringArray(triageMissingInfo.length ? triageMissingInfo : unresolvedAskedSlots.map((item) => item.slot)),
+      replyText: detailsReceived ? buildOrderModificationFollowupReply(remainingMissingInfo) : null
+    };
+  }
+
+  return {
+    continuityApplied: false,
+    detailsReceived: false,
+    missingInfo: normalizeStringArray(triageMissingInfo.length ? triageMissingInfo : ['order_code', 'requested_change']),
+    replyText: null
+  };
+}
+
+function extractOrderModificationContext(message, relevantSlots = []) {
+  const text = String(message || '').trim();
+  if (!text) return {};
+
+  const slotSet = new Set(relevantSlots || []);
+  const extracted = {};
+
+  if (!slotSet.size || slotSet.has('order_code')) {
+    const orderCode = extractOrderCode(text);
+    if (orderCode) extracted.order_code = orderCode;
+  }
+
+  if (!slotSet.size || slotSet.has('requested_change')) {
+    const requestedChange = extractRequestedChange(text);
+    if (requestedChange) extracted.requested_change = requestedChange;
+  }
+
+  return extracted;
+}
+
+function buildOrderModificationFollowupReply(remainingMissingInfo = []) {
+  const missing = new Set(normalizeStringArray(remainingMissingInfo));
+
+  if (missing.has('order_code') && missing.has('requested_change')) {
+    return 'Dạ em đã nhận thêm thông tin rồi ạ. Anh/chị gửi giúp em mã đơn và nội dung muốn thay đổi/hủy để bên em kiểm tra hỗ trợ mình nhanh hơn nha.';
+  }
+
+  if (missing.has('order_code')) {
+    return 'Dạ em đã nhận yêu cầu của mình rồi ạ. Anh/chị gửi giúp em mã đơn để bên em kiểm tra và hỗ trợ mình nhanh hơn nha.';
+  }
+
+  if (missing.has('requested_change')) {
+    return 'Dạ em đã nhận mã đơn rồi ạ. Anh/chị nhắn thêm giúp em nội dung muốn thay đổi hoặc hủy đơn để bên em kiểm tra hỗ trợ mình đúng hơn nha.';
+  }
+
+  return 'Dạ em đã nhận thêm thông tin rồi ạ. Bên em sẽ kiểm tra và phản hồi anh/chị sớm nhất nha.';
+}
+
 function buildComplaintFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {
   const latestText = String(latestCustomerMessage || '').trim();
   const pendingComplaint = threadMemory?.active_issue?.case_type === 'complaint_or_negative_feedback';
@@ -760,6 +923,29 @@ function buildComplaintFollowupContext(threadMemory, latestCustomerMessage, tria
     missingInfo,
     replyText: continuityApplied && hasIdentifierInMessage
       ? 'Dạ em đã nhận thông tin đơn của anh/chị rồi ạ. Bên em xin lỗi về trải nghiệm này và sẽ kiểm tra kỹ để phản hồi mình sớm nhất nha.'
+      : null
+  };
+}
+
+function buildPaymentScamFollowupContext(threadMemory, latestCustomerMessage, triageMissingInfo = []) {
+  const latestText = String(latestCustomerMessage || '').trim();
+  const pendingConcern = threadMemory?.active_issue?.case_type === 'payment_or_scam_concern';
+  const unresolvedAskedSlots = normalizeStringArray(
+    (threadMemory?.asked_slots || []).filter((item) => item?.status !== 'resolved').map((item) => item?.slot)
+  );
+  const identifierBundle = extractOrderLookupIdentifiers(latestCustomerMessage);
+  const hasIdentifierInMessage = Boolean(identifierBundle.order_code || identifierBundle.phone || identifierBundle.receiver_phone);
+  const continuityApplied = pendingConcern && Boolean(latestText) && (threadMemory?.pending_customer_reply || hasIdentifierInMessage || looksLikePaymentConcernFollowup(latestText));
+  const missingInfo = continuityApplied && hasIdentifierInMessage
+    ? []
+    : normalizeStringArray(triageMissingInfo.length ? triageMissingInfo : unresolvedAskedSlots.length ? unresolvedAskedSlots : ['brief_context_of_concern_if_not_clear']);
+
+  return {
+    continuityApplied,
+    identifierReceived: continuityApplied && hasIdentifierInMessage,
+    missingInfo,
+    replyText: continuityApplied && hasIdentifierInMessage
+      ? 'Dạ em đã nhận thông tin đơn/thanh toán của anh/chị rồi ạ. Bên em sẽ kiểm tra kỹ theo luồng xác minh và phản hồi mình sớm nhất nha.'
       : null
   };
 }
@@ -866,6 +1052,20 @@ function extractIssueDetail(text) {
 
   if (compact.length >= 6 && /(lỗi|rách|hỏng|sai hàng|sai size|bung|tuột|bể|nứt|không lên|không chạy|không quay|không dùng được|móp|méo|gãy|vỡ|rung mạnh)/iu.test(compact)) {
     return sanitizeIssueDetail(compact);
+  }
+
+  return null;
+}
+
+function extractRequestedChange(text) {
+  const match = String(text || '').match(/(?:muốn|nhờ|giúp|xin)?\s*(huỷ|hủy|cancel|đổi|sửa|chỉnh|thay đổi)\s+([^,.!?\n]{3,100})/iu);
+  if (match?.[0]) {
+    return sanitizeFreeText(match[0], 100);
+  }
+
+  const compact = String(text || '').trim();
+  if (/^(giao về|địa chỉ|sđt|số điện thoại|người nhận)\b/iu.test(compact)) {
+    return sanitizeFreeText(compact, 100);
   }
 
   return null;
@@ -1030,6 +1230,13 @@ function looksLikeOrderLookupFollowup(message) {
     || /^(sđt|sdt|sdt nè|số điện thoại|mã đơn)(\s*[:\-].*)?$/iu.test(text);
 }
 
+function looksLikePaymentConcernFollowup(message) {
+  const text = String(message || '').trim().toLowerCase();
+  if (!text) return false;
+  return looksLikeOrderLookupFollowup(text)
+    || /(mình đã chuyển khoản|em đã chuyển khoản|đã ck|đã thanh toán|bị trừ tiền|giao dịch lỗi|quét qr|scam|lừa đảo|check giúp giao dịch|xác minh giúp)/.test(text);
+}
+
 function extractSizeOrVariant(text) {
   const directMatch = String(text || '').match(/(?:size|sz|cỡ|co)\s*[:\-]?\s*([a-z0-9]{1,6}(?:\s*[\/\-]\s*[a-z0-9]{1,6})?)/iu);
   if (directMatch?.[1]) {
@@ -1096,3 +1303,5 @@ function normalizeConfidence(value) {
   if (!Number.isFinite(numeric)) return 0;
   return Math.max(0, Math.min(1, numeric));
 }
+
+

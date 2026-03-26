@@ -7,10 +7,12 @@ export const LOW_RISK_CASES = new Set([
 
 export const HANDOFF_CASES = new Set([
   'order_status_request',
+  'order_modification_or_cancel',
   'exchange_return_specific',
   'defective_product_claim',
   'stock_or_product_availability',
   'complaint_or_negative_feedback',
+  'payment_or_scam_concern',
   'unknown'
 ]);
 
@@ -18,7 +20,9 @@ export const KNOWN_CASES = new Set([
   ...LOW_RISK_CASES,
   ...HANDOFF_CASES,
   'pricing_or_promotion',
-  'payment_or_scam_concern'
+  'payment_or_scam_concern',
+  'return_policy_general',
+  'defective_product_policy_general'
 ]);
 
 export const VALID_DRAFT_ACTIONS = new Set(['auto_send', 'draft_only', 'handoff']);

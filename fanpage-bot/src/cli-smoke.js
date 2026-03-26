@@ -64,6 +64,46 @@ const offHoursBody = {
   ]
 };
 
+const returnPolicyBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-26' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp,
+          message: {
+            mid: 'mid.local.26',
+            text: 'shop có hỗ trợ đổi trả không'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const defectPolicyBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-27' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp,
+          message: {
+            mid: 'mid.local.27',
+            text: 'hàng lỗi có được đổi không'
+          }
+        }
+      ]
+    }
+  ]
+};
+
 const complaintBody = {
   object: 'page',
   entry: [
@@ -157,6 +197,26 @@ const pricingBody = {
           message: {
             mid: 'mid.local.11',
             text: 'áo này giá bao nhiêu, có sale không shop?'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const paymentScamBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-26' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp,
+          message: {
+            mid: 'mid.local.25',
+            text: 'shop có uy tín không, chuyển khoản trước có an toàn không?'
           }
         }
       ]
@@ -304,6 +364,26 @@ const complaintOrderCodeFollowupBody = {
   ]
 };
 
+const paymentScamOrderCodeFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-26' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (6 * 60 * 1000),
+          message: {
+            mid: 'mid.local.26',
+            text: 'mã đơn DH777777'
+          }
+        }
+      ]
+    }
+  ]
+};
+
 const shippingEtaRegionFollowupBody = {
   object: 'page',
   entry: [
@@ -397,6 +477,46 @@ const exchangeReturnIssueFollowupBody = {
           message: {
             mid: 'mid.local.22',
             text: 'quạt bị gãy cánh với rung mạnh'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const orderModificationBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-25' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp,
+          message: {
+            mid: 'mid.local.23',
+            text: 'đổi địa chỉ giao hàng giúp mình'
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const orderModificationOrderCodeFollowupBody = {
+  object: 'page',
+  entry: [
+    {
+      id: '105265398928721',
+      messaging: [
+        {
+          sender: { id: 'test-psid-25' },
+          recipient: { id: '105265398928721' },
+          timestamp: inHoursTimestamp + (12 * 60 * 1000),
+          message: {
+            mid: 'mid.local.24',
+            text: 'mã đơn DH888888'
           }
         }
       ]
@@ -685,6 +805,19 @@ const pricingOutputs = await processWebhookBody(pricingBody, {
   }
 });
 
+resetDedupeStore();
+resetThreadState();
+const paymentScamOutputs = await processWebhookBody(paymentScamBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for payment/scam concern');
+  }
+});
+
 const pricingFollowupOutputs = await processWebhookBody(pricingFollowupBody, {
   autoReplyEnabled: true,
   shadowMode: false,
@@ -949,6 +1082,44 @@ const complaintOrderCodeFollowupOutputs = await processWebhookBody(complaintOrde
 
 resetDedupeStore();
 resetThreadState();
+const paymentScamFollowupStore = createThreadStateStore({ threadStatePath });
+paymentScamFollowupStore.updateMemory('facebook:105265398928721:test-psid-26', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-26',
+    message_id: 'mid.seed.payment.1',
+    text: 'shop có uy tín không, chuyển khoản trước có an toàn không?',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'payment_or_scam_concern',
+    missing_info: ['brief_context_of_concern_if_not_clear', 'order_code'],
+    reason: 'matched_payment_or_scam_concern_rule',
+    needs_human: true
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'handoff',
+      needs_human: true,
+      missing_info: ['brief_context_of_concern_if_not_clear', 'order_code'],
+      reason: 'payment_or_scam_concern_needs_human',
+      reply_text: 'Dạ bên em rất tiếc vì anh/chị đang lo về vấn đề thanh toán/độ uy tín ạ. Anh/chị giúp em gửi thêm mã đơn, số điện thoại nhận hàng hoặc mô tả ngắn tình huống để bên em kiểm tra và hỗ trợ mình theo luồng xác minh phù hợp nha.'
+    },
+    delivery: { decision: 'handoff' }
+  }
+});
+const paymentScamOrderCodeFollowupOutputs = await processWebhookBody(paymentScamOrderCodeFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for payment/scam order-code follow-up');
+  }
+});
+
+resetDedupeStore();
+resetThreadState();
 const shippingEtaFollowupStore = createThreadStateStore({ threadStatePath });
 shippingEtaFollowupStore.updateMemory('facebook:105265398928721:test-psid-19', {
   normalizedMessage: {
@@ -1155,6 +1326,55 @@ const exchangeReturnIssueFollowupOutputs = await processWebhookBody(exchangeRetu
 
 resetDedupeStore();
 resetThreadState();
+const orderModificationOutputs = await processWebhookBody(orderModificationBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for order modification case');
+  }
+});
+
+const orderModificationStore = createThreadStateStore({ threadStatePath });
+orderModificationStore.updateMemory('facebook:105265398928721:test-psid-25', {
+  normalizedMessage: {
+    thread_key: 'facebook:105265398928721:test-psid-25',
+    message_id: 'mid.seed.modify.1',
+    text: 'đổi địa chỉ giao hàng giúp mình',
+    timestamp: inHoursTimestamp
+  },
+  triage: {
+    case_type: 'order_modification_or_cancel',
+    missing_info: ['order_code', 'requested_change'],
+    reason: 'matched_order_modification_or_cancel_rule',
+    needs_human: true
+  },
+  guarded: {
+    guarded_draft: {
+      action: 'handoff',
+      needs_human: true,
+      missing_info: ['order_code', 'requested_change'],
+      reason: 'order_modification_requires_human',
+      reply_text: 'Dạ anh/chị gửi giúp em mã đơn và thông tin muốn thay đổi/hủy để bên em kiểm tra và hỗ trợ mình nhanh hơn nha.'
+    },
+    delivery: { decision: 'handoff' }
+  }
+});
+const orderModificationOrderCodeFollowupOutputs = await processWebhookBody(orderModificationOrderCodeFollowupBody, {
+  autoReplyEnabled: true,
+  shadowMode: false,
+  dedupeStorePath,
+  threadStatePath,
+  pageAccessToken: 'test-page-token',
+  fetchImpl: async () => {
+    throw new Error('fetch should not be called for order modification follow-up');
+  }
+});
+
+resetDedupeStore();
+resetThreadState();
 const stockPartialStore = createThreadStateStore({ threadStatePath });
 stockPartialStore.updateMemory('facebook:105265398928721:test-psid-24', {
   normalizedMessage: {
@@ -1254,11 +1474,13 @@ const threadMemoryChecks = runThreadMemoryChecks();
 const pricingFollowupChecks = runPricingFollowupChecks({ pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, pricingVariantOnlyFollowupOutputs });
 const orderStatusContinuityChecks = runOrderStatusContinuityChecks({ orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs });
 const complaintFollowupChecks = runComplaintFollowupChecks({ complaintOrderCodeFollowupOutputs });
+const paymentScamChecks = runPaymentScamChecks({ paymentScamOutputs, paymentScamOrderCodeFollowupOutputs });
 const stockFollowupChecks = runStockFollowupChecks({ stockVariantFollowupOutputs, stockPartialFollowupOutputs });
 const exchangeReturnFollowupChecks = runExchangeReturnFollowupChecks({ exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs });
+const orderModificationFollowupChecks = runOrderModificationFollowupChecks({ orderModificationOutputs, orderModificationOrderCodeFollowupOutputs });
 const shippingFollowupChecks = runShippingFollowupChecks({ shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs });
 
-console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, pricingVariantOnlyFollowupOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs, stockVariantFollowupOutputs, stockPartialFollowupOutputs, exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks, stockFollowupChecks, exchangeReturnFollowupChecks, shippingFollowupChecks }, null, 2));
+console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, paymentScamOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, pricingVariantOnlyFollowupOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, paymentScamOrderCodeFollowupOutputs, shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs, stockVariantFollowupOutputs, stockPartialFollowupOutputs, exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs, orderModificationOutputs, orderModificationOrderCodeFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks, paymentScamChecks, stockFollowupChecks, exchangeReturnFollowupChecks, orderModificationFollowupChecks, shippingFollowupChecks }, null, 2));
 
 function resetDedupeStore() {
   if (fs.existsSync(dedupeStorePath)) {
@@ -1474,6 +1696,32 @@ function runComplaintFollowupChecks({ complaintOrderCodeFollowupOutputs }) {
   };
 }
 
+function runPaymentScamChecks({ paymentScamOutputs, paymentScamOrderCodeFollowupOutputs }) {
+  const initialOutput = paymentScamOutputs?.[0] || {};
+  const followupOutput = paymentScamOrderCodeFollowupOutputs?.[0] || {};
+  const initialReply = initialOutput?.guarded_draft?.reply_text || initialOutput?.ai_draft?.reply_text || '';
+  const followupReply = followupOutput?.guarded_draft?.reply_text || followupOutput?.ai_draft?.reply_text || '';
+  const followupFlags = followupOutput?.guarded_draft?.safety_flags || [];
+  const followupMemory = followupOutput?.thread_memory_after || {};
+
+  return {
+    initial_triage: initialOutput?.triage?.case_type || null,
+    initial_stays_payment_or_scam: initialOutput?.triage?.case_type === 'payment_or_scam_concern',
+    initial_is_handoff: initialOutput?.delivery?.decision === 'handoff',
+    initial_reply: initialReply,
+    initial_takes_concern_seriously: /thanh toán|độ uy tín|xác minh|kiểm tra/i.test(initialReply),
+    followup_triage: followupOutput?.triage?.case_type || null,
+    followup_stays_payment_or_scam: followupOutput?.triage?.case_type === 'payment_or_scam_concern',
+    followup_reply: followupReply,
+    followup_acknowledges_identifier: /đã nhận.*(đơn|thanh toán)/i.test(followupReply),
+    followup_avoids_reasking_identifier: !/gửi thêm mã đơn|số điện thoại nhận hàng/i.test(followupReply),
+    followup_continuity_flagged: followupFlags.includes('payment_or_scam_followup_continuity'),
+    followup_missing_info_cleared: Array.isArray(followupOutput?.guarded_draft?.missing_info) && followupOutput.guarded_draft.missing_info.length === 0,
+    followup_thread_waiting_cleared: followupMemory.pending_customer_reply === false,
+    followup_thread_resolved_slots: (followupMemory.asked_slots || []).filter((item) => item.status === 'resolved').map((item) => item.slot)
+  };
+}
+
 function runStockFollowupChecks({ stockVariantFollowupOutputs, stockPartialFollowupOutputs }) {
   const output = stockVariantFollowupOutputs?.[0] || {};
   const reply = output?.guarded_draft?.reply_text || output?.ai_draft?.reply_text || '';
@@ -1524,6 +1772,28 @@ function runExchangeReturnFollowupChecks({ exchangeReturnOrderCodeFollowupOutput
     issue_followup_asks_only_remaining_order_code: /mã đơn/i.test(issueReply) && !/ngày nhận hàng/i.test(issueReply),
     issue_followup_continuity_flagged: issueFlags.includes('exchange_return_followup_continuity'),
     issue_followup_issue_slot_resolved: (issueMemory.asked_slots || []).some((item) => item.slot === 'product_issue_detail' && item.status === 'resolved')
+  };
+}
+
+function runOrderModificationFollowupChecks({ orderModificationOutputs, orderModificationOrderCodeFollowupOutputs }) {
+  const initialOutput = orderModificationOutputs?.[0] || {};
+  const followupOutput = orderModificationOrderCodeFollowupOutputs?.[0] || {};
+  const initialReply = initialOutput?.guarded_draft?.reply_text || initialOutput?.ai_draft?.reply_text || '';
+  const followupReply = followupOutput?.guarded_draft?.reply_text || followupOutput?.ai_draft?.reply_text || '';
+  const followupFlags = followupOutput?.guarded_draft?.safety_flags || [];
+  const followupMemory = followupOutput?.thread_memory_after || {};
+
+  return {
+    initial_triage: initialOutput?.triage?.case_type || null,
+    initial_stays_order_modification: initialOutput?.triage?.case_type === 'order_modification_or_cancel',
+    initial_asks_for_order_code_or_change: /mã đơn/i.test(initialReply) && /thay đổi|hủy/i.test(initialReply),
+    followup_triage: followupOutput?.triage?.case_type || null,
+    followup_stays_order_modification: followupOutput?.triage?.case_type === 'order_modification_or_cancel',
+    followup_reply: followupReply,
+    followup_acknowledges_received_order_code: /đã nhận.*mã đơn/i.test(followupReply),
+    followup_asks_only_remaining_change_detail: /thay đổi|hủy đơn/i.test(followupReply) && !/mã đơn và thông tin muốn thay đổi\/hủy/i.test(followupReply),
+    followup_continuity_flagged: followupFlags.includes('order_modification_followup_continuity'),
+    followup_order_slot_resolved: (followupMemory.asked_slots || []).some((item) => item.slot === 'order_code' && item.status === 'resolved')
   };
 }
 

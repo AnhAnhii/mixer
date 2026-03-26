@@ -183,6 +183,10 @@ function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage
     && (threadMemory?.pending_customer_reply || unresolvedAskedSlots.length > 0 || isGenericFollowup);
   const isComplaintContinuation = activeCaseType === 'complaint_or_negative_feedback'
     && (threadMemory?.pending_customer_reply || hasProvidedIdentifier || isGenericFollowup);
+  const isPaymentScamContinuation = activeCaseType === 'payment_or_scam_concern'
+    && (threadMemory?.pending_customer_reply || hasProvidedIdentifier || isGenericFollowup || detectPaymentScamSignal(latestText));
+  const isOrderModificationContinuation = activeCaseType === 'order_modification_or_cancel'
+    && (threadMemory?.pending_customer_reply || hasProvidedIdentifier || isGenericFollowup || Boolean(providedSlots.requested_change));
   const lowRiskFaqContinuationCase = detectLowRiskFaqContinuation(activeCaseType, latestText);
   const escalatedThreadCase = detectEscalatedThreadCase(activeCaseType, latestText);
 
@@ -214,6 +218,20 @@ function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage
     };
   }
 
+  if (activeCaseType === 'payment_or_scam_concern' && hasProvidedIdentifier && isPaymentScamContinuation) {
+    return {
+      ...triage,
+      case_type: activeCaseType,
+      risk_level: 'high',
+      needs_human: true,
+      auto_reply_allowed: false,
+      confidence: Math.max(Number(triage?.confidence || 0), 0.86),
+      missing_info: [],
+      reason: `followup_to_active_${activeCaseType}`,
+      suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'payment_or_scam_followup_continuity'])]
+    };
+  }
+
   if (activeCaseType === 'exchange_return_specific' && triage?.case_type === 'order_status_request' && hasProvidedIdentifier) {
     return {
       ...triage,
@@ -225,6 +243,20 @@ function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage
       missing_info: remainingMissingInfo,
       reason: `followup_to_active_${activeCaseType}`,
       suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'exchange_return_followup_continuity'])]
+    };
+  }
+
+  if (activeCaseType === 'order_modification_or_cancel' && triage?.case_type === 'order_status_request' && hasProvidedIdentifier && isOrderModificationContinuation) {
+    return {
+      ...triage,
+      case_type: activeCaseType,
+      risk_level: 'high',
+      needs_human: true,
+      auto_reply_allowed: false,
+      confidence: Math.max(Number(triage?.confidence || 0), 0.84),
+      missing_info: remainingMissingInfo,
+      reason: `followup_to_active_${activeCaseType}`,
+      suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'order_modification_followup_continuity'])]
     };
   }
 
@@ -246,24 +278,47 @@ function recoverThreadAwareTriage(triage, threadMemory = null, normalizedMessage
     };
   }
 
-  if (!threadMemory?.pending_customer_reply && !isPricingContinuation && !isComplaintContinuation) {
+  if (activeCaseType === 'order_modification_or_cancel' && isOrderModificationContinuation) {
+    return {
+      ...triage,
+      case_type: activeCaseType,
+      risk_level: 'high',
+      needs_human: true,
+      auto_reply_allowed: false,
+      confidence: Math.max(Number(triage?.confidence || 0), 0.84),
+      missing_info: remainingMissingInfo,
+      reason: `followup_to_active_${activeCaseType}`,
+      suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', 'order_modification_followup_continuity'])]
+    };
+  }
+
+  if (!threadMemory?.pending_customer_reply && !isPricingContinuation && !isComplaintContinuation && !isPaymentScamContinuation && !isOrderModificationContinuation) {
     return triage;
   }
 
-  if (!activeCaseType || (!unresolvedAskedSlots.length && !isComplaintContinuation)) {
+  if (!activeCaseType || (!unresolvedAskedSlots.length && !isComplaintContinuation && !isPaymentScamContinuation && !isOrderModificationContinuation)) {
     return triage;
+  }
+
+  const continuityTags = ['thread_followup'];
+  if (isComplaintContinuation) {
+    continuityTags.push('complaint_followup_continuity');
+  } else if (isPaymentScamContinuation) {
+    continuityTags.push('payment_or_scam_followup_continuity');
+  } else {
+    continuityTags.push('slot_fill_expected');
   }
 
   return {
     ...triage,
     case_type: activeCaseType,
-    risk_level: activeCaseType === 'pricing_or_promotion' ? 'medium' : (triage?.risk_level || 'medium'),
+    risk_level: activeCaseType === 'pricing_or_promotion' ? 'medium' : 'high',
     needs_human: activeCaseType === 'pricing_or_promotion' ? false : true,
     auto_reply_allowed: false,
-    confidence: Math.max(Number(triage?.confidence || 0), activeCaseType === 'pricing_or_promotion' ? 0.78 : 0.72),
+    confidence: Math.max(Number(triage?.confidence || 0), activeCaseType === 'pricing_or_promotion' ? 0.78 : (activeCaseType === 'payment_or_scam_concern' ? 0.84 : 0.72)),
     missing_info: remainingMissingInfo,
-    reason: isComplaintContinuation ? `followup_to_active_${activeCaseType}` : `followup_to_pending_${activeCaseType}`,
-    suggested_tags: [...new Set([...(triage?.suggested_tags || []), 'thread_followup', ...(isComplaintContinuation ? ['complaint_followup_continuity'] : ['slot_fill_expected'])])]
+    reason: (isComplaintContinuation || isPaymentScamContinuation) ? `followup_to_active_${activeCaseType}` : `followup_to_pending_${activeCaseType}`,
+    suggested_tags: [...new Set([...(triage?.suggested_tags || []), ...continuityTags])]
   };
 }
 
@@ -276,6 +331,15 @@ function detectGenericFollowup(text) {
   return /^(dạ\s*)?(shop\s*)?(check|kiểm tra|coi|xem)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized)
     || /^(dạ\s*)?(shop\s*)?(báo|tư vấn)(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized)
     || /^(dạ\s*)?(vậy|thế)(\s+(shop|bên mình|bên em))?(\s+(check|kiểm tra|báo|tư vấn))(\s+giúp)?(\s+(em|mình|anh|chị))?(\s+nha|\s+nhé|\s+ạ|\s+với)?[.!?…~]*$/iu.test(normalized);
+}
+
+function detectPaymentScamSignal(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return /(scam|lừa đảo|lừa tiền|fake|giả mạo|shop thật không|page thật không|uy tín không|an toàn không|đã chuyển khoản|đã thanh toán|bị trừ tiền|giao dịch lỗi|quét qr|xác minh|check giúp giao dịch)/.test(normalized);
 }
 
 function detectLowRiskFaqContinuation(activeCaseType, latestText) {

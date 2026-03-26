@@ -75,6 +75,7 @@ Smoke output now includes:
 - `offHoursOutputs`: proves low-risk FAQs get downgraded to `draft_only` outside support hours instead of being auto-sent
 - `complaintShippingOutputs`: proves complaint-like messages mentioning shipping still get classified as handoff, not FAQ auto-reply
 - `pricingOutputs`: proves pricing/promo asks now enter a dedicated conservative runtime path (`pricing_or_promotion`) and stay draft-only without grounded product/commercial data
+- `paymentScamOutputs`: proves payment/scam concern asks now map into a dedicated high-risk handoff lane (`payment_or_scam_concern`) instead of falling through to complaint/unknown
 - `shortAmbiguousOutputs`: proves overly short low-context questions like `ship?` do not auto-send
 - `multiIntentOutputs`: proves one message asking multiple FAQ intents at once gets held back for safer draft/handoff handling
 - `disallowedPageOutputs`: proves events from a non-allowlisted page get audited as `ignore` instead of entering the reply pipeline
@@ -183,6 +184,7 @@ This is the fast path when you only have append-only raw event logs instead of a
 - Messenger passive/non-reply events like `delivery`, `read`, and `echo` are also audit-logged as ignored, which keeps the webhook trail complete without feeding those events into reply generation.
 - If AI credentials are missing, the pipeline still runs using deterministic fallback drafts built from the new knowledge banks instead of only hardcoded reply strings.
 - Pricing/promo asks now map into `pricing_or_promotion` at runtime. The default response is intentionally conservative: collect the exact product need and avoid claiming current price/promo until grounded data exists.
+- Payment/scam trust concerns now map into `payment_or_scam_concern` at runtime. The default response is intentionally high-safety: acknowledge the concern, collect the minimum verification context, and keep the case in human handoff flow.
 - `src/grounding.js` now selects case-relevant slices from `knowledge/policy-bank.json`, `case-bank.json`, `tone-guide.json`, and `response-pattern-bank.json`, while still attaching the older legacy grounding blob for reference/backward compatibility.
 - The grounding bundle also carries `sales_assist` hints (`buyer_intent_hint`, `lead_strength_hint`, `signals`, `recommended_sales_motion`) so future consult/chốt-đơn flows can prioritize the right threads without hallucinating catalog facts.
 - If `FB_APP_SECRET` is set, webhook POSTs are verified with `X-Hub-Signature-256` before entering the pipeline. This requires access to the raw request body (`req.rawBody` or an unparsed string/buffer body); if the deploy target only exposes parsed JSON, verification fails closed with `raw_body_unavailable`.

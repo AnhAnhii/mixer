@@ -197,6 +197,22 @@ function deriveAskedSlots(payload, previousMemory, providedSlots = {}) {
     }
   }
 
+  const paymentScamIdentifierSatisfied = effectiveCaseType === 'payment_or_scam_concern'
+    && Boolean(providedSlots.order_code || providedSlots.phone || providedSlots.receiver_phone)
+    && missingInfo.length === 0;
+
+  if (paymentScamIdentifierSatisfied) {
+    for (const [slot, previous] of slotMap.entries()) {
+      if (previous?.status === 'resolved') continue;
+      slotMap.set(slot, {
+        ...previous,
+        status: 'resolved',
+        resolved_at: now,
+        resolved_value_preview: previous?.resolved_value_preview || 'verification_anchor_received'
+      });
+    }
+  }
+
   if (canRefreshRequests) {
     for (const slot of missingInfo) {
       if (!slot) continue;

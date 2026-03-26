@@ -182,6 +182,11 @@
       "notes": "Tránh ghép quá nhiều mảnh; 2 câu tốt hơn 4 câu."
     },
     {
+      "case_type": "payment_or_scam_concern",
+      "recommended_blocks": ["acknowledgements.apology_short", "ask_for_info.issue_detail"],
+      "notes": "Giữ giọng nghiêm túc, trấn an vừa đủ, không khẳng định bảo mật/thanh toán ngoài dữ liệu đã xác nhận."
+    },
+    {
       "case_type": "stock_or_product_availability",
       "recommended_blocks": ["handoff_safe_shapes.stock_unverified", "ask_for_info.stock_context"],
       "notes": "Chỉ dùng answer trực tiếp nếu có inventory thật ở grounding."
