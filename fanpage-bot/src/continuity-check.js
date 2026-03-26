@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { processWebhookBody } from './pipeline.js';
 import { createThreadStateStore } from './thread-state.js';
+import { classifyMessage } from './classify.js';
 
 const baseTmpDir = path.resolve(process.cwd(), 'data/tmp/continuity-check');
 fs.mkdirSync(baseTmpDir, { recursive: true });
@@ -20,6 +21,7 @@ const pricingResults = await runPricingDetailAcknowledgementChecks();
 const stockResults = await runStockFollowupContinuityChecks();
 const orderStatusResults = await runOrderStatusContinuityChecks();
 const complaintResults = await runComplaintContinuityChecks();
+const paymentScamResults = await runPaymentScamContinuityChecks();
 const exchangeReturnResults = await runExchangeReturnContinuityChecks();
 
 const checks = [
@@ -27,6 +29,7 @@ const checks = [
   stockResults,
   orderStatusResults,
   complaintResults,
+  paymentScamResults,
   exchangeReturnResults
 ].flat();
 
@@ -378,6 +381,95 @@ async function runComplaintContinuityChecks() {
     pass: Object.values(assertions).every(Boolean),
     assertions,
     sample: {
+      followup: buildCompactSample(followup)
+    }
+  };
+}
+
+async function runPaymentScamContinuityChecks() {
+  resetStoresOnly();
+  const store = createThreadStateStore({ threadStatePath });
+  const senderId = 'test-payment-scam-followup';
+  const threadKey = `facebook:${pageId}:${senderId}`;
+
+  store.updateMemory(threadKey, {
+    normalizedMessage: {
+      thread_key: threadKey,
+      message_id: 'mid.seed.payment.1',
+      text: 'mình hơi lo, page này có chính thức không và chuyển khoản có an toàn không shop',
+      timestamp: inHoursTimestamp
+    },
+    triage: {
+      case_type: 'payment_or_scam_concern',
+      missing_info: ['brief_context_of_concern_if_not_clear', 'order_code'],
+      reason: 'matched_payment_or_scam_concern_rule',
+      needs_human: true
+    },
+    guarded: {
+      guarded_draft: {
+        action: 'handoff',
+        needs_human: true,
+        missing_info: ['brief_context_of_concern_if_not_clear', 'order_code'],
+        reason: 'payment_or_scam_concern_needs_human',
+        reply_text: 'Dạ bên em rất tiếc vì anh/chị đang lo về vấn đề thanh toán/độ uy tín ạ. Anh/chị giúp em gửi thêm mã đơn, số điện thoại nhận hàng hoặc mô tả ngắn tình huống để bên em kiểm tra và hỗ trợ mình theo luồng xác minh phù hợp nha.'
+      },
+      delivery: { decision: 'handoff' }
+    }
+  });
+
+  const initialOutputs = await replaySingleMessage({
+    senderId: 'test-payment-scam-initial',
+    mid: 'mid.local.payment.initial',
+    text: 'shop ơi page này có chính thức không, chuyển khoản trước có an toàn không ạ',
+    timestamp: inHoursTimestamp + (30 * 1000)
+  });
+
+  const followupOutputs = await replaySingleMessage({
+    senderId,
+    mid: 'mid.local.payment.identifier',
+    text: 'mã đơn DH888999, mình chuyển khoản lúc nãy rồi',
+    timestamp: inHoursTimestamp + (60 * 1000)
+  });
+
+  const initial = initialOutputs[0] || {};
+  const followup = followupOutputs[0] || {};
+  const initialReply = readReplyText(initial);
+  const followupReply = readReplyText(followup);
+  const resolvedSlots = resolvedSlotsAfter(followup);
+  const followupFlags = safetyFlags(followup);
+  const followupMissingInfo = guardedMissingInfo(followup);
+
+  const pageTrustProbe = classifyMessage({ text: 'page có chính thức không ạ' });
+  const billProbe = classifyMessage({ text: 'bill này có phải giả không' });
+  const transferProbe = classifyMessage({ text: 'mình chuyển khoản rồi mà chưa thấy shop xác nhận' });
+  const ckProbe = classifyMessage({ text: 'em ck rồi nhưng chưa thấy lên đơn' });
+
+  const assertions = {
+    initial_detects_payment_or_scam_case: initial.triage?.case_type === 'payment_or_scam_concern',
+    initial_stays_non_auto: ['handoff', 'draft_only'].includes(initial.delivery?.decision),
+    initial_acknowledges_concern: /lo về vấn đề thanh toán|độ uy tín|kiểm tra và hỗ trợ mình theo luồng xác minh/i.test(initialReply),
+    initial_does_not_downplay_risk: !/cứ chuyển khoản|hoàn toàn an toàn|yên tâm tuyệt đối/i.test(initialReply),
+    page_trust_probe_detected: pageTrustProbe.case_type === 'payment_or_scam_concern',
+    fake_bill_probe_detected: billProbe.case_type === 'payment_or_scam_concern',
+    transfer_pending_probe_detected: transferProbe.case_type === 'payment_or_scam_concern',
+    ck_pending_probe_detected: ckProbe.case_type === 'payment_or_scam_concern',
+    followup_keeps_case: followup.triage?.case_type === 'payment_or_scam_concern',
+    followup_stays_non_auto: ['handoff', 'draft_only'].includes(followup.delivery?.decision),
+    followup_acknowledges_received_info: /đã nhận thông tin đơn\/thanh toán/i.test(followupReply),
+    followup_has_continuity_flag: followupFlags.includes('payment_or_scam_followup_continuity'),
+    followup_waiting_state_matches_remaining_context: followupMissingInfo.length > 0
+      ? followup.thread_memory_after?.pending_customer_reply === true
+      : followup.thread_memory_after?.pending_customer_reply === false,
+    followup_marks_identifier_resolved: ['order_code', 'phone', 'receiver_phone'].some((slot) => resolvedSlots.includes(slot))
+  };
+
+  return {
+    key: 'payment_or_scam_followup_continuity',
+    label: 'Payment/scam concern continuity',
+    pass: Object.values(assertions).every(Boolean),
+    assertions,
+    sample: {
+      initial: buildCompactSample(initial),
       followup: buildCompactSample(followup)
     }
   };

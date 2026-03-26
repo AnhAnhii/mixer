@@ -20,7 +20,19 @@ export function classifyMessage(normalizedMessage) {
     return buildResult('complaint_or_negative_feedback', 'high', true, 0.92, [], 'matched_negative_feedback_rule', ['complaint', 'negative_sentiment', 'handoff']);
   }
 
-  if (/đổi|trả|lỗi|rách|hỏng|sai hàng|sai size/.test(text)) {
+  if (/(huỷ|hủy|cancel đơn|huy don|huy đơn|sửa đơn|đổi địa chỉ|đổi sđt|đổi số điện thoại|đổi người nhận|thay đổi địa chỉ|thay đổi số điện thoại|chỉnh địa chỉ|chỉnh sđt|chỉnh số điện thoại|chỉnh thông tin nhận hàng|đổi thông tin nhận hàng)/.test(text)) {
+    return buildResult('order_modification_or_cancel', 'high', true, 0.9, ['order_code', 'requested_change'], 'matched_order_modification_or_cancel_rule', ['order_modification', 'cancel', 'handoff']);
+  }
+
+  if (looksLikeGeneralDefectPolicyQuestion(text)) {
+    return buildResult('defective_product_policy_general', 'medium', false, 0.86, [], 'matched_defective_product_policy_general_rule', ['faq', 'defect_policy']);
+  }
+
+  if (looksLikeGeneralReturnPolicyQuestion(text)) {
+    return buildResult('return_policy_general', 'medium', false, 0.84, [], 'matched_return_policy_general_rule', ['faq', 'returns_policy']);
+  }
+
+  if (looksLikeConcreteDefectClaim(text) || /đổi|trả|lỗi|rách|hỏng|sai hàng|sai size/.test(text)) {
     return buildResult('exchange_return_specific', 'high', true, 0.88, ['order_code', 'product_issue_detail'], 'matched_exchange_or_defect_rule', ['exchange', 'defect', 'handoff']);
   }
 
@@ -34,6 +46,10 @@ export function classifyMessage(normalizedMessage) {
 
   if (/giá bao nhiêu|bao nhiêu tiền|giá sao|giá ntn|giá thế nào|bao tiền|giá áo|giá quần|giá item|giá mẫu|giá sản phẩm|sale không|khuyến mãi|voucher|mã giảm giá|giảm giá|freeship|ưu đãi/.test(text)) {
     return buildResult('pricing_or_promotion', 'medium', false, 0.84, ['product_name'], 'matched_pricing_or_promotion_rule', ['pricing', 'promotion', 'buyer_intent']);
+  }
+
+  if (looksLikePaymentOrScamConcern(text)) {
+    return buildResult('payment_or_scam_concern', 'high', true, 0.91, [], 'matched_payment_or_scam_concern_rule', ['payment', 'trust_safety', 'handoff']);
   }
 
   if (/đơn vị vận chuyển|ship hãng nào|gửi qua hãng nào|vận chuyển bên nào|ship đơn vị nào|giao qua đơn vị nào|bên vận chuyển nào|ship bên nào/.test(text)) {
@@ -86,4 +102,101 @@ function looksLikeOrderSpecificShippingQuestion(text) {
   const hasStatusOrEtaQuestion = /(bao lâu|mấy ngày|khi nào nhận|khi nào tới|đến chưa|tới đâu|đến đâu|đang ở đâu|bao giờ nhận)/.test(normalized);
 
   return hasOrderReference && hasStatusOrEtaQuestion;
+}
+
+function looksLikeGeneralReturnPolicyQuestion(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return /(chính sách đổi trả|shop có hỗ trợ đổi trả không|có hỗ trợ đổi trả không|đổi hàng trong mấy ngày|đổi trả trong mấy ngày|đổi trả sao vậy|đổi trả như nào|đổi trả thế nào)/.test(normalized)
+    && !/(mã đơn|đơn của|đơn này|đơn mình|mình muốn đổi|mình muốn trả|đổi giúp|trả giúp|đổi size|trả hàng đơn|đã nhận hàng|nhận rồi)/.test(normalized);
+}
+
+function looksLikeGeneralDefectPolicyQuestion(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return /(nếu .*lỗi thì sao|hàng lỗi có được đổi không|sản phẩm lỗi shop xử lý thế nào|đồ lỗi shop xử lý sao|lỗi sản phẩm thì sao|bị lỗi có được đổi không)/.test(normalized)
+    && !/(mã đơn|đơn của|đơn này|mình bị lỗi|mình nhận hàng bị|áo bị|quạt bị|rách|hỏng|sai hàng|sai size|ảnh|video)/.test(normalized);
+}
+
+function looksLikeConcreteDefectClaim(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  if (looksLikeGeneralDefectPolicyQuestion(normalized)) {
+    return false;
+  }
+
+  const defectPatterns = [
+    /\bbung\s*chỉ\b/,
+    /\bsứt\s*cúc\b/,
+    /\bgãy\b/,
+    /\bvỡ\b/,
+    /\bbể\b/,
+    /\bnứt\b/,
+    /\bmóp\b/,
+    /\bméo\b/,
+    /\btuột\b/,
+    /\bkêu\s*to\b/,
+    /\brung\s*mạnh\b/,
+    /\bkhông\s*(lên|chạy|quay|dùng được)\b/,
+    /\bđường\s*may\b/,
+    /\bsứt\s*chỉ\b/
+  ];
+
+  return defectPatterns.some((pattern) => pattern.test(normalized))
+    && !/(chính sách|được đổi không|xử lý thế nào|xử lý sao|thì sao)/.test(normalized);
+}
+
+function looksLikePaymentOrScamConcern(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  const trustRiskPatterns = [
+    /lừa(?:\s*đảo)?/,
+    /scam/,
+    /fake/,
+    /mạo danh/,
+    /giả mạo/,
+    /uy tín không/,
+    /có uy tín không/,
+    /page này thật không/,
+    /fanpage này thật không/,
+    /page(?:\s*này)?\s*có\s*chính\s*thức\s*không/,
+    /fanpage(?:\s*này)?\s*có\s*chính\s*thức\s*không/,
+    /page chính thức/,
+    /trang chính thức/,
+    /có phải page thật/,
+    /bill này có phải giả không/,
+    /bill giả không/
+  ];
+
+  const paymentRiskPatterns = [
+    /chuyển\s*khoản.*(đúng|ok|ổn|an toàn|được không)/,
+    /(đúng|ok|ổn|an toàn|được không).*chuyển\s*khoản/,
+    /chuyển\s*khoản\s*rồi.*(chưa thấy|không thấy|chưa lên đơn|chưa xác nhận|chưa nhận được)/,
+    /đã\s*chuyển\s*khoản.*(chưa thấy|không thấy|chưa lên đơn|chưa xác nhận|chưa nhận được)/,
+    /ck\s*rồi.*(chưa thấy|không thấy|chưa lên đơn|chưa xác nhận|chưa nhận được)/,
+    /đã\s*ck.*(chưa thấy|không thấy|chưa lên đơn|chưa xác nhận|chưa nhận được)/,
+    /cọc\s*trước/,
+    /thanh\s*toán\s*trước/,
+    /stk\b/,
+    /số\s*tài\s*khoản/,
+    /qr\s*(thanh toán|chuyển khoản|ck)?/,
+    /bill\s*giả/,
+    /fake\s*bill/,
+    /ck\s*cho\s*shop/,
+    /ck\s*trước/
+  ];
+
+  return [...trustRiskPatterns, ...paymentRiskPatterns].some((pattern) => pattern.test(normalized));
 }
