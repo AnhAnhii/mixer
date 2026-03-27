@@ -1511,9 +1511,10 @@ const stockFollowupChecks = runStockFollowupChecks({ stockVariantFollowupOutputs
 const exchangeReturnFollowupChecks = runExchangeReturnFollowupChecks({ exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs });
 const orderModificationFollowupChecks = runOrderModificationFollowupChecks({ orderModificationOutputs, orderModificationOrderCodeFollowupOutputs });
 const shippingFollowupChecks = runShippingFollowupChecks({ shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs });
+const concreteDefectChecks = runConcreteDefectChecks({ concreteDefectOutputs });
 const policyReadbackChecks = runPolicyReadbackChecks();
 
-console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, carrierOutputs, pricingOutputs, paymentScamOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, pricingVariantOnlyFollowupOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, paymentScamOrderCodeFollowupOutputs, shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs, stockVariantFollowupOutputs, stockPartialFollowupOutputs, exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs, orderModificationOutputs, orderModificationOrderCodeFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks, paymentScamChecks, stockFollowupChecks, exchangeReturnFollowupChecks, orderModificationFollowupChecks, shippingFollowupChecks, policyReadbackChecks }, null, 2));
+console.log(JSON.stringify({ shadowOutputs, liveOutputs, markSeenOutputs, cooldownOutputs, restrictedOutputs, duplicateFirstPass, duplicateSecondPass, retryableSendOutputs, offHoursOutputs, complaintOutputs, complaintShippingOutputs, concreteDefectOutputs, carrierOutputs, pricingOutputs, paymentScamOutputs, pricingFollowupOutputs, pricingGenericFollowupAfterStateDriftOutputs, pricingProductNameFollowupOutputs, pricingVariantOnlyFollowupOutputs, orderStatusGenericFollowupOutputs, orderStatusPhoneFollowupOutputs, complaintOrderCodeFollowupOutputs, paymentScamOrderCodeFollowupOutputs, shippingEtaRegionFollowupOutputs, shippingCarrierFollowupOutputs, stockVariantFollowupOutputs, stockPartialFollowupOutputs, exchangeReturnOrderCodeFollowupOutputs, exchangeReturnIssueFollowupOutputs, orderModificationOutputs, orderModificationOrderCodeFollowupOutputs, shortAmbiguousOutputs, multiIntentOutputs, disallowedPageOutputs, postbackOutputs, passiveEventOutputs, signatureChecks, reasoningBundleChecks, draftContractChecks, threadMemoryChecks, pricingFollowupChecks, orderStatusContinuityChecks, complaintFollowupChecks, paymentScamChecks, stockFollowupChecks, exchangeReturnFollowupChecks, orderModificationFollowupChecks, shippingFollowupChecks, concreteDefectChecks, policyReadbackChecks }, null, 2));
 
 function resetDedupeStore() {
   if (fs.existsSync(dedupeStorePath)) {
@@ -1847,6 +1848,17 @@ function runShippingFollowupChecks({ shippingEtaRegionFollowupOutputs, shippingC
     carrier_followup_switches_to_carrier_case: carrierOutput?.triage?.case_type === 'shipping_carrier',
     carrier_followup_sent: carrierOutput?.delivery?.decision === 'auto_send',
     carrier_followup_mentions_carrier: /viettel post/i.test(carrierReply)
+  };
+}
+
+function runConcreteDefectChecks({ concreteDefectOutputs }) {
+  const output = concreteDefectOutputs?.[0] || {};
+  return {
+    triage: output?.triage?.case_type || null,
+    decision: output?.delivery?.decision || null,
+    classified_as_exchange_return_specific: output?.triage?.case_type === 'exchange_return_specific',
+    stayed_handoff: output?.delivery?.decision === 'handoff',
+    reason: output?.triage?.reason || null
   };
 }
 

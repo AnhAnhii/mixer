@@ -135,20 +135,20 @@ function looksLikeConcreteDefectClaim(text) {
   }
 
   const defectPatterns = [
-    /\bbung\s*chỉ\b/,
-    /\bsứt\s*cúc\b/,
-    /\bgãy\b/,
-    /\bvỡ\b/,
-    /\bbể\b/,
-    /\bnứt\b/,
-    /\bmóp\b/,
-    /\bméo\b/,
-    /\btuột\b/,
-    /\bkêu\s*to\b/,
-    /\brung\s*mạnh\b/,
-    /\bkhông\s*(lên|chạy|quay|dùng được)\b/,
-    /\bđường\s*may\b/,
-    /\bsứt\s*chỉ\b/
+    /bung\s*chỉ/,
+    /sứt\s*cúc/,
+    /gãy/,
+    /vỡ/,
+    /bể/,
+    /nứt/,
+    /móp/,
+    /méo/,
+    /tuột/,
+    /kêu\s*to/,
+    /rung\s*mạnh/,
+    /không\s*(lên|chạy|quay|dùng được)/,
+    /đường\s*may/,
+    /sứt\s*chỉ/
   ];
 
   return defectPatterns.some((pattern) => pattern.test(normalized))

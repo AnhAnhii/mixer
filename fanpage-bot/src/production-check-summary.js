@@ -199,6 +199,43 @@ function buildProductionCheckSummary(records, meta) {
         }
         return notes;
       }
+    },
+    {
+      key: 'payment_or_scam_concern',
+      label: 'G. Payment / scam concern',
+      expectedCaseType: 'payment_or_scam_concern',
+      expectedDecisions: ['handoff', 'draft_only'],
+      rejectDecisions: ['would_auto_send', 'auto_send'],
+      rejectCaseTypes: ['shipping_eta_general', 'shipping_carrier', 'unknown'],
+      selectors: [
+        /page\s*này\s*có\s*chính\s*thức\s*không/i,
+        /chuyển\s*khoản.*an\s*toàn/i,
+        /lừa(?:\s*đảo)?/i,
+        /mạo\s*danh/i
+      ],
+      matcher: (record, text) => textIncludesAny(text, [
+        /page\s*này\s*có\s*chính\s*thức\s*không/i,
+        /chuyển\s*khoản.*an\s*toàn/i,
+        /lừa(?:\s*đảo)?/i,
+        /mạo\s*danh/i,
+        /scam/i,
+        /bill\s*giả/i,
+        /fake\s*bill/i
+      ])
+        || triageCase(record) === 'payment_or_scam_concern'
+        || activeIssueBefore(record) === 'payment_or_scam_concern'
+        || activeIssueAfter(record) === 'payment_or_scam_concern',
+      extraChecks: (record) => {
+        const notes = [];
+        const reply = readReplyText(record);
+        if (reply && !/kiểm tra|xác minh|hỗ trợ/i.test(reply)) {
+          notes.push('payment_scam_reply_missing_verification_language');
+        }
+        if (/cứ chuyển khoản|yên tâm tuyệt đối|hoàn toàn an toàn/i.test(reply)) {
+          notes.push('payment_scam_reply_overclaimed_safety');
+        }
+        return notes;
+      }
     }
   ];
 

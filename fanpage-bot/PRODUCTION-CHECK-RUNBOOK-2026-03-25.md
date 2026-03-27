@@ -100,6 +100,23 @@ Mục tiêu: chạy nhanh một vòng validation production sau các commit cont
 - Bị auto-reply như FAQ.
 - Tone lạnh/cứng hoặc phủ nhận vấn đề.
 
+### G. Payment / scam concern
+**Tin nhắn test**
+- `shop ơi page này có chính thức không, chuyển khoản trước có an toàn không ạ`
+- follow-up nếu cần: `mã đơn DH888999, mình chuyển khoản lúc nãy rồi`
+
+**Kỳ vọng production**
+- `case_type`: `payment_or_scam_concern`
+- Decision: `handoff` hoặc `draft_only`, tuyệt đối không rơi vào low-risk auto-reply path.
+- Reply phải acknowledge lo ngại của khách, dùng wording kiểu `kiểm tra` / `xác minh` / `hỗ trợ theo luồng phù hợp`.
+- Không khẳng định quá đà kiểu `cứ yên tâm tuyệt đối`, `chuyển khoản hoàn toàn an toàn` khi chưa có luồng xác minh thật.
+- Nếu khách follow-up bằng mã đơn/SĐT, thread vẫn phải giữ đúng lane concern này thay vì rơi về case khác.
+
+**Fail signs**
+- Bị classify thành `unknown`, shipping FAQ, hoặc complaint chung chung.
+- Bị `would_auto_send` / `auto_send`.
+- Reply trấn an quá mức hoặc bỏ qua concern về trust/payment.
+
 ## 3) Cách chạy vòng check thực dụng
 
 1. Deploy đang ở `origin/main` commit `033cce6`.
